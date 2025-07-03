@@ -11,9 +11,9 @@ set -euo pipefail
 SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.dev.yml"
-ENV_DEV="$PROJECT_ROOT/docker/.env.dev"
-ENV_DOT="$PROJECT_ROOT/docker/.env"
+COMPOSE_FILE="$PROJECT_ROOT/docker_fs/docker-compose.dev.yml"
+ENV_DEV="$PROJECT_ROOT/docker_fs/.env.dev"
+ENV_DOT="$PROJECT_ROOT/docker_fs/.env"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 0.1 Make script executable
@@ -23,7 +23,7 @@ if [[ ! -x "$SCRIPT_PATH" ]]; then
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 0.2 Ensure docker/.env exists for Compose interpolation
+# 0.2 Ensure docker_fs/.env exists for Compose interpolation
 # ──────────────────────────────────────────────────────────────────────────────
 if [[ -f "$ENV_DEV" && ! -f "$ENV_DOT" ]]; then
   echo ">>> Copying .env.dev → .env for Compose interpolation"

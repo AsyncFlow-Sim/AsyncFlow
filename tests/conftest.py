@@ -23,7 +23,7 @@ from app.db.session import get_db
 from app.main import app
 
 # Load test environment variables from .env.test
-ENV_PATH = Path(__file__).resolve().parents[1] / "docker" / ".env.test"
+ENV_PATH = Path(__file__).resolve().parents[1] / "docker_fs" / ".env.test"
 load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 

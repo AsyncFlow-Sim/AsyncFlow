@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-env_path = Path(__file__).resolve().parents[3] / "docker" / ".env.dev"
+env_path = Path(__file__).resolve().parents[3] / "docker_fs" / ".env.dev"
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
-    app_name: str = "Project Backend"
+    app_name: str = "FastSim"
 
     environment: Literal["development", "staging", "production", "test"] = Field(
         default="development",

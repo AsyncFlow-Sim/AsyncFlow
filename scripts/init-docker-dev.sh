@@ -59,8 +59,23 @@ docker compose \
   -f "$COMPOSE_FILE" up -d db pgadmin
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 4. Run Alembic migrations
+# 4. Wait for Postgres to be ready, then run Alembic migrations
 # ──────────────────────────────────────────────────────────────────────────────
+PGUSER="${DB_USER:-${POSTGRES_USER:-postgres}}"
+
+echo ">>> Waiting for Postgres to be ready..."
+MAX_RETRIES=30
+RETRIES=0
+until docker exec docker_fs-db-1 pg_isready -U "$PGUSER" > /dev/null 2>&1; do
+  sleep 1
+  RETRIES=$((RETRIES+1))
+  if [ "$RETRIES" -ge "$MAX_RETRIES" ]; then
+    echo "ERROR: Postgres non si è avviato in tempo." >&2
+    exit 1
+  fi
+done
+echo ">>> Postgres is ready!"
+
 echo ">>> Applying database migrations (Alembic)…"
 cd "$PROJECT_ROOT"
 poetry run alembic upgrade head

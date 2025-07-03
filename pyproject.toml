@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "project-backend"
+name = "FastSim-backend"
 version = "0.1.0"
-description = "solo professional project"
+description = "Simulate fastapi event loop to manage resources"
 authors = ["Gioele Botta"]
 readme = "README.md"
 

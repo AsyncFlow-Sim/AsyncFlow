@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config.settings import settings
 
@@ -14,4 +14,4 @@ async def test_users_table_exists_after_migrations() -> None:
            await conn.execute(text("SELECT 1"))
     except SQLAlchemyError:
         pytest.fail("Database connection or Alembic setup failed.")
-       
+

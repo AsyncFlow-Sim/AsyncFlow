@@ -1,0 +1,1 @@
+"""Database initialization integration tests."""

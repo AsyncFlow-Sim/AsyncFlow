@@ -1,0 +1,105 @@
+[tool.poetry]
+name = "project-backend"
+version = "0.1.0"
+description = "solo professional project"
+authors = ["Gioele Botta"]
+readme = "README.md"
+
+packages = [
+  { include = "app", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115.14"
+sqlalchemy = "^2.0.41"
+psycopg = {extras = ["binary"], version = "^3.2.9"}
+uvicorn = {extras = ["standard"], version = "^0.34.3"}
+gunicorn = "^23.0.0"
+pydantic-settings = "^2.10.1"
+pydantic = {extras = ["email"], version = "^2.11.7"}
+asyncpg = "^0.30.0"
+passlib = {extras = ["argon2"], version = "^1.7.4"}
+argon2-cffi = "^25.1.0"
+sqlalchemy-utils = "^0.41.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-asyncio = "^1.0.0"
+httpx = "^0.28.1"
+pytest-cov = "^6.2.1"
+mypy = "^1.16.1"
+alembic = "^1.16.2"
+ruff = "^0.12.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py312"  
+line-length = 88
+fix = true
+src = ["src", "tests"]  
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Docstring conflicts
+    "D203",    # 1 blank line required before class docstring (conflicts with D211)
+    "D205",    # 1 blank line required between summary and description
+    "D212",    # Multi-line docstring summary should start at the first line
+    "D213",    # Multi-line docstring summary should start at the second line (conflicts with D212)
+    "D400",    # First line should end with a period
+    "D401",    # First line of docstring should be in imperative mood
+    "D415",    # First line should end with a period, question mark, or exclamation point
+    
+    # Test-specific ignores
+    "S101",    # Use of assert detected (standard in tests)
+    "S106",    # Possible hardcoded password (acceptable in tests)
+    
+    # Development/config ignores
+    "S105",    # Possible hardcoded password (acceptable for default config values)
+    
+    # Overly strict rules
+    "PLR2004", # Magic value used in comparison (too strict for HTTP status codes, etc.)
+    "ERA001",  # Found commented-out code (sometimes useful for documentation)
+    
+    # Package structure
+    "INP001",  # File is part of an implicit namespace package (not always needed)
+]
+
+# Per-file ignores for specific cases
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "D100",    # Missing docstring in public module (not needed in test files)
+    "D103",    # Missing docstring in public function (test function names are descriptive)
+    "ARG001",  # Unused function argument (common in test fixtures)
+]
+"alembic/**" = [
+    "D100",    # Missing docstring in public module
+    "D103",    # Missing docstring in public function
+    "INP001",  # Alembic doesn't need __init__.py files
+]
+"**/conftest.py" = [
+    "D100",    # Missing docstring in public module
+]
+"src/app/db/base.py" = [
+    "N805",    # First argument should be named `self` (cls is correct for @declared_attr.directive)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]     
+strict = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+exclude = ["^alembic/", "^.venv/"]

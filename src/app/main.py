@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.auth import router as auth_router
+
 from app.api.health_check import router as health_router
 from app.config.settings import settings
 from app.db.init_db import close_engine, init_models
@@ -31,4 +31,4 @@ app = FastAPI(
 )
 
 app.include_router(health_router)
-app.include_router(auth_router)
+

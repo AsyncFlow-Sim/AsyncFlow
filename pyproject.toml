@@ -19,8 +19,6 @@ gunicorn = "^23.0.0"
 pydantic-settings = "^2.10.1"
 pydantic = {extras = ["email"], version = "^2.11.7"}
 asyncpg = "^0.30.0"
-passlib = {extras = ["argon2"], version = "^1.7.4"}
-argon2-cffi = "^25.1.0"
 sqlalchemy-utils = "^0.41.2"
 
 [tool.poetry.group.dev.dependencies]

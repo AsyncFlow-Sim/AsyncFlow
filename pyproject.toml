@@ -20,6 +20,8 @@ pydantic-settings = "^2.10.1"
 pydantic = {extras = ["email"], version = "^2.11.7"}
 asyncpg = "^0.30.0"
 sqlalchemy-utils = "^0.41.2"
+numpy = "^2.3.1"
+simpy = "^4.1.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"

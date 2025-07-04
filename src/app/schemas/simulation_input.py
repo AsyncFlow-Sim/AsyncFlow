@@ -8,7 +8,7 @@ from pydantic import BaseModel, field_validator, model_validator
 class RVConfig(BaseModel):
     """class to configure random variables"""
 
-    mean: int | float
+    mean: float
     distribution: Literal["poisson", "normal"] = "poisson"
     variance: float | None = None
 
@@ -19,7 +19,7 @@ class RVConfig(BaseModel):
         ) -> float:
         """Ensure `mean` is numeric, then coerce to float."""
         err_msg = "mean must be a number (int or float)"
-        if not isinstance(v, (int, float)):
+        if not isinstance(v, float):
             raise ValueError(err_msg)  # noqa: TRY004
         return float(v)
 

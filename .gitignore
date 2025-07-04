@@ -30,6 +30,8 @@ pip-wheel-metadata/
 venv/
 ENV/
 env/
+docker_fs/.env
+docker_fs/.env.*
 
 # Poetry-specific
 .cache/pypoetry/

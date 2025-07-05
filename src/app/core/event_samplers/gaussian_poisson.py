@@ -36,15 +36,15 @@ def gaussian_poisson_sampling(
          Λ = U * (mean_req_per_minute_per_user / 60)  [req/s].
     3. While inside the current window, draw gaps
          Δt ~ Exponential(Λ)   using inverse-CDF.
-    4. Stop once the virtual clock exceeds *simulation_time_second*.
+    4. Stop once the virtual clock exceeds *simulation_time*.
     """
     rng = rng or np.random.default_rng()
 
-    simulation_time_second = input_data.total_simulation_time
+    simulation_time = input_data.total_simulation_time
     # pydantic in the validation assign a value and mypy is not
     # complaining because a None cannot be compared in the loop
     # to a float
-    assert simulation_time_second is not None
+    assert simulation_time is not None
 
     # λ_u : mean concurrent users per window
     mean_concurrent_user = float(input_data.avg_active_users.mean)
@@ -65,7 +65,7 @@ def gaussian_poisson_sampling(
     window_end = 0.0          # end of the current user window
     lam = 0.0                 # aggregate rate Λ (req/s)
 
-    while now < simulation_time_second:
+    while now < simulation_time:
         # (Re)sample U at the start of each window
         if now >= window_end:
             window_end = now + float(sampling_window_s)
@@ -86,7 +86,7 @@ def gaussian_poisson_sampling(
         delta_t = -math.log(1.0 - u_raw) / lam
 
         # End simulation if the next event exceeds the horizon
-        if now + delta_t > simulation_time_second:
+        if now + delta_t > simulation_time:
             break
 
         # If the gap crosses the window boundary, jump to it

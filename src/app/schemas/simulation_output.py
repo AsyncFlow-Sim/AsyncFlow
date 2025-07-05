@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class SimulationOutput(BaseModel):
     """Define the output of the simulation"""
 
-    metric_1: str | int
+    total_requests: dict[str, int | float]
     metric_2: str
     #......
     metric_n: str

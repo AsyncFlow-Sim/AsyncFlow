@@ -3,9 +3,6 @@ from pydantic import ValidationError
 
 from app.schemas.simulation_input import RVConfig
 
-# --------------------------------------------------------------------------- #
-# Positive cases                                                              #
-# --------------------------------------------------------------------------- #
 
 def test_normal_sets_variance_to_mean() -> None:
     """When distribution='normal' and variance is omitted, variance == mean."""
@@ -24,10 +21,6 @@ def test_explicit_variance_is_preserved() -> None:
     cfg = RVConfig(mean=8, distribution="normal", variance=4)
     assert cfg.variance == 4.0
 
-
-# --------------------------------------------------------------------------- #
-# Validation errors                                                           #
-# --------------------------------------------------------------------------- #
 
 def test_mean_must_be_numeric() -> None:
     """A non-numeric mean raises a ValidationError with our custom message."""

@@ -17,3 +17,17 @@ def poisson_variable_generator(
     """Return a Poisson-distributed integer with expectation *mean*."""
     rng = rng or np.random.default_rng()
     return int(rng.poisson(mean))
+
+
+def truncated_gaussian_generator(
+    mean: float,
+    variance: float,
+    rng: np.random.Generator,
+) -> int:
+    """
+    Generate a Normal-distributed variable
+    with mean and variance
+    """
+    rng = rng or np.random.default_rng()
+    value = rng.normal(mean, variance)
+    return max(0, int(value))

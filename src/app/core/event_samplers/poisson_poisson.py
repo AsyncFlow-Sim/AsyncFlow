@@ -19,7 +19,6 @@ from app.schemas.simulation_input import SimulationInput
 def poisson_poisson_sampling(
     input_data: SimulationInput,
     *,
-    simulation_time_second: int = TimeDefaults.SIMULATION_HORIZON.value,
     sampling_window_s: int = TimeDefaults.SAMPLING_WINDOW.value,
     rng: np.random.Generator | None = None,
 ) -> Iterator[float]:
@@ -37,6 +36,12 @@ def poisson_poisson_sampling(
     4. Stop once the virtual clock exceeds *simulation_time_second*.
     """
     rng = rng or np.random.default_rng()
+
+    simulation_time_second = input_data.total_simulation_time
+    # pydantic in the validation assign a value and mypy is not
+    # complaining because a None cannot be compared in the loop
+    # to a float
+    assert simulation_time_second is not None
 
     # λ_u : mean concurrent users per window
     mean_concurrent_user = float(input_data.avg_active_users.mean)

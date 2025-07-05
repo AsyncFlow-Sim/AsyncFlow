@@ -42,3 +42,35 @@ def test_missing_mean_field() -> None:
         err["loc"] == ("mean",) and err["type"] == "missing"
         for err in excinfo.value.errors()
     )
+
+def test_gaussian_sets_variance_to_mean() -> None:
+    """When distribution='gaussian' and variance is omitted, variance == mean."""
+    cfg = RVConfig(mean=12.5, distribution="gaussian")
+    assert cfg.variance == pytest.approx(12.5)
+
+
+def test_default_distribution_is_poisson() -> None:
+    """
+    When distribution is omitted, it defaults to 'poisson' and
+    variance stays None.
+    """
+    cfg = RVConfig(mean=3.3)
+    assert cfg.distribution == "poisson"
+    assert cfg.variance is None
+
+
+def test_explicit_variance_kept_for_poisson() -> None:
+    """If the user supplies variance even for poisson, it is preserved."""
+    cfg = RVConfig(mean=4.0, distribution="poisson", variance=2.2)
+    assert cfg.variance == pytest.approx(2.2)
+
+
+def test_invalid_distribution_raises() -> None:
+    """Supplying a non-supported distribution literal raises ValidationError."""
+    with pytest.raises(ValidationError) as excinfo:
+        RVConfig(mean=5.0, distribution="not_a_dist")
+
+    errors = excinfo.value.errors()
+    # Only assert there is at least one error for the 'distribution' field:
+    assert any(e["loc"] == ("distribution",) for e in errors)
+

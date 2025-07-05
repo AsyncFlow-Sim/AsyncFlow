@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
 
 if TYPE_CHECKING:
@@ -20,24 +21,31 @@ if TYPE_CHECKING:
 def requests_generator(
     input_data: SimulationInput,
     *,
-    simulation_time: int = 3_600,
     rng: np.random.Generator | None = None,
 ) -> Iterator[float]:
     """
-    Select and return the appropriate inter-arrival generator.
+    Return an iterator of inter-arrival gaps (seconds) according to the model
+    chosen in *input_data*.
 
-    Currently implemented:
-      • Poisson + Poisson (default)
-    Gaussian + Poisson will be added later.
+    Notes
+    -----
+    * If ``avg_active_users.distribution`` is ``"gaussian"`` or ``"normal"``,
+      the Gaussian-Poisson sampler is used.
+    * Otherwise the default Poisson-Poisson sampler is returned.
+
     """
-    #dist = input_data.avg_active_users.distribution.lower()
+    dist = input_data.avg_active_users.distribution.lower()
 
-    #if dist in {"gaussian", "normal"}:
-        #return
+    if dist in {"gaussian", "normal"}:
+        #Gaussian-Poisson model
+        return gaussian_poisson_sampling(
+            input_data=input_data,
+            rng=rng,
 
-    # Default → Poisson + Poisson
+        )
+
+    # Poisson + Poisson
     return poisson_poisson_sampling(
         input_data=input_data,
-        simulation_time_second=simulation_time,
         rng=rng,
     )

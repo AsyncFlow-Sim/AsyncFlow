@@ -1,6 +1,6 @@
 # **Development Workflow & Architecture Guide**
 
-This document outlines the standardized development workflow, repository architecture, and branching strategy for this project. Adhering to these guidelines ensures consistency, maintainability, and a scalable development process.
+This document outlines the standardized development workflow, repository architecture, and branching strategy for the backend of the FastSim project. Adhering to these guidelines ensures consistency, maintainability, and a scalable development process.
 
 ## 1. Technology Stack
 
@@ -13,13 +13,7 @@ The project is built upon the following core technologies:
 -   **Caching**: Redis
 -   **Containerization**: Docker
 
-## 2. Architectural Overview: A Multi-Repo Strategy
-
-To promote scalability, team autonomy, and clear separation of concerns, this project adopts a **multi-repo architecture**. Each core component of the system resides in its own dedicated repository. This approach allows for independent development cycles, testing, and deployment.
-
-Our architecture is composed of three main repositories:
-
-### 2.1. Backend Service (`project-backend`)
+### 2.1. Backend Service (`FastSim-backend`)
 
 This repository contains all code related to the FastAPI backend service. Its primary responsibility is to handle business logic, interact with the database, and expose a RESTful API.
 
@@ -60,69 +54,6 @@ project-backend/
 **Key Responsibilities:**
 *   To be testable in isolation.
 *   To produce a versioned Docker image (`backend:<tag>`) as its main artifact.
-
-### 2.2. Frontend Service (`project-frontend`)
-
-This repository contains all code for the React web application. Its responsibility is to provide the user interface and interact with the backend via its API.
-
-**Folder Structure:**
-```
-project-frontend/
-├── .github/
-│   └── workflows/
-│       └── main.yml           # CI: Tests and publishes the frontend Docker image
-├── public/                  # Static assets (index.html, favicon, etc.)
-├── src/                     # Application source code
-│   ├── api/                 # Functions for backend API calls
-│   ├── components/          # Reusable UI components
-│   ├── hooks/               # Custom React hooks
-│   ├── mocks/               # Service worker mocks for API (for isolated testing)
-│   ├── pages/               # Page components
-│   └── index.js             # React application entrypoint
-├── .env.example
-├── .gitignore
-├── docker-compose.yml       # Base local development definition
-├── Dockerfile               # Multi-stage build for a lean production image
-├── package.json
-├── package-lock.json
-└── README.md                # Setup instructions for the frontend service
-```
-
-**Key Responsibilities:**
-*   To be testable in isolation (using a mocked API).
-*   To produce a versioned, production-ready Docker image (`frontend:<tag>`), typically served by Nginx.
-
-### 2.3. Infrastructure & E2E Tests (`project-master`)
-
-This repository is the "glue" that holds the system together. It does not contain application code but rather the configuration to orchestrate, test, and deploy the entire system.
-
-**Folder Structure:**
-```
-project-master/
-├── .github/
-│   └── workflows/
-│       ├── e2e-tests.yml      # CI: Runs End-to-End tests on a complete stack
-│       └── deploy.yml         # CD: Handles deployment to environments
-├── e2e-tests/                 # End-to-End test suite (e.g., Cypress, Playwright)
-│   ├── cypress/               # Test code
-│   └── cypress.config.js
-├── environments/              # Environment-specific configurations
-│   ├── staging/
-│   │   ├── docker-compose.yml # Docker Compose file for the Staging environment
-│   │   └── .env.example
-│   └── production/
-│       ├── docker-compose.yml # Docker Compose file for the Production environment
-│       └── .env.example
-├── scripts/                   # Deployment and utility scripts
-│   ├── deploy-staging.sh
-│   └── deploy-prod.sh
-└── README.md                  # Main project README: explains the overall architecture
-```
-
-**Key Responsibilities:**
-*   To define the composition of services for each environment (Staging, Production).
-*   To run End-to-End tests that validate the integration between services.
-*   To manage the Continuous Deployment (CD) process.
 
 ## 3. Branching Strategy: Git Flow
 

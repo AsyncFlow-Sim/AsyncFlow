@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-
 from app.api.health_check import router as health_router
 from app.config.settings import settings
 from app.db.init_db import close_engine, init_models

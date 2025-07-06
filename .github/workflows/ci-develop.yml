@@ -55,6 +55,8 @@ jobs:
       
       # Unit-tests only (exclude integration markers)
       - name: Run unit tests
+        env:
+         ENVIRONMENT: test
         run: poetry run pytest -m "not integration" --disable-warnings
 
 

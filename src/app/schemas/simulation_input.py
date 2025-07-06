@@ -52,7 +52,7 @@ class SimulationInput(BaseModel):
             err_msg_type = "the simulation time must be an integer"
             raise ValueError(err_msg_type) # noqa: TRY004
         if v <= 60:
-            err_msg_val = "the simulation must be at least 60seconds"
+            err_msg_val = "the simulation must be at least 60 seconds"
             raise ValueError(err_msg_val)
         return v
 

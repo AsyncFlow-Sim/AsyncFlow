@@ -55,23 +55,23 @@ def poisson_poisson_sampling(
 
     now = 0.0                 # virtual clock (s)
     window_end = 0.0          # end of the current user window
-    lam = 0.0                 # aggregate rate Λ (req/s)
+    Lambda = 0.0                 # aggregate rate Λ (req/s)
 
     while now < simulation_time:
         # (Re)sample U at the start of each window
         if now >= window_end:
             window_end = now + float(sampling_window_s)
             users = poisson_variable_generator(mean_concurrent_user, rng)
-            lam = users * mean_req_per_sec_per_user
+            Lambda = users * mean_req_per_sec_per_user
 
         # No users → fast-forward to next window
-        if lam <= 0.0:
+        if Lambda <= 0.0:
             now = window_end
             continue
 
         # Exponential gap from a protected uniform value
         u_raw = max(uniform_variable_generator(rng), 1e-15)
-        delta_t = -math.log(1.0 - u_raw) / lam
+        delta_t = -math.log(1.0 - u_raw) / Lambda
 
         # End simulation if the next event exceeds the horizon
         if now + delta_t > simulation_time:

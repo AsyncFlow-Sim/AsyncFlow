@@ -51,7 +51,7 @@ class DummyRNG:
             mean: the λ parameter for a Poisson draw (ignored if poisson_value is set).
 
         Returns:
-            An integer sample from a Poisson distribution.'he
+            An integer sample from a Poisson distribution.
 
         """
         if self.poisson_value is not None:

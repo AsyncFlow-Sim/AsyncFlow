@@ -7,4 +7,4 @@ poetry run ruff check src tests --fix
 # Type‐check with mypy
 poetry run mypy src tests
 
-echo "✅ Linting e type‐checking completed SUCCESSFULLY"
+echo "✅ Linting and type‐checking completed SUCCESSFULLY"

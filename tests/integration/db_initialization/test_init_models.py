@@ -14,4 +14,4 @@ async def test_users_table_exists_after_migrations() -> None:
            await conn.execute(text("SELECT 1"))
     except SQLAlchemyError:
         pytest.fail("Database connection or Alembic setup failed.")
-       
+

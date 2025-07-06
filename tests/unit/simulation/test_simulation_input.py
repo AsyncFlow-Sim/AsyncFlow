@@ -88,6 +88,6 @@ def test_simulation_time_below_minimum_raises() -> None:
         )
     errors = excinfo.value.errors()
     assert any(
-        err["loc"] == ("total_simulation_time",) and "at least 60seconds" in err["msg"]
+        err["loc"] == ("total_simulation_time",) and "at least 60 seconds" in err["msg"]
         for err in errors
     )

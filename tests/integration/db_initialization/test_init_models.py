@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config.settings import settings
 

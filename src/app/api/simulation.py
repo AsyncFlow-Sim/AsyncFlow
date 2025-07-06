@@ -3,7 +3,7 @@
 import numpy as np
 from fastapi import APIRouter
 
-from app.core.simulation.simulator import run_simulation
+from app.core.simulation.simulation_run import run_simulation
 from app.schemas.simulation_input import SimulationInput
 from app.schemas.simulation_output import SimulationOutput
 

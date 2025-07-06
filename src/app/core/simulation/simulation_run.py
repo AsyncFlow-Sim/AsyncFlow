@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import simpy
 
-from app.core.requests_generator import requests_generator
+from app.core.simulation.requests_generator import requests_generator
 from app.schemas.simulation_output import SimulationOutput
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Generator
 
     import numpy as np
 
@@ -24,11 +24,8 @@ def run_simulation(
     *,
     rng: np.random.Generator,
 ) -> SimulationOutput:
-    """
-    Esegue la simulazione in SimPy usando i gap prodotti da requests_generator.
-    Per ora calcola solo il numero totale di richieste arrivate.
-    """
-    gaps: Iterator[float] = requests_generator(data, rng=rng)
+    """Simulation executor in Simpy"""
+    gaps: Generator[float, None, None] = requests_generator(data, rng=rng)
     env = simpy.Environment()
 
     simulation_time = data.total_simulation_time

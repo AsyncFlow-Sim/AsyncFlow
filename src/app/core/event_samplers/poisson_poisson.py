@@ -4,7 +4,7 @@ both for concurrent user and rqs per minute per user
 """
 
 import math
-from collections.abc import Iterator
+from collections.abc import Generator
 
 import numpy as np
 
@@ -21,7 +21,7 @@ def poisson_poisson_sampling(
     *,
     sampling_window_s: int = TimeDefaults.SAMPLING_WINDOW.value,
     rng: np.random.Generator | None = None,
-) -> Iterator[float]:
+) ->  Generator[float, None, None]:
     """
     Yield inter-arrival gaps (seconds) for the compound Poisson-Poisson process.
 

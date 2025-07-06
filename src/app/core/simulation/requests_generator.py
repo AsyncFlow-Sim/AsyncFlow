@@ -11,7 +11,7 @@ from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
     import numpy as np
 
@@ -22,7 +22,7 @@ def requests_generator(
     input_data: SimulationInput,
     *,
     rng: np.random.Generator | None = None,
-) -> Iterator[float]:
+) -> Generator[float, None, None]:
     """
     Return an iterator of inter-arrival gaps (seconds) according to the model
     chosen in *input_data*.

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.simulation_input import RVConfig
+from app.schemas.simulation_input import RVConfig, SimulationInput
 
 
 def test_normal_sets_variance_to_mean() -> None:
@@ -74,3 +74,20 @@ def test_invalid_distribution_raises() -> None:
     # Only assert there is at least one error for the 'distribution' field:
     assert any(e["loc"] == ("distribution",) for e in errors)
 
+
+def test_simulation_time_below_minimum_raises() -> None:
+    """
+    Passing total_simulation_time <= 60 must raise a ValidationError,
+    because the minimum allowed simulation time is 61 seconds.
+    """
+    with pytest.raises(ValidationError) as excinfo:
+        SimulationInput(
+            avg_active_users={"mean": 1.0},
+            avg_request_per_minute_per_user={"mean": 1.0},
+            total_simulation_time=60,  # exactly at the boundary
+        )
+    errors = excinfo.value.errors()
+    assert any(
+        err["loc"] == ("total_simulation_time",) and "at least 60seconds" in err["msg"]
+        for err in errors
+    )

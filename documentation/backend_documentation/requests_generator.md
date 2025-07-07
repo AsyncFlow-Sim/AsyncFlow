@@ -28,6 +28,7 @@ We model:
 
 * **Requests per minute per user** as Poisson($\lambda_r$).
 * **Concurrent users** as either Poisson($\lambda_u$) or truncated Normal.
+* **The variables are independent**
 
 ```python
 from pydantic import BaseModel
@@ -120,7 +121,7 @@ To draw $\Delta t\sim\mathrm{Exp}(\lambda)$:
 | $N=\sum_{i=1}^U R_i$              | total requests in that minute           | compound |
 | $\Lambda=N/60$                    | aggregate rate (requests / second)      | compound |
 
-All $R_i$ are independent of each other and of $U$.
+The procedure here rely heavily on the independence of our random variables.
 
 ### 2.2 Conditional sum ⇒ Poisson
 

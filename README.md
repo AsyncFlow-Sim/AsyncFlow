@@ -1,4 +1,4 @@
-## 🚀 How to Start the Backend with Docker (Development)
+## How to Start the Backend with Docker (Development)
 
 To spin up the backend and its supporting services in development mode:
 
@@ -17,7 +17,7 @@ To spin up the backend and its supporting services in development mode:
 
 ---
 
-## 🏗️ Development Architecture & Philosophy
+## Development Architecture & Philosophy
 
 We split responsibilities between Docker-managed services and local workflows:
 
@@ -29,13 +29,13 @@ We split responsibilities between Docker-managed services and local workflows:
 
 **Why?**
 
-* ⚡ **Instant feedback** on code changes
-* 🛠️ **Full IDE support** (debugging, autocomplete, refactoring)
-* ⏱️ **Blistering speed**—no rebuilding images on every change
+* **Fater feedback** on code changes
+* **Full IDE support** (debugging, autocomplete, refactoring)
+* **Speed**—no rebuilding images on every change
 
 ---
 
-### 🧪 Local Quality & Testing Workflow
+### Local Quality & Testing Workflow
 
 All code quality tools, migrations, and tests execute on your host machine:
 
@@ -52,7 +52,7 @@ All code quality tools, migrations, and tests execute on your host machine:
 
 ---
 
-## ⚙️ CI/CD with GitHub Actions
+## CI/CD with GitHub Actions
 
 We maintain two jobs on the `develop` branch:
 
@@ -60,7 +60,7 @@ We maintain two jobs on the `develop` branch:
 
 * Ruff & MyPy
 * Unit tests only
-* **No database** → < 1-minute feedback
+* **No database** 
 
 ### 🛠️ Full (on pushes to `develop`)
 
@@ -75,12 +75,12 @@ We maintain two jobs on the `develop` branch:
 
 ---
 
-## 🧠 Summary
+## Summary
 
 1. **Docker-Compose** for services & hot-reload of the app code
 2. **Local** execution of migrations, tests, and QA for speed and IDE integration
 3. **CI pipeline** split into quick PR checks and full develop-branch validation
 
-This hybrid setup delivers **fast development** without sacrificing **production-grade safety** in CI.
+
 
 

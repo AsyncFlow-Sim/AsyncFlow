@@ -114,6 +114,6 @@ def test_cumulative_time_never_exceeds_horizon(base_input: SimulationInput) -> N
     gaps = list(poisson_poisson_sampling(base_input, rng=rng))
 
     cum_time = math.fsum(gaps)
-    # Even if the virtual clock può saltare quando λ == 0,
-    # i gap sommati non devono mai superare l'orizzonte.
+    # Even if the virtual clock can jump when λ == 0,
+    # the summed gaps must never exceed the horizon.
     assert cum_time < base_input.total_simulation_time

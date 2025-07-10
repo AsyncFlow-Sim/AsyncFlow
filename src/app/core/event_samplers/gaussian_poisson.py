@@ -22,7 +22,6 @@ from app.schemas.simulation_input import SimulationInput
 def gaussian_poisson_sampling(
     input_data: SimulationInput,
     *,
-    sampling_window_s: int = TimeDefaults.SAMPLING_WINDOW.value,
     rng: np.random.Generator | None = None,
 ) -> Generator[float, None, None]:
     """
@@ -41,10 +40,12 @@ def gaussian_poisson_sampling(
     rng = rng or np.random.default_rng()
 
     simulation_time = input_data.total_simulation_time
+    user_sampling_window = input_data.user_sampling_window
     # pydantic in the validation assign a value and mypy is not
     # complaining because a None cannot be compared in the loop
     # to a float
     assert simulation_time is not None
+    assert user_sampling_window is not None
 
     # λ_u : mean concurrent users per window
     mean_concurrent_user = float(input_data.avg_active_users.mean)
@@ -68,7 +69,7 @@ def gaussian_poisson_sampling(
     while now < simulation_time:
         # (Re)sample U at the start of each window
         if now >= window_end:
-            window_end = now + float(sampling_window_s)
+            window_end = now + float(user_sampling_window)
             users = truncated_gaussian_generator(
                 mean_concurrent_user,
                 variance_concurrent_user,

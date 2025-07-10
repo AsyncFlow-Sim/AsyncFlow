@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.config.constants import TimeDefaults
 
@@ -37,22 +37,23 @@ class SimulationInput(BaseModel):
 
     avg_active_users: RVConfig
     avg_request_per_minute_per_user: RVConfig
-    total_simulation_time: int | None = None
+    total_simulation_time: int = Field(
+        default=TimeDefaults.SIMULATION_TIME.value,
+        ge=TimeDefaults.MIN_SIMULATION_TIME.value, # minimum simulation time in seconds
+        description=(
+            f"Simulation time in seconds (>= {TimeDefaults.MIN_SIMULATION_TIME.value})."
+        ),
+    )
 
-    @field_validator("total_simulation_time", mode="before")
-    def check_simulation_time(cls, v: object) -> int: # noqa: N805
-        """
-        Assign constant value to total sim time if is None
-        check if it is of the right type
-        impose a lower boundary for the simulation
-        """
-        if v is None:
-            v = TimeDefaults.SIMULATION_HORIZON.value
-        if not isinstance(v, int):
-            err_msg_type = "the simulation time must be an integer"
-            raise ValueError(err_msg_type) # noqa: TRY004
-        if v <= 60:
-            err_msg_val = "the simulation must be at least 60 seconds"
-            raise ValueError(err_msg_val)
-        return v
+    user_sampling_window: int = Field(
+        default=TimeDefaults.USER_SAMPLING_WINDOW.value,
+        ge=TimeDefaults.MIN_USER_SAMPLING_WINDOW.value,
+        le=TimeDefaults.MAX_USER_SAMPLING_WINDOW.value,
+        description=(
+            "Sampling window in seconds "
+            f"({TimeDefaults.MIN_USER_SAMPLING_WINDOW.value}-"
+            f"{TimeDefaults.MAX_USER_SAMPLING_WINDOW.value})."
+        ),
+    )
+
 

@@ -20,15 +20,15 @@ if TYPE_CHECKING:
 
 
 def run_simulation(
-    data: SimulationInput,
+    input_data: SimulationInput,
     *,
     rng: np.random.Generator,
 ) -> SimulationOutput:
     """Simulation executor in Simpy"""
-    gaps: Generator[float, None, None] = requests_generator(data, rng=rng)
+    gaps: Generator[float, None, None] = requests_generator(input_data, rng=rng)
     env = simpy.Environment()
 
-    simulation_time = data.total_simulation_time
+    simulation_time = input_data.total_simulation_time
     # pydantic in the validation assign a value and mypy is not
     # complaining because a None cannot be compared in the loop
     # to a float
@@ -51,6 +51,6 @@ def run_simulation(
 
     return SimulationOutput(
         total_requests=total_request_per_time_period,
-        metric_2=str(data.avg_request_per_minute_per_user.mean),
-        metric_n=str(data.avg_active_users.mean),
+        metric_2=str(input_data.avg_request_per_minute_per_user.mean),
+        metric_n=str(input_data.avg_active_users.mean),
     )

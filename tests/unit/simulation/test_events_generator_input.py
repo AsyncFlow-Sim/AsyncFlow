@@ -88,7 +88,7 @@ def test_default_user_sampling_window() -> None:
         avg_active_users={"mean": 1.0, "distribution": "poisson"},
         avg_request_per_minute_per_user={"mean": 1.0, "distribution": "poisson"},
     )
-    assert inp.user_sampling_window == TimeDefaults.USER_SAMPLING_WINDOW.value
+    assert inp.user_sampling_window == TimeDefaults.USER_SAMPLING_WINDOW
 
 
 def test_explicit_user_sampling_window_kept() -> None:
@@ -125,7 +125,7 @@ def test_user_sampling_window_above_max_raises() -> None:
     Passing user_sampling_window > MAX_USER_SAMPLING_WINDOW
     must raise a ValidationError.
     """
-    too_large = TimeDefaults.MAX_USER_SAMPLING_WINDOW.value + 1
+    too_large = TimeDefaults.MAX_USER_SAMPLING_WINDOW + 1
     with pytest.raises(ValidationError) as excinfo:
         SimulationInput(
             avg_active_users={"mean": 1.0, "distribution": "poisson"},
@@ -137,7 +137,7 @@ def test_user_sampling_window_above_max_raises() -> None:
     assert any(err["loc"] == ("user_sampling_window",) for err in errors)
 
     expected_snippet = (
-        f"less than or equal to {TimeDefaults.MAX_USER_SAMPLING_WINDOW.value}"
+        f"less than or equal to {TimeDefaults.MAX_USER_SAMPLING_WINDOW}"
     )
     assert any(expected_snippet in err["msg"] for err in errors)
 
@@ -153,7 +153,7 @@ def test_default_total_simulation_time() -> None:
         avg_active_users={"mean": 1.0, "distribution": "poisson"},
         avg_request_per_minute_per_user={"mean": 1.0, "distribution": "poisson"},
     )
-    assert inp.total_simulation_time == TimeDefaults.SIMULATION_TIME.value
+    assert inp.total_simulation_time == TimeDefaults.SIMULATION_TIME
 
 
 def test_explicit_total_simulation_time_kept() -> None:
@@ -190,7 +190,7 @@ def test_total_simulation_time_below_minimum_raises() -> None:
     Passing total_simulation_time < MIN_SIMULATION_TIME
     must raise a ValidationError.
     """
-    too_small = TimeDefaults.MIN_SIMULATION_TIME.value - 1
+    too_small = TimeDefaults.MIN_SIMULATION_TIME - 1
     with pytest.raises(ValidationError) as excinfo:
         SimulationInput(
             avg_active_users={"mean": 1.0, "distribution": "poisson"},
@@ -203,7 +203,7 @@ def test_total_simulation_time_below_minimum_raises() -> None:
     assert any(err["loc"] == ("total_simulation_time",) for err in errors)
 
     expected_snippet = (
-        f"greater than or equal to {TimeDefaults.MIN_SIMULATION_TIME.value}"
+        f"greater than or equal to {TimeDefaults.MIN_SIMULATION_TIME}"
     )
     assert any(expected_snippet in err["msg"] for err in errors)
 

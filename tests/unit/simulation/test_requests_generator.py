@@ -29,7 +29,7 @@ def base_input() -> SimulationInput:
     return SimulationInput(
         avg_active_users={"mean": 1.0},
         avg_request_per_minute_per_user={"mean": 2.0},
-        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME.value,
+        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
     )
 
 # --------------------------------------------------------------
@@ -74,7 +74,7 @@ def test_requests_generator_dispatches_to_correct_sampler(
     input_data = SimulationInput(
         avg_active_users={"mean": 1.0, "distribution": dist},
         avg_request_per_minute_per_user={"mean": 1.0},
-        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME.value,
+        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
     )
     rng = np.random.default_rng(0)
     gen = requests_generator(input_data, rng=rng)

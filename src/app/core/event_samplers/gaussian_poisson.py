@@ -59,7 +59,7 @@ def gaussian_poisson_sampling(
     mean_req_per_sec_per_user = (
         float(
             input_data.avg_request_per_minute_per_user.mean)
-        / TimeDefaults.MIN_TO_SEC.value
+        / TimeDefaults.MIN_TO_SEC
     )
 
     now = 0.0                 # virtual clock (s)

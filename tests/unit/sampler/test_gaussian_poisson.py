@@ -25,8 +25,8 @@ def base_input() -> SimulationInput:
             mean=10.0, variance=4.0, distribution="gaussian",
         ),
         avg_request_per_minute_per_user=RVConfig(mean=30.0),
-        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME.value,
-        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW.value,
+        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
+        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
     )
 
 

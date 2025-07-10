@@ -1,6 +1,6 @@
 """Application constants and configuration values."""
 
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 
 class TimeDefaults(IntEnum):
@@ -12,3 +12,12 @@ class TimeDefaults(IntEnum):
     MIN_SIMULATION_TIME = 1800 # min simulation time
     MIN_USER_SAMPLING_WINDOW = 1 # 1 second
     MAX_USER_SAMPLING_WINDOW = 120 # 2 minutes
+
+
+class Distribution(str, Enum):
+    """Allowed probability distributions for an RVConfig."""
+
+    POISSON = "poisson"
+    NORMAL = "normal"
+    GAUSSIAN = "gaussian"
+

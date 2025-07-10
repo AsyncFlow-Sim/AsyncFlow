@@ -22,8 +22,8 @@ def base_input() -> SimulationInput:
         avg_active_users={"mean": 1.0, "distribution": "poisson"},
         # … sending on average 60 req/min → 1 req/s
         avg_request_per_minute_per_user={"mean": 60.0, "distribution": "poisson"},
-        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME.value,  # 30 min
-        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW.value,  # 60 s
+        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,  # 30 min
+        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,  # 60 s
     )
 
 
@@ -94,8 +94,8 @@ def test_zero_users_produces_no_events(base_input: SimulationInput) -> None:
     input_data = SimulationInput(
         avg_active_users=RVConfig(mean=0.0, distribution="poisson"),
         avg_request_per_minute_per_user=RVConfig(mean=60.0, distribution="poisson"),
-        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME.value,
-        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW.value,
+        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
+        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
     )
 
     rng = np.random.default_rng(123)

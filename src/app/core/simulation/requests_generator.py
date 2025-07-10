@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.config.constants import Distribution
 from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
 
@@ -36,7 +37,7 @@ def requests_generator(
     """
     dist = input_data.avg_active_users.distribution.lower()
 
-    if dist in {"gaussian", "normal"}:
+    if dist in {Distribution.GAUSSIAN, Distribution.NORMAL}:
         #Gaussian-Poisson model
         return gaussian_poisson_sampling(
             input_data=input_data,

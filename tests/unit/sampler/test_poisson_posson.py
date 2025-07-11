@@ -11,7 +11,7 @@ import pytest
 
 from app.config.constants import TimeDefaults
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
-from app.schemas.simulation_input import RVConfig, SimulationInput
+from app.schemas.requests_generator_input import RVConfig, SimulationInput
 
 
 @pytest.fixture

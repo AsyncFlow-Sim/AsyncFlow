@@ -13,7 +13,7 @@ from app.core.event_samplers.common_helpers import (
     poisson_variable_generator,
     uniform_variable_generator,
 )
-from app.schemas.simulation_input import SimulationInput
+from app.schemas.requests_generator_input import SimulationInput
 
 
 def poisson_poisson_sampling(
@@ -38,11 +38,6 @@ def poisson_poisson_sampling(
 
     simulation_time = input_data.total_simulation_time
     user_sampling_window = input_data.user_sampling_window
-    # pydantic in the validation assign a value and mypy is not
-    # complaining because a None cannot be compared in the loop
-    # to a float
-    assert simulation_time is not None
-    assert user_sampling_window is not None
 
     # λ_u : mean concurrent users per window
     mean_concurrent_user = float(input_data.avg_active_users.mean)

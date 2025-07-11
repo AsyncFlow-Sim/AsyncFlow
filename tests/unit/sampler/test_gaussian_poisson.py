@@ -10,7 +10,7 @@ import pytest
 
 from app.config.constants import TimeDefaults
 from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
-from app.schemas.simulation_input import RVConfig, SimulationInput
+from app.schemas.requests_generator_input import RVConfig, SimulationInput
 
 # ---------------------------------------------------------------------------
 # Fixture
@@ -22,7 +22,7 @@ def base_input() -> SimulationInput:
     """Return a minimal, valid SimulationInput for the Gaussian-Poisson sampler."""
     return SimulationInput(
         avg_active_users=RVConfig(
-            mean=10.0, variance=4.0, distribution="gaussian",
+            mean=10.0, variance=4.0, distribution="normal",
         ),
         avg_request_per_minute_per_user=RVConfig(mean=30.0),
         total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,

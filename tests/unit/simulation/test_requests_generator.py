@@ -11,7 +11,7 @@ import pytest
 from app.config.constants import TimeDefaults
 from app.core.simulation.requests_generator import requests_generator
 from app.core.simulation.simulation_run import run_simulation
-from app.schemas.simulation_input import SimulationInput
+from app.schemas.requests_generator_input import SimulationInput
 
 if TYPE_CHECKING:
 
@@ -57,7 +57,6 @@ def test_default_requests_generator_uses_poisson_poisson_sampling(
     [
         ("poisson", "poisson_poisson_sampling"),
         ("normal", "gaussian_poisson_sampling"),
-        ("gaussian", "gaussian_poisson_sampling"),
     ],
 )
 def test_requests_generator_dispatches_to_correct_sampler(
@@ -69,7 +68,6 @@ def test_requests_generator_dispatches_to_correct_sampler(
     comes from the appropriate sampler function based on distribution:
       - 'poisson' → poisson_poisson_sampling
       - 'normal'  → gaussian_poisson_sampling
-      - 'gaussian'→ gaussian_poisson_sampling
     """
     input_data = SimulationInput(
         avg_active_users={"mean": 1.0, "distribution": dist},

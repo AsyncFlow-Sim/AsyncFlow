@@ -1,6 +1,6 @@
 """Application constants and configuration values."""
 
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 
 
 class TimeDefaults(IntEnum):
@@ -14,10 +14,10 @@ class TimeDefaults(IntEnum):
     MAX_USER_SAMPLING_WINDOW = 120 # 2 minutes
 
 
-class Distribution(str, Enum):
+class Distribution(StrEnum):
     """Allowed probability distributions for an RVConfig."""
 
     POISSON = "poisson"
     NORMAL = "normal"
-    GAUSSIAN = "gaussian"
+
 

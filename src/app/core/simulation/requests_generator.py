@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from app.schemas.simulation_input import SimulationInput
+    from app.schemas.requests_generator_input import SimulationInput
 
 
 def requests_generator(
@@ -37,7 +37,7 @@ def requests_generator(
     """
     dist = input_data.avg_active_users.distribution.lower()
 
-    if dist in {Distribution.GAUSSIAN, Distribution.NORMAL}:
+    if dist == Distribution.NORMAL:
         #Gaussian-Poisson model
         return gaussian_poisson_sampling(
             input_data=input_data,

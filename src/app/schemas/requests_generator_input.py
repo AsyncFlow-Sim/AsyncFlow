@@ -31,7 +31,7 @@ class RVConfig(BaseModel):
             model.variance = model.mean
         return model
 
-class SimulationInput(BaseModel):
+class RqsGeneratorInput(BaseModel):
     """Define the expected variables for the simulation"""
 
     avg_active_users: RVConfig

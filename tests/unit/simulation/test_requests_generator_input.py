@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.config.constants import Distribution, TimeDefaults
-from app.schemas.requests_generator_input import RVConfig, SimulationInput
+from app.schemas.requests_generator_input import RqsGeneratorInput, RVConfig
 
 # --------------------------------------------------------------------------
 # TEST RANDOM VARIABLE CONFIGURATION
@@ -84,7 +84,7 @@ def test_invalid_distribution_raises() -> None:
 
 def test_default_user_sampling_window() -> None:
     """When user_sampling_window is omitted, it defaults to USER_SAMPLING_WINDOW."""
-    inp = SimulationInput(
+    inp = RqsGeneratorInput(
         avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
         avg_request_per_minute_per_user={
             "mean": 1.0,
@@ -97,7 +97,7 @@ def test_default_user_sampling_window() -> None:
 def test_explicit_user_sampling_window_kept() -> None:
     """An explicit user_sampling_window value is preserved unchanged."""
     custom_window = 30
-    inp = SimulationInput(
+    inp = RqsGeneratorInput(
         avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
         avg_request_per_minute_per_user={
             "mean": 1.0,
@@ -112,7 +112,7 @@ def test_user_sampling_window_not_int_raises() -> None:
     """A non-integer user_sampling_window raises a ValidationError."""
     with pytest.raises(ValidationError) as excinfo:
 
-        SimulationInput(
+        RqsGeneratorInput(
             avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
             avg_request_per_minute_per_user={
                 "mean": 1.0,
@@ -136,7 +136,7 @@ def test_user_sampling_window_above_max_raises() -> None:
     """
     too_large = TimeDefaults.MAX_USER_SAMPLING_WINDOW + 1
     with pytest.raises(ValidationError) as excinfo:
-        SimulationInput(
+        RqsGeneratorInput(
             avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
             avg_request_per_minute_per_user={
                 "mean": 1.0,
@@ -161,7 +161,7 @@ def test_user_sampling_window_above_max_raises() -> None:
 
 def test_default_total_simulation_time() -> None:
     """When total_simulation_time is omitted, it defaults to SIMULATION_TIME."""
-    inp = SimulationInput(
+    inp = RqsGeneratorInput(
         avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
         avg_request_per_minute_per_user={
             "mean": 1.0,
@@ -174,7 +174,7 @@ def test_default_total_simulation_time() -> None:
 def test_explicit_total_simulation_time_kept() -> None:
     """An explicit total_simulation_time value is preserved unchanged."""
     custom_time = 3_000
-    inp = SimulationInput(
+    inp = RqsGeneratorInput(
         avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
         avg_request_per_minute_per_user={
             "mean": 1.0,
@@ -189,7 +189,7 @@ def test_total_simulation_time_not_int_raises() -> None:
     """A non-integer total_simulation_time raises a ValidationError."""
     with pytest.raises(ValidationError) as excinfo:
 
-        SimulationInput(
+        RqsGeneratorInput(
             avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
             avg_request_per_minute_per_user={
                 "mean": 1.0,
@@ -213,7 +213,7 @@ def test_total_simulation_time_below_minimum_raises() -> None:
     """
     too_small = TimeDefaults.MIN_SIMULATION_TIME - 1
     with pytest.raises(ValidationError) as excinfo:
-        SimulationInput(
+        RqsGeneratorInput(
             avg_active_users={"mean": 1.0, "distribution": Distribution.POISSON},
             avg_request_per_minute_per_user={
                 "mean": 1.0,

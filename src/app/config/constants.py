@@ -2,6 +2,9 @@
 
 from enum import IntEnum, StrEnum
 
+# --------------------------------------------------------
+# CONSTANTS FOR THE REQUESTS GENERATOR
+# --------------------------------------------------------
 
 class TimeDefaults(IntEnum):
     """Default time-related constants (all in seconds)."""
@@ -20,4 +23,45 @@ class Distribution(StrEnum):
     POISSON = "poisson"
     NORMAL = "normal"
 
+# --------------------------------------------------------
+# CONSTANTS FOR THE REQUESTS ENDPOINT STRUCTURE IN THE
+# REQUESTS HANDLER
+# --------------------------------------------------------
+
+# Idea here is to create an ordered nested dict with
+# this structure: {endpoint_name: {
+    #                        operation_type:
+    #                           latency (s)/ram (kb): value}}
+# we need Enum to have a better control on the dict keys in the
+# pydantic schema
+
+class EndpointIO(StrEnum):
+    """Name of I/O operations"""
+
+    IO_WITH_CHILD = "io_new_coroutine" #Child task exit
+    IO_LLM_BOUND = "io_llm" # Llm speicif task
+    IO_SLEEP = "i/o_bound"  # No child task
+
+
+class EndpointCPU(StrEnum):
+    """Name of CPU bound operations"""
+
+    INITIAL_PARSING = "initial_parsing"
+    CPU_BOUND_OPERATION = "cpu_bound_operation"
+
+
+class EndpointRAM(StrEnum):
+    """Name of the operation to add ram"""
+
+    RAM = "ram"
+
+
+class MetricKeys(StrEnum):
+    """
+    Name of the key to quantify the operation
+    in terms of Ram or latency
+    """
+
+    LATENCY = "latency"
+    NECESSARY_RAM = "necessary_ram"
 

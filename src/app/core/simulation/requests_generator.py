@@ -16,11 +16,11 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from app.schemas.requests_generator_input import SimulationInput
+    from app.schemas.requests_generator_input import RqsGeneratorInput
 
 
 def requests_generator(
-    input_data: SimulationInput,
+    input_data: RqsGeneratorInput,
     *,
     rng: np.random.Generator | None = None,
 ) -> Generator[float, None, None]:

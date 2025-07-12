@@ -10,7 +10,8 @@ import pytest
 
 from app.config.constants import TimeDefaults
 from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
-from app.schemas.requests_generator_input import RqsGeneratorInput, RVConfig
+from app.schemas.random_variables_config import RVConfig
+from app.schemas.requests_generator_input import RqsGeneratorInput
 
 # ---------------------------------------------------------------------------
 # Fixture

@@ -11,7 +11,8 @@ import pytest
 
 from app.config.constants import TimeDefaults
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
-from app.schemas.requests_generator_input import RqsGeneratorInput, RVConfig
+from app.schemas.random_variables_config import RVConfig
+from app.schemas.requests_generator_input import RqsGeneratorInput
 
 
 @pytest.fixture

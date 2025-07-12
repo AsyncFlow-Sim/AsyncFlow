@@ -2,7 +2,8 @@ import pytest
 from pydantic import ValidationError
 
 from app.config.constants import Distribution, TimeDefaults
-from app.schemas.requests_generator_input import RqsGeneratorInput, RVConfig
+from app.schemas.random_variables_config import RVConfig
+from app.schemas.requests_generator_input import RqsGeneratorInput
 
 # --------------------------------------------------------------------------
 # TEST RANDOM VARIABLE CONFIGURATION

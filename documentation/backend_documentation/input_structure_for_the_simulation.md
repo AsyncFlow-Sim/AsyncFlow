@@ -146,236 +146,224 @@ The payload is accepted. The simulator will run for $5400 / 45 = 120$ simulation
 This robust, layered approach allows you to configure the generator with confidence, knowing that any malformed scenario will be rejected early with explicit, actionable error messages.
 
 
-Of course. Here is the detailed documentation in English for the input schema of the request handler and system topology. This document explains the hierarchical structure, from the foundational constants to the complete topology graph, with code snippets and a full example.
+### **FastSim Topology Input Schema**
+
+The topology schema is the blueprint of the digital twin, defining the structure, resources, behavior, and network connections of the system you wish to simulate. It describes:
+
+1.  **What work** each request performs (`Endpoint` → `Step`).
+2.  **What components** exist in the system (`Server`, `Client`).
+3.  **Which resources** each component possesses (`ServerResources`).
+4.  **How** components are interconnected (`Edge`).
+
+To ensure simulation integrity and prevent runtime errors, FastSim uses Pydantic to rigorously validate the entire topology upfront. Every inconsistency is rejected at load-time. The following sections detail the schema's layered design, from the most granular operation to the complete system graph.
+
+---
+### **A Controlled Vocabulary: The Role of Constants**
+
+To ensure that input configurations are unambiguous and robust, the topology schema is built upon a controlled vocabulary defined by a series of Python `Enum` classes. Instead of relying on raw strings or "magic values" (e.g., `"cpu_bound_operation"`), which are prone to typos and inconsistencies, the schema uses these enumerations to define the finite set of legal values for categories like operation kinds, metrics, and node types.
+
+This design choice provides three critical benefits:
+
+1.  **Strong Type-Safety:** By using `StrEnum` and `IntEnum`, Pydantic models can validate input payloads with absolute certainty. Any value not explicitly defined in the corresponding `Enum` is immediately rejected. This prevents subtle configuration errors that would be difficult to debug at simulation time.
+2.  **Developer Experience and Error Prevention:** This approach provides powerful auto-completion and static analysis. IDEs, `mypy`, and linters can catch invalid values during development, providing immediate feedback long before the code is executed.
+3.  **Single Source of Truth:** All valid categories are centralized in the `app.config.constants` module. This makes the system easier to maintain and extend. To add a new resource type or metric, a developer only needs to update the `Enum` definition, and the change propagates consistently to validation logic, the simulation engine, and any other component that uses it.
+
+The key enumerations that govern the topology schema include:
+
+| Constant Enum | Purpose |
+| :--- | :--- |
+| **`EndpointStepIO`, `EndpointStepCPU`, `EndpointStepRAM`** | Define the exhaustive list of valid `kind` values for a `Step`. |
+| **`Metrics`** | Specify the legal dictionary keys within a `Step`'s `step_metrics`, enforcing the one-to-one link between a `kind` and its metric. |
+| **`SystemNodes` and `SystemEdges`** | Enumerate the allowed categories for nodes and their connections in the high-level `TopologyGraph`. |
+
+### **Design Philosophy: A "Micro-to-Macro" Approach**
+
+The schema is built on a compositional, "micro-to-macro" principle. We start by defining the smallest indivisible units of work (`Step`) and progressively assemble them into larger, more complex structures (`Endpoint`, `Server`, and finally the `TopologyGraph`).
+
+This layered approach provides several key advantages:
+*   **Modularity and Reusability:** An `Endpoint` is just a sequence of `Steps`. You can reorder, add, or remove steps without redefining the core operations themselves.
+*   **Local Reasoning, Global Safety:** Each model is responsible for its own internal consistency (e.g., a `Step` ensures its metric is valid for its kind). Parent models then enforce the integrity of the connections *between* these components (e.g., the `TopologyGraph` ensures all `Edges` connect to valid `Nodes`).
+*   **Clarity and Maintainability:** The hierarchy makes the system description intuitive to read and write. It’s clear how atomic operations roll up into endpoints, which are hosted on servers connected by a network.
+*   **Robustness:** All structural and referential errors are caught before the simulation begins, guaranteeing that the SimPy engine operates on a valid, self-consistent model.
 
 ---
 
-### **Modeling the System: The Topology Schema**
+### **1. The Atomic Unit: `Step`**
 
-This document details the input schema required to define the system topology for the FastSim simulator. The goal is to create a "digital twin" of your infrastructure, specifying its components, their connections, and the work they perform when handling a request.
+A `Step` represents a single, indivisible operation executed by an asynchronous coroutine within an endpoint. It is the fundamental building block of all work in the simulation.
 
-The design is built on a **hierarchical validation contract**. Each layer of the configuration relies on the correctness of the layer below it, ensuring that only a valid, logically consistent system model reaches the simulation engine.
-
-The structure is built from the bottom up:
-1.  **Constants**: The single source of truth for all literal values.
-2.  **Steps**: The atomic units of work (e.g., a CPU operation, a database call).
-3.  **Endpoints**: A sequence of steps that defines a specific API behavior (e.g., `/predict`).
-4.  **Nodes & Resources**: The system components (`Server`, `Client`) and their capabilities.
-5.  **Edges**: The connections between nodes, with associated latencies.
-6.  **Topology Graph**: The top-level object that combines all nodes and edges into a complete system.
-
----
-
-### 1. The Foundation: Global Constants
-
-We use Python's `Enum` and standard classes to define all static values. This prevents typos, centralizes configuration, and makes the code self-documenting.
-
-| Constant Group | Purpose | Examples |
-| :--- | :--- | :--- |
-| **`Endpoint...`** | Defines the types of operations a step can perform (`EndpointIO`, `EndpointCPU`, `EndpointRAM`). | `"io_db"`, `"cpu_bound_operation"`, `"ram"` |
-| **`MetricKeys`** | Defines the valid keys within a step's `metrics` dictionary. | `"cpu_time"`, `"necessary_ram"` |
-| **`SystemNodes`** | Defines the valid types for a component in the topology graph. | `"server"`, `"client"`, `"database"` |
-| **`SystemEdges`** | Defines the types of connections between nodes. | `"network_connection"` |
-| **`ServerResourceDefaults`** | Provides default values and validation limits for server resources. | `CPU_CORES = 1`, `MINIMUM_RAM_MB = 256` |
-
-Using these constants ensures that a configuration like `"kind": "io_database"` would fail validation because `"io_database"` is not a member of `EndpointIO`, preventing silent errors.
-
----
-
-### 2. The Atomic Unit of Work: The `Step` Schema
-
-A "step" is the smallest, indivisible operation that occurs within an endpoint. It represents a single action, like consuming CPU, waiting for a database, or allocating memory.
+Each `Step` has a `kind` (the category of work) and `step_metrics` (the resources it consumes).
 
 ```python
 class Step(BaseModel):
-    """Full step structure for an endpoint operation."""
-    kind: EndpointIO | EndpointCPU | EndpointRAM
-    metrics: dict[MetricKeys, PositiveFloat | PositiveInt]
+    """
+    A single, indivisible operation.
+    It must be quantified by exactly ONE metric.
+    """
+    kind: EndpointStepIO | EndpointStepCPU | EndpointStepRAM
+    step_metrics: dict[Metrics, PositiveFloat | PositiveInt]
+
+    @model_validator(mode="after")
+    def ensure_coherence_kind_metrics(cls, model: "Step") -> "Step":
+        metrics_keys = set(model.step_metrics)
+
+        # Enforce that a step performs one and only one type of work.
+        if len(metrics_keys) != 1:
+            raise ValueError("step_metrics must contain exactly one entry")
+
+        # Enforce that the metric is appropriate for the kind of work.
+        if isinstance(model.kind, EndpointStepCPU):
+            if metrics_keys != {Metrics.CPU_TIME}:
+                raise ValueError(f"CPU step requires metric '{Metrics.CPU_TIME}'")
+
+        elif isinstance(model.kind, EndpointStepRAM):
+            if metrics_keys != {Metrics.NECESSARY_RAM}:
+                raise ValueError(f"RAM step requires metric '{Metrics.NECESSARY_RAM}'")
+
+        elif isinstance(model.kind, EndpointStepIO):
+            if metrics_keys != {Metrics.IO_WAITING_TIME}:
+                raise ValueError(f"I/O step requires metric '{Metrics.IO_WAITING_TIME}'")
+
+        return model
 ```
 
-*   **`kind`**: A string that *must* be a valid member of one of the `Endpoint...` enums. It defines the *nature* of the operation.
-*   **`metrics`**: A dictionary specifying the *magnitude* of the operation. The keys *must* be valid members of the `MetricKeys` enum.
-
-**Example of a single step:** This JSON object represents a database call that consumes 0.05 seconds of CPU time.
-
-```json
-{
-  "kind": "io_db",
-  "metrics": {
-    "cpu_time": 0.05
-  }
-}
-```
-
-> **Note:** #TODO A future enhancement, as noted in the source code, will add a validator to ensure the `metrics` provided are logically consistent with the `kind` (e.g., a `ram` step must provide a `necessary_ram` metric).
+> **Design Rationale:** The strict one-to-one mapping between a `Step` and a single metric is a core design choice. It simplifies the simulation engine immensely, as each `Step` can be deterministically routed to a request on a single SimPy resource (a CPU queue, a RAM container, or an I/O event). This avoids the complexity of modeling operations that simultaneously consume multiple resource types.
 
 ---
 
-### 3. Service Behavior: The `Endpoint` Schema
+### **2. Composing Workflows: `Endpoint`**
 
-An endpoint is a collection of steps, executed sequentially, that models a complete API call.
+An `Endpoint` defines a complete, user-facing operation (e.g., an API call like `/predict`) as an ordered sequence of `Steps`.
 
 ```python
 class Endpoint(BaseModel):
-    """A full endpoint composed of a sequence of steps."""
+    """A higher-level API call, executed as a strict sequence of steps."""
     endpoint_name: str
     steps: list[Step]
+
+    @field_validator("endpoint_name", mode="before")
+    def name_to_lower(cls, v: str) -> str:
+        """Standardize endpoint name to be lowercase for consistency."""
+        return v.lower()
 ```
 
-*   **`endpoint_name`**: The identifier for the endpoint, such as `/predict` or `/users`.
-*   **`steps`**: An ordered list of `Step` objects.
-
-**Example of an endpoint:** This endpoint first performs some initial CPU-bound parsing, then makes a database call.
-
-```json
-{
-  "endpoint_name": "/predict",
-  "steps": [
-    {
-      "kind": "initial_parsing",
-      "metrics": {
-        "cpu_time": 0.015
-      }
-    },
-    {
-      "kind": "io_db",
-      "metrics": {
-        "cpu_time": 0.05
-      }
-    }
-  ]
-}
-```
+> **Design Rationale:** The simulation processes the `steps` list in the exact order provided. The total latency and resource consumption of an endpoint call is the sequential sum of its individual `Step` delays. This directly models the execution flow of a typical web request handler.
 
 ---
 
-### 4. System Components: Nodes and Resources
+### **3. Defining Components: System Nodes**
 
-Nodes are the macro-components of your system architecture. The configuration currently supports two primary types: `Client` and `Server`.
+Nodes are the macro-components of your architecture where work is performed and resources are located.
 
-#### Server Resources
-First, we define a strict schema for a server's capabilities, using our `ServerResourceDefaults` for validation and defaults.
+#### **`ServerResources` and `Server`**
+A `Server` node hosts endpoints and owns a set of physical resources. These resources are mapped directly to specific SimPy primitives, which govern how requests queue and contend for service.
 
 ```python
 class ServerResources(BaseModel):
-    """Defines the quantifiable resources available on a server node."""
-    cpu_cores: PositiveInt = Field(
-        default=ServerResourceDefaults.CPU_CORES,
-        ge=ServerResourceDefaults.MINIMUM_CPU_CORES,
-        description="Number of CPU cores available for processing."
-    )
-    ram_mb: PositiveInt = Field(
-        default=ServerResourceDefaults.RAM_MB,
-        ge=ServerResourceDefaults.MINIMUM_RAM_MB, 
-        description="Total available RAM in Megabytes."
-    )
-    db_connection_pool: PositiveInt | None = Field(
-        default=ServerResourceDefaults.DB_CONNECTION_POOL,
-        description="Size of the database connection pool, if applicable."
-    )
-```
+    """Quantifiable resources available on a server node."""
+    cpu_cores: PositiveInt = Field(ge=ServerResourcesDefaults.MINIMUM_CPU_CORES)
+    ram_mb: PositiveInt = Field(ge=ServerResourcesDefaults.MINIMUM_RAM_MB)
+    db_connection_pool: PositiveInt | None = None
 
-#### Server
-A `Server` node is a component that has resources and can service requests via its endpoints.
-
-```python
 class Server(BaseModel):
-    """A server node in the system topology."""
+    """A node that hosts endpoints and owns resources."""
     id: str
     type: SystemNodes = SystemNodes.SERVER
     server_resources: ServerResources
     endpoints: list[Endpoint]
 ```
 
-*   **`id`**: A unique string identifier for the node (e.g., `"service-auth-v1"`).
-*   **`type`**: Must be `"server"`, validated by the `SystemNodes` enum.
-*   **`server_resources`**: An object conforming to the `ServerResources` schema.
-*   **`endpoints`**: A list of `Endpoint` objects that this server exposes.
+> **Design Rationale: Mapping to SimPy Primitives**
+> *   `cpu_cores` maps to a `simpy.Resource`. This models a classic semaphore where only `N` processes can execute concurrently, and others must wait in a queue. It perfectly represents CPU-bound tasks competing for a limited number of cores.
+> *   `ram_mb` maps to a `simpy.Container`. A container models a divisible resource where processes can request and return variable amounts. This is ideal for memory, as multiple requests can simultaneously hold different amounts of RAM without exclusively locking the entire memory pool.
 
-#### Client
-The `Client` is a special, simplified node that represents the origin of all requests.
+#### **`Client`**
+The `Client` is a special, resource-less node that serves as the origin point for all requests generated during the simulation.
 
-```python
-class Client(BaseModel):
-    """The client node, representing the origin of requests."""
-    id: str
-    type: SystemNodes = SystemNodes.CLIENT
-```
+#### **Node Aggregation and Validation (`TopologyNodes`)**
+All `Server` and `Client` nodes are collected in the `TopologyNodes` model, which performs a critical validation check: ensuring all component IDs are unique across the entire system.
 
 ---
 
-### 5. System Connections: The `Edge` Schema
+### **4. Connecting the Components: `Edge`**
 
-Edges define the directed connections between nodes, representing network paths, queues, or other links.
+An `Edge` represents a directed network link between two nodes, defining how requests flow through the system.
 
 ```python
 class Edge(BaseModel):
     """A directed connection in the topology graph."""
     source: str
     target: str
-    latency: RVConfig  # From the request-generator schema
+    latency: RVConfig
     probability: float = Field(1.0, ge=0.0, le=1.0)
     edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
 ```
 
-*   **`source` / `target`**: The `id` strings of the two nodes being connected.
-*   **`latency`**: A `RVConfig` object defining the network latency for this hop as a random variable. This allows for realistic modeling of network conditions.
-*   **`probability`**: The chance (from 0.0 to 1.0) of a request taking this path when multiple edges leave the same `source`. This is key for modeling load balancing.
+> **Design Rationale:**
+> *   **Stochastic Latency:** Latency is not a fixed number but an `RVConfig` object. This allows you to model realistic network conditions using various probability distributions (e.g., log-normal for internet RTTs, exponential for failure retries), making the simulation far more accurate.
+> *   **Probabilistic Routing:** The `probability` field enables modeling of simple load balancing or A/B testing scenarios where traffic from a single `source` can be split across multiple `target` nodes.
 
 ---
 
-### 6. The Complete Picture: The `TopologyGraph`
+### **5. The Complete System: `TopologyGraph`**
 
-This is the top-level object that assembles the entire system definition from the building blocks above.
+The `TopologyGraph` is the root of the configuration. It aggregates all `nodes` and `edges` and performs the final, most critical validation: ensuring referential integrity.
 
 ```python
 class TopologyGraph(BaseModel):
-    """The complete system graph, containing all nodes and edges."""
+    """The complete system definition, uniting all nodes and edges."""
     nodes: TopologyNodes
     edges: list[Edge]
-```
 
-This schema has powerful built-in validators that ensure:
-1.  **Unique IDs**: Every node (`Server` or `Client`) in `nodes` has a unique `id`.
-2.  **Referential Integrity**: Every `source` and `target` in the `edges` list corresponds to a valid node `id` defined in the `nodes` section. This prevents "dangling edges" that point to non-existent components.
+    @model_validator(mode="after")
+    def edge_refs_valid(cls, model: "TopologyGraph") -> "TopologyGraph":
+        """Ensure every edge connects two valid, existing nodes."""
+        valid_ids = {s.id for s in model.nodes.servers} | {model.nodes.client.id}
+        for e in model.edges:
+            if e.source not in valid_ids or e.target not in valid_ids:
+                raise ValueError(f"Edge '{e.source}->{e.target}' references an unknown node.")
+        return model
+```
+> **Design Rationale:** This final check guarantees that the topology is a valid, connected graph. By confirming that every `edge.source` and `edge.target` corresponds to a defined node `id`, it prevents the simulation from starting with a broken or nonsensical configuration, embodying the "fail-fast" principle.
 
 ---
 
-### 7. Full Configuration Example
+### **End-to-End Example**
 
-Here is a simple but complete and valid JSON configuration for a system with one client and one server.
+Here is a minimal, complete JSON configuration that defines a single client and a single API server.
 
-```json
+```jsonc
 {
   "nodes": {
+    // The client node is the source of all generated requests.
     "client": {
-      "id": "web-browser-client",
+      "id": "user_browser",
       "type": "client"
     },
+    // A list of all server nodes in the system.
     "servers": [
       {
-        "id": "main-api-server",
+        "id": "api_server_node",
         "type": "server",
         "server_resources": {
-          "cpu_cores": 4,
+          "cpu_cores": 2,
           "ram_mb": 2048
         },
         "endpoints": [
           {
-            "endpoint_name": "/process_data",
+            "endpoint_name": "/predict",
             "steps": [
               {
                 "kind": "initial_parsing",
-                "metrics": {
-                  "cpu_time": 0.02
-                }
+                "step_metrics": { "cpu_time": 0.005 }
+              },
+              {
+                "kind": "io_db",
+                "step_metrics": { "io_waiting_time": 0.050 }
               },
               {
                 "kind": "cpu_bound_operation",
-                "metrics": {
-                  "cpu_time": 0.150,
-                  "necessary_ram": 128
-                }
+                "step_metrics": { "cpu_time": 0.015 }
               }
             ]
           }
@@ -384,19 +372,33 @@ Here is a simple but complete and valid JSON configuration for a system with one
     ]
   },
   "edges": [
+    // A network link from the client to the API server.
     {
-      "source": "web-browser-client",
-      "target": "main-api-server",
+      "source": "user_browser",
+      "target": "api_server_node",
       "latency": {
-        "mean": 0.050,
         "distribution": "log_normal",
-        "variance": 0.01
+        "mean": 0.05,
+        "std_dev": 0.01
       },
-      "probability": 1.0,
-      "edge_type": "network_connection"
+      "probability": 1.0
     }
   ]
-}
+}```
+
+
+
+
+> **YAML friendly:**  
+> The topology schema is 100 % agnostic to the wire format.  
+> You can encode the same structure in **YAML** with identical field
+> names and value types—Pydantic will parse either JSON or YAML as long
+> as the keys and data types respect the schema.  
+> No additional changes or converters are required.
 ```
 
-This hierarchical, validated schema design guarantees that any configuration that passes validation is a sound and complete model, ready to be reliably used by the FastSim simulation engine.
+
+
+### **Key Takeaway**
+
+This rigorously validated, compositional schema is the foundation of FastSim's reliability. By defining a clear vocabulary of constants (`Metrics`, `SystemNodes`) and enforcing relationships with Pydantic validators, the schema guarantees that every simulation run starts from a **complete and self-consistent** system description. This allows you to refactor simulation logic or extend the model with new resources (e.g., GPU memory) with full confidence that existing configurations remain valid and robust.

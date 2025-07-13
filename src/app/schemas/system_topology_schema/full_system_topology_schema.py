@@ -8,6 +8,7 @@ one structure to another
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     PositiveInt,
     field_validator,
@@ -130,10 +131,7 @@ class TopologyNodes(BaseModel):
             raise ValueError(msg)
         return model
 
-    class Config:
-        """strict control over the acceptable keys"""
-
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 #-------------------------------------------------------------

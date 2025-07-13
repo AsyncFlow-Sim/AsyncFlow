@@ -69,7 +69,7 @@ class Distribution(StrEnum):
 # are accepted by the Pydantic schema.
 
 
-class EndpointIO(StrEnum):
+class EndpointStepIO(StrEnum):
     """
     I/O-bound operation categories that can occur inside an endpoint *step*.
 
@@ -100,7 +100,7 @@ class EndpointIO(StrEnum):
     CACHE      = "io_cache"
 
 
-class EndpointCPU(StrEnum):
+class EndpointStepCPU(StrEnum):
     """
     CPU-bound operation categories inside an endpoint step.
 
@@ -112,7 +112,7 @@ class EndpointCPU(StrEnum):
     CPU_BOUND_OPERATION  = "cpu_bound_operation"
 
 
-class EndpointRAM(StrEnum):
+class EndpointStepRAM(StrEnum):
     """
     Memory-related operations inside a step.
 
@@ -123,7 +123,7 @@ class EndpointRAM(StrEnum):
     RAM = "ram"
 
 
-class MetricKeys(StrEnum):
+class Metrics(StrEnum):
     """
     Keys used inside the ``metrics`` dictionary of a *step*.
 
@@ -137,6 +137,7 @@ class MetricKeys(StrEnum):
 
     NETWORK_LATENCY = "network_latency"
     CPU_TIME        = "cpu_time"
+    IO_WAITING_TIME = "io_waiting_time"
     NECESSARY_RAM   = "necessary_ram"
 
 # ======================================================================

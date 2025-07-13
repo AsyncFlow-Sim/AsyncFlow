@@ -10,7 +10,8 @@ import pytest
 
 from app.config.constants import TimeDefaults
 from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
-from app.schemas.requests_generator_input import RVConfig, SimulationInput
+from app.schemas.random_variables_config import RVConfig
+from app.schemas.requests_generator_input import RqsGeneratorInput
 
 # ---------------------------------------------------------------------------
 # Fixture
@@ -18,9 +19,9 @@ from app.schemas.requests_generator_input import RVConfig, SimulationInput
 
 
 @pytest.fixture
-def base_input() -> SimulationInput:
-    """Return a minimal, valid SimulationInput for the Gaussian-Poisson sampler."""
-    return SimulationInput(
+def base_input() -> RqsGeneratorInput:
+    """Return a minimal, valid RqsGeneratorInput for the Gaussian-Poisson sampler."""
+    return RqsGeneratorInput(
         avg_active_users=RVConfig(
             mean=10.0, variance=4.0, distribution="normal",
         ),
@@ -35,14 +36,14 @@ def base_input() -> SimulationInput:
 # ---------------------------------------------------------------------------
 
 
-def test_returns_generator_type(base_input: SimulationInput) -> None:
+def test_returns_generator_type(base_input: RqsGeneratorInput) -> None:
     """The function must return a generator object."""
     rng = np.random.default_rng(0)
     gen = gaussian_poisson_sampling(base_input, rng=rng)
     assert isinstance(gen, GeneratorType)
 
 
-def test_generates_positive_gaps(base_input: SimulationInput) -> None:
+def test_generates_positive_gaps(base_input: RqsGeneratorInput) -> None:
     """
     With nominal parameters the sampler should emit at least a few positive
     gaps and no gap must be non-positive.
@@ -67,7 +68,7 @@ def test_generates_positive_gaps(base_input: SimulationInput) -> None:
 
 def test_zero_users_produces_no_events(
     monkeypatch: pytest.MonkeyPatch,
-    base_input: SimulationInput,
+    base_input: RqsGeneratorInput,
 ) -> None:
     """
     If every Gaussian draw returns 0 users, Λ == 0,

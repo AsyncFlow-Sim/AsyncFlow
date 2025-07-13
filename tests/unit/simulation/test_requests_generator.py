@@ -11,7 +11,7 @@ import pytest
 from app.config.constants import TimeDefaults
 from app.core.simulation.requests_generator import requests_generator
 from app.core.simulation.simulation_run import run_simulation
-from app.schemas.requests_generator_input import SimulationInput
+from app.schemas.requests_generator_input import RqsGeneratorInput
 
 if TYPE_CHECKING:
 
@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 # --------------------------------------------------------------
 
 @pytest.fixture
-def base_input() -> SimulationInput:
-    """Return a SimulationInput with a 120-second simulation horizon."""
-    return SimulationInput(
+def base_input() -> RqsGeneratorInput:
+    """Return a RqsGeneratorInput with a 120-second simulation horizon."""
+    return RqsGeneratorInput(
         avg_active_users={"mean": 1.0},
         avg_request_per_minute_per_user={"mean": 2.0},
         total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
@@ -37,7 +37,7 @@ def base_input() -> SimulationInput:
 # --------------------------------------------------------------
 
 def test_default_requests_generator_uses_poisson_poisson_sampling(
-    base_input: SimulationInput,
+    base_input: RqsGeneratorInput,
 ) -> None:
     """
     Verify that when avg_active_users.distribution is the default 'poisson',
@@ -69,7 +69,7 @@ def test_requests_generator_dispatches_to_correct_sampler(
       - 'poisson' → poisson_poisson_sampling
       - 'normal'  → gaussian_poisson_sampling
     """
-    input_data = SimulationInput(
+    input_data = RqsGeneratorInput(
         avg_active_users={"mean": 1.0, "distribution": dist},
         avg_request_per_minute_per_user={"mean": 1.0},
         total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
@@ -87,7 +87,7 @@ def test_requests_generator_dispatches_to_correct_sampler(
 # --------------------------------------------------------------
 
 def test_run_simulation_counts_events_up_to_horizon(
-    monkeypatch: pytest.MonkeyPatch, base_input: SimulationInput,
+    monkeypatch: pytest.MonkeyPatch, base_input: RqsGeneratorInput,
 ) -> None:
     """
     Verify that all events whose cumulative inter-arrival times
@@ -96,7 +96,7 @@ def test_run_simulation_counts_events_up_to_horizon(
     yield 4 events by t=10.
     """
     def fake_requests_generator_fixed(
-        data: SimulationInput, *, rng: np.random.Generator,
+        data: RqsGeneratorInput, *, rng: np.random.Generator,
     ) -> Iterator[float]:
         # Replace the complex Poisson-Poisson sampler with a deterministic sequence.
         yield from [1.0, 2.0, 3.0, 4.0]
@@ -118,14 +118,14 @@ def test_run_simulation_counts_events_up_to_horizon(
 
 
 def test_run_simulation_includes_event_at_exact_horizon(
-    monkeypatch: pytest.MonkeyPatch, base_input: SimulationInput,
+    monkeypatch: pytest.MonkeyPatch, base_input: RqsGeneratorInput,
 ) -> None:
     """
     Confirm that an event scheduled exactly at the simulation horizon
     is not processed, since SimPy stops at t == horizon.
     """
     def fake_generator_at_horizon(
-        data: SimulationInput, *, rng: np.random.Generator,
+        data: RqsGeneratorInput, *, rng: np.random.Generator,
     ) -> Iterator[float]:
 
         # mypy assertion, pydantic guaranteed
@@ -146,14 +146,14 @@ def test_run_simulation_includes_event_at_exact_horizon(
 
 
 def test_run_simulation_excludes_event_beyond_horizon(
-    monkeypatch: pytest.MonkeyPatch, base_input: SimulationInput,
+    monkeypatch: pytest.MonkeyPatch, base_input: RqsGeneratorInput,
 ) -> None:
     """
     Ensure that events scheduled after the simulation horizon
     are not counted.
     """
     def fake_generator_beyond_horizon(
-        data: SimulationInput, *, rng: np.random.Generator,
+        data: RqsGeneratorInput, *, rng: np.random.Generator,
     ) -> Iterator[float]:
 
         # mypy assertion, pydantic guaranteed
@@ -173,14 +173,14 @@ def test_run_simulation_excludes_event_beyond_horizon(
 
 
 def test_run_simulation_zero_events_when_generator_empty(
-    monkeypatch: pytest.MonkeyPatch, base_input: SimulationInput,
+    monkeypatch: pytest.MonkeyPatch, base_input: RqsGeneratorInput,
 ) -> None:
     """
     Check that run_simulation reports zero requests when no
     inter-arrival times are yielded.
     """
     def fake_generator_empty(
-        data: SimulationInput, *, rng: np.random.Generator,
+        data: RqsGeneratorInput, *, rng: np.random.Generator,
     ) -> Iterator[float]:
         # Empty generator yields nothing.
         if False:

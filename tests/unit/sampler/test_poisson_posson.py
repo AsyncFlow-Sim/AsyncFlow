@@ -11,13 +11,14 @@ import pytest
 
 from app.config.constants import TimeDefaults
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
-from app.schemas.requests_generator_input import RVConfig, SimulationInput
+from app.schemas.random_variables_config import RVConfig
+from app.schemas.requests_generator_input import RqsGeneratorInput
 
 
 @pytest.fixture
-def base_input() -> SimulationInput:
-    """Return a minimal-valid SimulationInput for the sampler tests."""
-    return SimulationInput(
+def base_input() -> RqsGeneratorInput:
+    """Return a minimal-valid RqsGeneratorInput for the sampler tests."""
+    return RqsGeneratorInput(
         # 1 average concurrent user …
         avg_active_users={"mean": 1.0, "distribution": "poisson"},
         # … sending on average 60 req/min → 1 req/s
@@ -32,7 +33,7 @@ def base_input() -> SimulationInput:
 # ---------------------------------------------------------------------
 
 
-def test_sampler_returns_generator(base_input: SimulationInput) -> None:
+def test_sampler_returns_generator(base_input: RqsGeneratorInput) -> None:
     """The function must return a real generator object."""
     rng = np.random.default_rng(0)
     gen = poisson_poisson_sampling(base_input, rng=rng)
@@ -40,7 +41,7 @@ def test_sampler_returns_generator(base_input: SimulationInput) -> None:
     assert isinstance(gen, GeneratorType)
 
 
-def test_all_gaps_are_positive(base_input: SimulationInput) -> None:
+def test_all_gaps_are_positive(base_input: RqsGeneratorInput) -> None:
     """Every yielded inter-arrival gap Δt must be > 0."""
     rng = np.random.default_rng(1)
     gaps: list[float] = list(
@@ -56,7 +57,7 @@ def test_all_gaps_are_positive(base_input: SimulationInput) -> None:
 # ---------------------------------------------------------------------
 
 
-def test_sampler_is_reproducible_with_fixed_seed(base_input: SimulationInput) -> None:
+def test_sampler_is_reproducible_with_fixed_seed(base_input: RqsGeneratorInput) -> None:
     """Same seed ⇒ identical first N gaps."""
     seed = 42
     n_samples = 15
@@ -86,12 +87,12 @@ def test_sampler_is_reproducible_with_fixed_seed(base_input: SimulationInput) ->
 # ---------------------------------------------------------------------
 
 
-def test_zero_users_produces_no_events(base_input: SimulationInput) -> None:
+def test_zero_users_produces_no_events(base_input: RqsGeneratorInput) -> None:
     """
     With mean concurrent users == 0 the Poisson draw is almost surely 0,
     so Λ = 0 and the generator should yield no events.
     """
-    input_data = SimulationInput(
+    input_data = RqsGeneratorInput(
         avg_active_users=RVConfig(mean=0.0, distribution="poisson"),
         avg_request_per_minute_per_user=RVConfig(mean=60.0, distribution="poisson"),
         total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
@@ -108,7 +109,7 @@ def test_zero_users_produces_no_events(base_input: SimulationInput) -> None:
 # ---------------------------------------------------------------------
 
 
-def test_cumulative_time_never_exceeds_horizon(base_input: SimulationInput) -> None:
+def test_cumulative_time_never_exceeds_horizon(base_input: RqsGeneratorInput) -> None:
     """ΣΔt (virtual clock) must stay strictly below total_simulation_time."""
     rng = np.random.default_rng(7)
     gaps = list(poisson_poisson_sampling(base_input, rng=rng))

@@ -14,13 +14,13 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from app.schemas.simulation_input import SimulationInput
+    from app.schemas.requests_generator_input import RqsGeneratorInput
 
 
 
 
 def run_simulation(
-    input_data: SimulationInput,
+    input_data: RqsGeneratorInput,
     *,
     rng: np.random.Generator,
 ) -> SimulationOutput:

@@ -40,7 +40,7 @@ class RVConfig(BaseModel):
     distribution: Literal["poisson", "normal", "gaussian"] = "poisson"
     variance: float | None = None  # required only for normal/gaussian
 
-class SimulationInput(BaseModel):
+class RqsGeneratorInput(BaseModel):
     """Define simulation inputs."""
     avg_active_users: RVConfig
     avg_request_per_minute_per_user: RVConfig

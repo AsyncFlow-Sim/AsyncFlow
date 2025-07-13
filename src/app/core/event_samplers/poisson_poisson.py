@@ -13,11 +13,11 @@ from app.core.event_samplers.common_helpers import (
     poisson_variable_generator,
     uniform_variable_generator,
 )
-from app.schemas.requests_generator_input import SimulationInput
+from app.schemas.requests_generator_input import RqsGeneratorInput
 
 
 def poisson_poisson_sampling(
-    input_data: SimulationInput,
+    input_data: RqsGeneratorInput,
     *,
     rng: np.random.Generator | None = None,
 ) ->  Generator[float, None, None]:

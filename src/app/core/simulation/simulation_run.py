@@ -27,24 +27,19 @@ def run_simulation(
     rng: np.random.Generator,
 ) -> SimulationOutput:
     """Simulation executor in Simpy"""
-    settings = input_data.settings
-    simulation_time = settings.total_simulation_time
-    # pydantic in the validation assign a value and mypy is not
-    # complaining because a None cannot be compared in the loop
-    # to a float
-    assert simulation_time is not None
+    sim_settings = input_data.sim_settings
 
     requests_generator_input = input_data.rqs_input
 
     gaps: Generator[float, None, None] = requests_generator(
         requests_generator_input,
-        settings,
+        sim_settings,
         rng=rng)
     env = simpy.Environment()
 
 
     total_request_per_time_period = {
-        "simulation_time": simulation_time,
+        "simulation_time": sim_settings.total_simulation_time,
         "total_requests": 0,
         }
 
@@ -56,7 +51,7 @@ def run_simulation(
             total_request_per_time_period["total_requests"] += 1
 
     env.process(arrival_process(env))
-    env.run(until=simulation_time)
+    env.run(until=sim_settings.total_simulation_time)
 
     return SimulationOutput(
         total_requests=total_request_per_time_period,

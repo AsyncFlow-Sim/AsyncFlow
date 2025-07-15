@@ -10,6 +10,8 @@ from alembic import command
 from alembic.config import Config
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
+from numpy.random import Generator as NpGenerator
+from numpy.random import default_rng
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -18,9 +20,23 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
+from app.config.constants import (
+    EventMetricName,
+    SampledMetricName,
+    TimeDefaults,
+)
 from app.config.settings import settings
 from app.db.session import get_db
 from app.main import app
+from app.schemas.full_simulation_input import SimulationPayload
+from app.schemas.random_variables_config import RVConfig
+from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.simulation_settings_input import SimulationSettings
+from app.schemas.system_topology_schema.full_system_topology_schema import (
+    Client,
+    TopologyGraph,
+    TopologyNodes,
+)
 
 # Load test environment variables from .env.test
 ENV_PATH = Path(__file__).resolve().parents[1] / "docker_fs" / ".env.test"
@@ -121,3 +137,102 @@ async def db_session(async_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, 
         await transaction.rollback()
         # Close the connection
         await connection.close()
+
+# ============================================================================
+# STANDARD CONFIGURATION FOR INPUT VARIABLES
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# RNG
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def rng() -> NpGenerator:
+    """Deterministic NumPy RNG shared across tests (seed=0)."""
+    return default_rng(0)
+
+
+# ---------------------------------------------------------------------------
+# Metrics sets
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def enabled_sample_metrics() -> set[SampledMetricName]:
+    """Default sample-level KPIs tracked in most tests."""
+    return {
+        SampledMetricName.READY_QUEUE_LEN,
+        SampledMetricName.RAM_IN_USE,
+    }
+
+
+@pytest.fixture(scope="session")
+def enabled_event_metrics() -> set[EventMetricName]:
+    """Default event-level KPIs tracked in most tests."""
+    return {EventMetricName.RQS_LATENCY}
+
+
+# ---------------------------------------------------------------------------
+# Global simulation settings
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sim_settings(
+    enabled_sample_metrics: set[SampledMetricName],
+    enabled_event_metrics: set[EventMetricName],
+) -> SimulationSettings:
+    """A minimal `SimulationSettings` instance for unit tests."""
+    return SimulationSettings(
+        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
+        enabled_sample_metrics=enabled_sample_metrics,
+        enabled_event_metrics=enabled_event_metrics,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Traffic profile
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def rqs_input() -> RqsGeneratorInput:
+    """`RqsGeneratorInput` with 1 user and 2 req/min for quick tests."""
+    return RqsGeneratorInput(
+        avg_active_users=RVConfig(mean=1.0),
+        avg_request_per_minute_per_user=RVConfig(mean=2.0),
+        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Minimal topology (one client, no servers, no edges)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def topology_minimal() -> TopologyGraph:
+    """Valid topology with a single client and zero servers/edges."""
+    client = Client(id="client-1")
+    nodes = TopologyNodes(servers=[], client=client)
+    return TopologyGraph(nodes=nodes, edges=[])
+
+
+# ---------------------------------------------------------------------------
+# Full simulation payload
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def payload_base(
+    rqs_input: RqsGeneratorInput,
+    sim_settings: SimulationSettings,
+    topology_minimal: TopologyGraph,
+) -> SimulationPayload:
+    """End-to-end payload used by high-level simulation tests."""
+    return SimulationPayload(
+        rqs_input=rqs_input,
+        topology_graph=topology_minimal,
+        sim_settings=sim_settings,
+    )

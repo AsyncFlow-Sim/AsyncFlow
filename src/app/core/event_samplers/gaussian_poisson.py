@@ -22,7 +22,7 @@ from app.schemas.simulation_settings_input import SimulationSettings
 
 def gaussian_poisson_sampling(
     input_data: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
     *,
     rng: np.random.Generator | None = None,
 ) -> Generator[float, None, None]:
@@ -41,7 +41,7 @@ def gaussian_poisson_sampling(
     """
     rng = rng or np.random.default_rng()
 
-    simulation_time = settings.total_simulation_time
+    simulation_time = sim_settings.total_simulation_time
     user_sampling_window = input_data.user_sampling_window
 
     # λ_u : mean concurrent users per window

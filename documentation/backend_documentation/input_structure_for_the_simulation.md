@@ -6,7 +6,7 @@ This contract brings together three distinct but interconnected layers of config
 
 1.  **`rqs_input` (`RqsGeneratorInput`)**: Defines the **workload profile**—how many users are active and how frequently they generate requests.
 2.  **`topology_graph` (`TopologyGraph`)**: Describes the **system's architecture**—its components, resources, and the network connections between them.
-3.  **`settings` (`SimulationSettings`)**: Configures **global simulation parameters**, such as total runtime and which metrics to collect.
+3.  **`sim_settings` (`SimulationSettings`)**: Configures **global simulation parameters**, such as total runtime and which metrics to collect.
 
 This layered design decouples the *what* (the system topology) from the *how* (the traffic pattern and simulation control), allowing for modular and reusable configurations. Adherence to our validation-first philosophy means every payload is rigorously parsed against this schema. By using a controlled vocabulary of `Enums` and the power of Pydantic, we guarantee that any malformed or logically inconsistent input is rejected upfront with clear, actionable errors, ensuring the simulation engine operates only on perfectly valid data.
 
@@ -170,8 +170,20 @@ This final component configures the simulation's execution parameters and, criti
 class SimulationSettings(BaseModel):
     """Global parameters that apply to the whole run."""
     total_simulation_time: int = Field(...)
-    enabled_sample_metrics: set[SampledMetricName]
-    enabled_event_metrics: set[EventMetricName]
+    enabled_sample_metrics: set[SampledMetricName] = Field(
+        default_factory=lambda: {
+            SampledMetricName.READY_QUEUE_LEN,
+            SampledMetricName.CORE_BUSY,
+            SampledMetricName.RAM_IN_USE,
+        },
+        description="Which time‑series KPIs to collect by default.",
+    )
+    enabled_event_metrics: set[EventMetricName] = Field(
+        default_factory=lambda: {
+            EventMetricName.RQS_LATENCY,
+        },
+        description="Which per‑event KPIs to collect by default.",
+    )
 ```
 
 | Field | Type | Purpose & Validation |
@@ -180,6 +192,7 @@ class SimulationSettings(BaseModel):
 | `enabled_sample_metrics` | `set[SampledMetricName]` | A set of metrics to be sampled at fixed intervals, creating a time-series (e.g., `"ready_queue_len"`, `"ram_in_use"`). |
 | `enabled_event_metrics` | `set[EventMetricName]` | A set of metrics recorded only when specific events occur, with no time-series (e.g., `"rqs_latency"`, `"llm_cost"`). |
 
+We add standard default value for the metrics in case they will be omitted
 ---
 
 #### **Design Rationale: Pre-validated, On-Demand Metrics for Robust and Efficient Collection**

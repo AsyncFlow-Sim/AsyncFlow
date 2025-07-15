@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 from types import GeneratorType
+from typing import TYPE_CHECKING
 
 import pytest
 from numpy.random import Generator, default_rng
@@ -14,7 +15,10 @@ from app.core.event_samplers.gaussian_poisson import (
 )
 from app.schemas.random_variables_config import RVConfig
 from app.schemas.requests_generator_input import RqsGeneratorInput
-from app.schemas.simulation_settings_input import SimulationSettings
+
+if TYPE_CHECKING:
+
+    from app.schemas.simulation_settings_input import SimulationSettings
 
 # ---------------------------------------------------------------------------
 # FIXTURES
@@ -35,17 +39,6 @@ def rqs_cfg() -> RqsGeneratorInput:
     )
 
 
-@pytest.fixture
-def settings() -> SimulationSettings:
-    """SimulationSettings with a 120-second horizon."""
-    return SimulationSettings(total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME)
-
-
-@pytest.fixture
-def rng() -> Generator:
-    """Shared deterministic RNG."""
-    return default_rng(0)
-
 
 # ---------------------------------------------------------------------------
 # BASIC BEHAVIOUR
@@ -54,17 +47,17 @@ def rng() -> Generator:
 
 def test_returns_generator_type(
     rqs_cfg: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
     rng: Generator,
 ) -> None:
     """The function must return a generator object."""
-    gen = gaussian_poisson_sampling(rqs_cfg, settings, rng=rng)
+    gen = gaussian_poisson_sampling(rqs_cfg, sim_settings, rng=rng)
     assert isinstance(gen, GeneratorType)
 
 
 def test_generates_positive_gaps(
     rqs_cfg: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
 ) -> None:
     """
     With nominal parameters the sampler should emit at least a few positive
@@ -72,14 +65,14 @@ def test_generates_positive_gaps(
     """
     gaps: list[float] = list(
         itertools.islice(
-            gaussian_poisson_sampling(rqs_cfg, settings, rng=default_rng(42)),
+            gaussian_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(42)),
             1000,
         ),
     )
 
     assert gaps, "Expected at least one event"
     assert all(g > 0.0 for g in gaps), "No gap may be ≤ 0"
-    assert sum(gaps) < settings.total_simulation_time
+    assert sum(gaps) < sim_settings.total_simulation_time
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +83,7 @@ def test_generates_positive_gaps(
 def test_zero_users_produces_no_events(
     monkeypatch: pytest.MonkeyPatch,
     rqs_cfg: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
 ) -> None:
     """
     If every Gaussian draw returns 0 users, Λ == 0 and the generator must
@@ -110,7 +103,7 @@ def test_zero_users_produces_no_events(
     )
 
     gaps: list[float] = list(
-        gaussian_poisson_sampling(rqs_cfg, settings, rng=default_rng(123)),
+        gaussian_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(123)),
     )
 
     assert gaps == []  # no events should be generated

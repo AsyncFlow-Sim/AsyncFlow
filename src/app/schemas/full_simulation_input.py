@@ -12,4 +12,4 @@ class SimulationPayload(BaseModel):
 
     rqs_input: RqsGeneratorInput
     topology_graph: TopologyGraph
-    settings: SimulationSettings
+    sim_settings: SimulationSettings

@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from app.config.constants import TimeDefaults
+from app.config.constants import EventMetricName, SampledMetricName, TimeDefaults
 
 
 class SimulationSettings(BaseModel):
@@ -13,3 +13,19 @@ class SimulationSettings(BaseModel):
         ge=TimeDefaults.MIN_SIMULATION_TIME,
         description="Simulation horizon in seconds.",
     )
+
+    enabled_sample_metrics: set[SampledMetricName] = Field(
+        default_factory=lambda: {
+            SampledMetricName.READY_QUEUE_LEN,
+            SampledMetricName.CORE_BUSY,
+            SampledMetricName.RAM_IN_USE,
+        },
+        description="Which time-series KPIs to collect by default.",
+    )
+    enabled_event_metrics: set[EventMetricName] = Field(
+        default_factory=lambda: {
+            EventMetricName.RQS_LATENCY,
+        },
+        description="Which per-event KPIs to collect by default.",
+    )
+

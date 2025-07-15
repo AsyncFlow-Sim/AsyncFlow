@@ -5,6 +5,7 @@ from __future__ import annotations
 import itertools
 import math
 from types import GeneratorType
+from typing import TYPE_CHECKING
 
 import pytest
 from numpy.random import Generator, default_rng
@@ -13,11 +14,10 @@ from app.config.constants import TimeDefaults
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
 from app.schemas.random_variables_config import RVConfig
 from app.schemas.requests_generator_input import RqsGeneratorInput
-from app.schemas.simulation_settings_input import SimulationSettings
 
-# ---------------------------------------------------------------------------
-# FIXTURES
-# ---------------------------------------------------------------------------
+if TYPE_CHECKING:
+
+    from app.schemas.simulation_settings_input import SimulationSettings
 
 
 @pytest.fixture
@@ -29,42 +29,29 @@ def rqs_cfg() -> RqsGeneratorInput:
         user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
     )
 
-
-@pytest.fixture
-def settings() -> SimulationSettings:
-    """Return settings with a 30-minute horizon (1800 s)."""
-    return SimulationSettings(total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME)
-
-
-@pytest.fixture
-def rng() -> Generator:
-    """Shared deterministic RNG."""
-    return default_rng(0)
-
-
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------
 # BASIC SHAPE AND TYPE TESTS
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------
 
 
 def test_sampler_returns_generator(
     rqs_cfg: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
     rng: Generator,
 ) -> None:
     """Function must return a generator object."""
-    gen = poisson_poisson_sampling(rqs_cfg, settings, rng=rng)
+    gen = poisson_poisson_sampling(rqs_cfg, sim_settings, rng=rng)
     assert isinstance(gen, GeneratorType)
 
 
 def test_all_gaps_are_positive(
     rqs_cfg: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
 ) -> None:
     """Every yielded gap must be strictly positive."""
     gaps = list(
         itertools.islice(
-            poisson_poisson_sampling(rqs_cfg, settings, rng=default_rng(1)),
+            poisson_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(1)),
             1_000,
         ),
     )
@@ -78,7 +65,7 @@ def test_all_gaps_are_positive(
 
 def test_sampler_is_reproducible_with_fixed_seed(
     rqs_cfg: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
 ) -> None:
     """Same RNG seed must produce identical first N gaps."""
     seed = 42
@@ -86,13 +73,13 @@ def test_sampler_is_reproducible_with_fixed_seed(
 
     gaps_1 = list(
         itertools.islice(
-            poisson_poisson_sampling(rqs_cfg, settings, rng=default_rng(seed)),
+            poisson_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(seed)),
             n_samples,
         ),
     )
     gaps_2 = list(
         itertools.islice(
-            poisson_poisson_sampling(rqs_cfg, settings, rng=default_rng(seed)),
+            poisson_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(seed)),
             n_samples,
         ),
     )
@@ -105,7 +92,7 @@ def test_sampler_is_reproducible_with_fixed_seed(
 
 
 def test_zero_users_produces_no_events(
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
 ) -> None:
     """If the mean user count is zero the generator must yield no events."""
     cfg_zero = RqsGeneratorInput(
@@ -115,7 +102,7 @@ def test_zero_users_produces_no_events(
     )
 
     gaps: list[float] = list(
-        poisson_poisson_sampling(cfg_zero, settings, rng=default_rng(123)),
+        poisson_poisson_sampling(cfg_zero, sim_settings, rng=default_rng(123)),
     )
     assert gaps == []
 
@@ -127,11 +114,11 @@ def test_zero_users_produces_no_events(
 
 def test_cumulative_time_never_exceeds_horizon(
     rqs_cfg: RqsGeneratorInput,
-    settings: SimulationSettings,
+    sim_settings: SimulationSettings,
 ) -> None:
     """Sum of gaps must stay below the simulation horizon."""
     gaps: list[float] = list(
-        poisson_poisson_sampling(rqs_cfg, settings, rng=default_rng(7)),
+        poisson_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(7)),
     )
     cum_time = math.fsum(gaps)
-    assert cum_time < settings.total_simulation_time
+    assert cum_time < sim_settings.total_simulation_time

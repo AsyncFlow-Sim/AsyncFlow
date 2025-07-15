@@ -14,28 +14,32 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from app.schemas.requests_generator_input import RqsGeneratorInput
+    from app.schemas.full_simulation_input import SimulationPayload
+
+
 
 
 
 
 def run_simulation(
-    input_data: RqsGeneratorInput,
+    input_data: SimulationPayload,
     *,
     rng: np.random.Generator,
 ) -> SimulationOutput:
     """Simulation executor in Simpy"""
-    gaps: Generator[float, None, None] = requests_generator(input_data, rng=rng)
+    sim_settings = input_data.sim_settings
+
+    requests_generator_input = input_data.rqs_input
+
+    gaps: Generator[float, None, None] = requests_generator(
+        requests_generator_input,
+        sim_settings,
+        rng=rng)
     env = simpy.Environment()
 
-    simulation_time = input_data.total_simulation_time
-    # pydantic in the validation assign a value and mypy is not
-    # complaining because a None cannot be compared in the loop
-    # to a float
-    assert simulation_time is not None
 
     total_request_per_time_period = {
-        "simulation_time": simulation_time,
+        "simulation_time": sim_settings.total_simulation_time,
         "total_requests": 0,
         }
 
@@ -47,10 +51,10 @@ def run_simulation(
             total_request_per_time_period["total_requests"] += 1
 
     env.process(arrival_process(env))
-    env.run(until=simulation_time)
+    env.run(until=sim_settings.total_simulation_time)
 
     return SimulationOutput(
         total_requests=total_request_per_time_period,
-        metric_2=str(input_data.avg_request_per_minute_per_user.mean),
-        metric_n=str(input_data.avg_active_users.mean),
+        metric_2=str(requests_generator_input.avg_request_per_minute_per_user.mean),
+        metric_n=str(requests_generator_input.avg_active_users.mean),
     )

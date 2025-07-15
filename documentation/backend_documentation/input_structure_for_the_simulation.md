@@ -1,404 +1,320 @@
-### **FastSim — Request-Generator Input Configuration**
+### **FastSim — Simulation Input Schema**
 
-A **single, self-consistent contract** links three layers of the codebase:
+The `SimulationPayload` is the single, self-contained contract that defines an entire simulation run. Its architecture is guided by a core philosophy: to achieve maximum control over input data through robust, upfront validation. To implement this, we extensively leverage Pydantic's powerful validation capabilities and Python's `Enum` classes. This approach creates a strictly-typed and self-consistent schema that guarantees any configuration is validated *before* the simulation engine starts.
 
-1.  **Global Constants** – `TimeDefaults`, `Distribution`
-2.  **Random Variable Schema** – `RVConfig`
-3.  **Traffic-Generator Payload** – `RqsGeneratorInput`
+This contract brings together three distinct but interconnected layers of configuration into one cohesive structure:
 
-Understanding how these layers interact is key to crafting valid and predictable traffic profiles, preventing common configuration errors before the simulation begins.
+1.  **`rqs_input` (`RqsGeneratorInput`)**: Defines the **workload profile**—how many users are active and how frequently they generate requests.
+2.  **`topology_graph` (`TopologyGraph`)**: Describes the **system's architecture**—its components, resources, and the network connections between them.
+3.  **`sim_settings` (`SimulationSettings`)**: Configures **global simulation parameters**, such as total runtime and which metrics to collect.
+
+This layered design decouples the *what* (the system topology) from the *how* (the traffic pattern and simulation control), allowing for modular and reusable configurations. Adherence to our validation-first philosophy means every payload is rigorously parsed against this schema. By using a controlled vocabulary of `Enums` and the power of Pydantic, we guarantee that any malformed or logically inconsistent input is rejected upfront with clear, actionable errors, ensuring the simulation engine operates only on perfectly valid data.
 
 ---
 
-### 1. Global Constants
+### **1. Component: Traffic Profile (`RqsGeneratorInput`)**
+
+This component specifies the dynamic behavior of users interacting with the system. It is built upon a foundation of shared constants and a reusable, rigorously validated random variable schema. This design ensures that any traffic profile is not only structurally correct but also logically sound before the simulation begins.
+
+#### **Global Constants**
+
+These enums provide a single source of truth for validation and default values, eliminating "magic strings" and ensuring consistency.
 
 | Constant Set | Purpose | Key Values |
 | :--- | :--- | :--- |
-| **`TimeDefaults`** (`IntEnum`) | Defines default values and validation bounds for time-based fields. | `SIMULATION_TIME = 3600 s`, `MIN_SIMULATION_TIME = 1800 s`, `USER_SAMPLING_WINDOW = 60 s`, `MIN_USER_SAMPLING_WINDOW = 1 s`, `MAX_USER_SAMPLING_WINDOW = 120 s` |
-| **`Distribution`** (`StrEnum`) | Defines the canonical names of probability distributions supported by the generator. | `"poisson"`, `"normal"`, `"log_normal"`, `"exponential"` |
-
-***Why use constants?***
-
-*   **Consistency:** They are referenced by validators; changing a value in one place updates the entire validation tree.
-*   **Safety:** They guarantee that a typo, such as `"Poisson"`, raises an error instead of silently failing or switching to an unintended default.
+| **`TimeDefaults`** (`IntEnum`) | Defines default values and validation bounds for time-based fields. | `USER_SAMPLING_WINDOW = 60`, `MIN_USER_SAMPLING_WINDOW = 1`, `MAX_USER_SAMPLING_WINDOW = 120` |
+| **`Distribution`** (`StrEnum`) | Defines the canonical names of supported probability distributions. | `"poisson"`, `"normal"`, `"log_normal"`, `"exponential"` |
 
 ---
 
-### 2. Random Variable Schema (`RVConfig`)
+#### **Random Variable Schema (`RVConfig`)**
+
+At the core of the traffic generator is the `RVConfig`, a schema for defining stochastic variables. This allows critical parameters like user population and request rates to be modeled not as fixed numbers, but as draws from a probability distribution. Pydantic validators are used extensively to enforce correctness.
 
 ```python
 class RVConfig(BaseModel):
     """class to configure random variables"""
-
     mean: float
     distribution: Distribution = Distribution.POISSON
     variance: float | None = None
 
     @field_validator("mean", mode="before")
-    def ensure_mean_is_numeric(
-        cls, # noqa: N805
-        v: object,
-        ) -> float:
-        """Ensure `mean` is numeric, then coerce to float."""
-        err_msg = "mean must be a number (int or float)"
-        if not isinstance(v, (float, int)):
-            raise ValueError(err_msg)  # noqa: TRY004
-        return float(v)
+    def ensure_mean_is_numeric(cls, v: object) -> float:
+        # ... implementation ...
 
-    @model_validator(mode="after")  # type: ignore[arg-type]
-    def default_variance(cls, model: "RVConfig") -> "RVConfig":  # noqa: N805
-        """Set variance = mean when distribution == 'normal' and variance is missing."""
-        if model.variance is None and model.distribution == Distribution.NORMAL:
-            model.variance = model.mean
-        return model
-
+    @model_validator(mode="after")
+    def default_variance(cls, model: "RVConfig") -> "RVConfig":
+        # ... implementation ...
 ```
 
-#### Validation Logic
+##### **Built-in Validation Logic**
 
-| Check | Pydantic Hook | Rule |
+Pydantic's validation system is leveraged to enforce several layers of correctness directly within the schema:
+
+| Check | Pydantic Hook | Rule & Rationale |
 | :--- | :--- | :--- |
-| *Mean must be numeric* | `@field_validator("mean", before)` | Rejects strings and nulls; coerces `int` to `float`. |
-| *Autofill variance* | `@model_validator(after)` | If `distribution == "normal"` **and** `variance` is not provided, sets `variance = mean`. |
-| *Positivity enforcement* | `PositiveFloat` / `PositiveInt` | Pydantic's constrained types are used on fields like `mean` where negative values are invalid, rejecting them before business logic runs. |
-
-> **Self-Consistency:** Every random draw in the simulation engine relies on a validated `RVConfig` instance. This avoids redundant checks and defensive code downstream.
+| **Numeric `mean` Enforcement** | `@field_validator("mean", mode="before")` | This validator intercepts the `mean` field *before* any type casting. It ensures the provided value is an `int` or `float`, raising an explicit `ValueError` for invalid types like strings (`"100"`) or nulls. This prevents common configuration errors and guarantees a valid numeric type for all downstream logic. |
+| **Valid `distribution` Name** | `Distribution` (`StrEnum`) type hint | By type-hinting the `distribution` field with the `Distribution` enum, Pydantic automatically ensures that its value must be one of the predefined members (e.g., `"poisson"`, `"normal"`). Any typo or unsupported value (like `"Poisson"` with a capital 'P') results in an immediate validation error. |
+| **Intelligent `variance` Defaulting** | `@model_validator(mode="after")` | This powerful validator runs *after* all individual fields have been validated. It enforces a crucial business rule: if `distribution` is `"normal"` **and** `variance` is not provided, the schema automatically sets `variance = mean`. This provides a safe, logical default and simplifies configuration for the user, while ensuring the model is always self-consistent. |
 
 ---
 
-### 3. Traffic-Generator Payload (`RqsGeneratorInput`)
+#### **Payload Structure (`RqsGeneratorInput`)**
 
-| Field | Type | Validation Tied to Constants |
+This is the main payload for configuring the traffic workload. It composes the `RVConfig` schema and adds its own validation rules.
+
+| Field | Type | Validation & Purpose |
 | :--- | :--- | :--- |
-| `avg_active_users` | `RVConfig` | No extra constraints needed; the inner schema guarantees correctness. |
-| `avg_request_per_minute_per_user` | `RVConfig` | Same as above. |
-| `total_simulation_time` | `int` | `ge=TimeDefaults.MIN_SIMULATION_TIME`<br>default=`TimeDefaults.SIMULATION_TIME` |
-| `user_sampling_window` | `int` | `ge=TimeDefaults.MIN_USER_SAMPLING_WINDOW`<br>`le=TimeDefaults.MAX_USER_SAMPLING_WINDOW`<br>default=`TimeDefaults.USER_SAMPLING_WINDOW` |
+| `avg_active_users` | `RVConfig` | A random variable defining concurrent users. **Inherits all `RVConfig` validation**, ensuring its `mean`, `distribution`, and `variance` are valid. |
+| `avg_request_per_minute_per_user` | `RVConfig` | A random variable for the user request rate. Also **inherits all `RVConfig` validation**. |
+| `user_sampling_window` | `int` | The time duration (in seconds) for which the number of active users is held constant. Its value is **strictly bounded** by Pydantic's `Field` to be between `MIN_USER_SAMPLING_WINDOW` (1) and `MAX_USER_SAMPLING_WINDOW` (120). |
 
-#### How the Generator Uses Each Field
+##### **How the Generator Uses Each Field**
 
-The simulation evolves based on a simple, powerful loop:
+The simulation evolves based on this robustly validated input:
 
-1.  **Timeline Partitioning** (`user_sampling_window`): The simulation timeline is divided into fixed-length windows. For each window:
-2.  **Active User Sampling** (`avg_active_users`): A single value is drawn to determine the concurrent user population, `U(t)`, for that window.
-3.  **Request Rate Calculation** (`avg_request_per_minute_per_user`): Each of the `U(t)` users contributes to the total request rate, yielding an aggregate load for the window.
-4.  **Termination** (`total_simulation_time`): The loop stops once the cumulative simulated time reaches this value.
+1.  The timeline is divided into windows of `user_sampling_window` seconds. Because this value is range-checked upfront by Pydantic, the simulation is protected from invalid configurations like zero-length or excessively long windows.
+2.  At the start of each window, a number of active users, `U(t)`, is drawn from the `avg_active_users` distribution. The embedded `RVConfig` guarantees this distribution is well-defined.
+3.  Each of the `U(t)` users generates requests according to a rate drawn from `avg_request_per_minute_per_user`.
 
-Because every numeric input is range-checked upfront, **the runtime engine never needs to defend itself** against invalid data like zero-length windows or negative rates, making the event-loop lean and predictable.
+Because every numeric input is type-checked and range-checked by Pydantic before the simulation begins, **the runtime engine never needs to defend itself** against invalid data. This makes the core simulation loop leaner, more predictable, and free from redundant error-handling logic.
 
----
+### **2. Component: System Blueprint (`TopologyGraph`)**
 
-### 4. End-to-End Example (Fully Explicit)
+The topology schema is the static blueprint of the digital twin you wish to simulate. It describes the system's components, their resources, their behavior, and how they are interconnected. To ensure simulation integrity, FastSim uses this schema to rigorously validate the entire system description upfront, rejecting any inconsistencies before the simulation begins.
 
-```json
-{
-  "avg_active_users": {
-    "mean": 100,
-    "distribution": "poisson"
-  },
-  "avg_request_per_minute_per_user": {
-    "mean": 4.0,
-    "distribution": "normal",
-    "variance": null
-  },
-  "total_simulation_time": 5400,
-  "user_sampling_window": 45
-}```
-
-#### What the Validators Do
-
-1. `mean` is numeric ✔️
-2. `distribution` string matches an enum member ✔️
-3. `total_simulation_time` ≥ 1800 ✔️
-4. `user_sampling_window` is in the range ✔️
-5. `variance` is `null` with a `normal` distribution ⇒ **auto-set to 4.0** ✔️
-
-The payload is accepted. The simulator will run for $5400 / 45 = 120$ simulation windows.
+Of course. Here is the complete, consolidated, and highly detailed documentation for the `TopologyGraph` component, with all duplications removed and explanations expanded as requested.
 
 ---
 
-### 5. Common Error Example
+### **2. Component: System Blueprint (`TopologyGraph`)**
 
-```json
-{
-  "avg_active_users": { "mean": "many" },
-  "avg_request_per_minute_per_user": { "mean": -2 },
-  "total_simulation_time": 600,
-  "user_sampling_window": 400
-}
-```
+The topology schema is the static blueprint of the digital twin you wish to simulate. It describes the system's components, their resources, their behavior, and how they are interconnected. To ensure simulation integrity, FastSim uses this schema to rigorously validate the entire system description upfront, rejecting any inconsistencies before the simulation begins.
 
-| # | Fails On | Error Message (Abridged) |
-| :- | :--- | :--- |
-| 1 | Numeric check | `Input should be a valid number` |
-| 2 | Positivity check | `Input should be greater than 0` |
-| 3 | Minimum time check | `Input should be at least 1800` |
-| 4 | Maximum window check | `Input should be at most 120` |
-
----
-
-### Takeaways
-
-*   **Single Source of Truth:** Enums centralize all literal values, eliminating magic strings.
-*   **Layered Validation:** The `Constants → RVConfig → Request Payload` hierarchy ensures that only well-formed traffic profiles reach the simulation engine.
-*   **Safe Defaults:** Omitting optional fields never leads to undefined behavior; defaults are sourced directly from the `TimeDefaults` constants.
-
-This robust, layered approach allows you to configure the generator with confidence, knowing that any malformed scenario will be rejected early with explicit, actionable error messages.
-
-
-### **FastSim Topology Input Schema**
-
-The topology schema is the blueprint of the digital twin, defining the structure, resources, behavior, and network connections of the system you wish to simulate. It describes:
-
-1.  **What work** each request performs (`Endpoint` → `Step`).
-2.  **What components** exist in the system (`Server`, `Client`).
-3.  **Which resources** each component possesses (`ServerResources`).
-4.  **How** components are interconnected (`Edge`).
-
-To ensure simulation integrity and prevent runtime errors, FastSim uses Pydantic to rigorously validate the entire topology upfront. Every inconsistency is rejected at load-time. The following sections detail the schema's layered design, from the most granular operation to the complete system graph.
-
----
-### **A Controlled Vocabulary: The Role of Constants**
-
-To ensure that input configurations are unambiguous and robust, the topology schema is built upon a controlled vocabulary defined by a series of Python `Enum` classes. Instead of relying on raw strings or "magic values" (e.g., `"cpu_bound_operation"`), which are prone to typos and inconsistencies, the schema uses these enumerations to define the finite set of legal values for categories like operation kinds, metrics, and node types.
-
-This design choice provides three critical benefits:
-
-1.  **Strong Type-Safety:** By using `StrEnum` and `IntEnum`, Pydantic models can validate input payloads with absolute certainty. Any value not explicitly defined in the corresponding `Enum` is immediately rejected. This prevents subtle configuration errors that would be difficult to debug at simulation time.
-2.  **Developer Experience and Error Prevention:** This approach provides powerful auto-completion and static analysis. IDEs, `mypy`, and linters can catch invalid values during development, providing immediate feedback long before the code is executed.
-3.  **Single Source of Truth:** All valid categories are centralized in the `app.config.constants` module. This makes the system easier to maintain and extend. To add a new resource type or metric, a developer only needs to update the `Enum` definition, and the change propagates consistently to validation logic, the simulation engine, and any other component that uses it.
-
-The key enumerations that govern the topology schema include:
-
-| Constant Enum | Purpose |
-| :--- | :--- |
-| **`EndpointStepIO`, `EndpointStepCPU`, `EndpointStepRAM`** | Define the exhaustive list of valid `kind` values for a `Step`. |
-| **`Metrics`** | Specify the legal dictionary keys within a `Step`'s `step_metrics`, enforcing the one-to-one link between a `kind` and its metric. |
-| **`SystemNodes` and `SystemEdges`** | Enumerate the allowed categories for nodes and their connections in the high-level `TopologyGraph`. |
-
-### **Design Philosophy: A "Micro-to-Macro" Approach**
+#### **Design Philosophy: A "Micro-to-Macro" Approach**
 
 The schema is built on a compositional, "micro-to-macro" principle. We start by defining the smallest indivisible units of work (`Step`) and progressively assemble them into larger, more complex structures (`Endpoint`, `Server`, and finally the `TopologyGraph`).
 
-This layered approach provides several key advantages:
-*   **Modularity and Reusability:** An `Endpoint` is just a sequence of `Steps`. You can reorder, add, or remove steps without redefining the core operations themselves.
-*   **Local Reasoning, Global Safety:** Each model is responsible for its own internal consistency (e.g., a `Step` ensures its metric is valid for its kind). Parent models then enforce the integrity of the connections *between* these components (e.g., the `TopologyGraph` ensures all `Edges` connect to valid `Nodes`).
-*   **Clarity and Maintainability:** The hierarchy makes the system description intuitive to read and write. It’s clear how atomic operations roll up into endpoints, which are hosted on servers connected by a network.
-*   **Robustness:** All structural and referential errors are caught before the simulation begins, guaranteeing that the SimPy engine operates on a valid, self-consistent model.
+This layered approach provides several key advantages that enhance the convenience and reliability of crafting simulations:
+
+*   **Modularity and Reusability:** Core operations are defined once as `Steps` and can be reused across multiple `Endpoints`. This modularity simplifies configuration, as complex workflows can be built from a library of simple, well-defined blocks.
+*   **Local Reasoning, Global Safety:** Each model is responsible for its own internal consistency (e.g., a `Step` ensures its metric is valid for its kind). Parent models then enforce the integrity of the connections *between* these components (e.g., the `TopologyGraph` ensures all `Edges` connect to valid `Nodes`). This allows you to focus on one part of the configuration at a time, confident that the overall structure will be validated globally.
+*   **Clarity and Maintainability:** The hierarchy is intuitive and mirrors how developers conceptualize system architecture. It is clear how atomic operations roll up into endpoints, which are hosted on servers connected by a network. This makes configuration files easy to read, write, and maintain over time.
+*   **Guaranteed Robustness:** By catching all structural and referential errors before the simulation begins, this approach embodies the "fail-fast" principle. It guarantees that the SimPy engine operates on a valid, self-consistent model, eliminating a whole class of potential runtime bugs.
+
+#### **A Controlled Vocabulary: Topology Constants**
+
+The schema's robustness is founded on a controlled vocabulary defined by Python `Enum` classes. Instead of error-prone "magic strings" (e.g., `"cpu_operation"`), the schema uses these enums to define the finite set of legal values for categories like operation kinds, metrics, and node types. This design choice is critical for several reasons:
+
+*   **Absolute Type-Safety:** Pydantic can validate input with certainty. Any value not explicitly defined in the corresponding `Enum` is immediately rejected, preventing subtle typos or incorrect values from causing difficult-to-debug runtime failures.
+*   **Enhanced Developer Experience:** IDEs and static analysis tools like `mypy` can provide auto-completion and catch invalid values during development, offering immediate feedback long before the simulation is run.
+*   **Single Source of Truth:** All valid categories are centralized. To add a new resource type or metric, a developer only needs to update the `Enum` definition, and the change propagates consistently throughout the validation logic.
+
+| Constant Enum | Purpose |
+| :--- | :--- |
+| **`EndpointStepIO`, `EndpointStepCPU`, `EndpointStepRAM`** | Defines the exhaustive list of valid `kind` values for a `Step`. |
+| **`Metrics`** | Specifies the legal dictionary keys within a `Step`'s `step_metrics`. |
+| **`SystemNodes`** | Enumerate the allowed `type` for nodes (e.g., `"server"`, `"client"`). |
+| **`SystemEdges`** | Enumerate the allowed categories for connections between nodes. |
 
 ---
 
-### **1. The Atomic Unit: `Step`**
+### **Schema Hierarchy and In-Depth Validation**
 
-A `Step` represents a single, indivisible operation executed by an asynchronous coroutine within an endpoint. It is the fundamental building block of all work in the simulation.
+Here we break down each component of the topology, highlighting the specific Pydantic validators that enforce its correctness and the deep rationale behind these choices.
 
-Each `Step` has a `kind` (the category of work) and `step_metrics` (the resources it consumes).
+#### **1. `Step`**: The Atomic Unit of Work
+A `Step` represents a single, indivisible operation. Its validation is the cornerstone of ensuring that all work performed in the simulation is logical and well-defined.
 
-```python
-class Step(BaseModel):
-    """
-    A single, indivisible operation.
-    It must be quantified by exactly ONE metric.
-    """
-    kind: EndpointStepIO | EndpointStepCPU | EndpointStepRAM
-    step_metrics: dict[Metrics, PositiveFloat | PositiveInt]
+| Validation Check | Pydantic Hook | Rule & Rationale |
+| :--- | :--- | :--- |
+| **Coherence of `kind` and `metric`** | `@model_validator` | **Rule:** The `step_metrics` dictionary must contain *exactly one* entry, and its key must be the correct metric for the `Step`'s `kind`. <br><br> **Rationale:** This is the most critical validation on a `Step`. The one-to-one mapping is a deliberate design choice for simplicity and robustness. It allows the simulation engine to be deterministic: a `cpu_bound_operation` step is routed to the CPU resource, an `io_wait` step to an I/O event, etc. This avoids the immense complexity of modeling operations that simultaneously contend for multiple resource types (e.g., CPU and RAM). This validator enforces that clear, unambiguous contract, preventing illogical pairings like a RAM allocation step being measured in `cpu_time`. |
+| **Positive Metric Values** | `PositiveFloat` / `PositiveInt` | **Rule:** All numeric values in `step_metrics` must be greater than zero. <br><br> **Rationale:** It is physically impossible to spend negative or zero time on an operation or allocate negative RAM. This validation uses Pydantic's constrained types to offload this fundamental sanity check, ensuring that only plausible, positive resource requests enter the system and keeping the core simulation logic free of defensive checks against nonsensical data. |
 
-    @model_validator(mode="after")
-    def ensure_coherence_kind_metrics(cls, model: "Step") -> "Step":
-        metrics_keys = set(model.step_metrics)
-
-        # Enforce that a step performs one and only one type of work.
-        if len(metrics_keys) != 1:
-            raise ValueError("step_metrics must contain exactly one entry")
-
-        # Enforce that the metric is appropriate for the kind of work.
-        if isinstance(model.kind, EndpointStepCPU):
-            if metrics_keys != {Metrics.CPU_TIME}:
-                raise ValueError(f"CPU step requires metric '{Metrics.CPU_TIME}'")
-
-        elif isinstance(model.kind, EndpointStepRAM):
-            if metrics_keys != {Metrics.NECESSARY_RAM}:
-                raise ValueError(f"RAM step requires metric '{Metrics.NECESSARY_RAM}'")
-
-        elif isinstance(model.kind, EndpointStepIO):
-            if metrics_keys != {Metrics.IO_WAITING_TIME}:
-                raise ValueError(f"I/O step requires metric '{Metrics.IO_WAITING_TIME}'")
-
-        return model
-```
-
-> **Design Rationale:** The strict one-to-one mapping between a `Step` and a single metric is a core design choice. It simplifies the simulation engine immensely, as each `Step` can be deterministically routed to a request on a single SimPy resource (a CPU queue, a RAM container, or an I/O event). This avoids the complexity of modeling operations that simultaneously consume multiple resource types.
-
----
-
-### **2. Composing Workflows: `Endpoint`**
-
+#### **2. `Endpoint`**: Composing Workflows
 An `Endpoint` defines a complete, user-facing operation (e.g., an API call like `/predict`) as an ordered sequence of `Steps`.
 
-```python
-class Endpoint(BaseModel):
-    """A higher-level API call, executed as a strict sequence of steps."""
-    endpoint_name: str
-    steps: list[Step]
+| Validation Check | Pydantic Hook | Rule & Rationale |
+| :--- | :--- | :--- |
+| **Consistent Naming** | `@field_validator("endpoint_name")` | **Rule:** Automatically converts the `endpoint_name` to lowercase. <br><br> **Rationale:** This enforces a canonical representation for all endpoint identifiers. It eliminates ambiguity and potential bugs that could arise from inconsistent capitalization (e.g., treating `/predict` and `/Predict` as different endpoints). This simple normalization makes the configuration more robust and simplifies endpoint lookups within the simulation engine. |
 
-    @field_validator("endpoint_name", mode="before")
-    def name_to_lower(cls, v: str) -> str:
-        """Standardize endpoint name to be lowercase for consistency."""
-        return v.lower()
-```
+#### **3. System Nodes**: `Server` & `Client`
+These models define the macro-components of your architecture where work is performed and resources are located.
 
-> **Design Rationale:** The simulation processes the `steps` list in the exact order provided. The total latency and resource consumption of an endpoint call is the sequential sum of its individual `Step` delays. This directly models the execution flow of a typical web request handler.
+| Validation Check | Pydantic Hook | Rule & Rationale |
+| :--- | :--- | :--- |
+| **Standardized Node `type`** | `@field_validator("type")` | **Rule:** The `type` field must strictly match the expected `SystemNodes` enum member (e.g., a `Server` object must have `type: "server"`). <br><br> **Rationale:** This provides a "belt-and-suspenders" check. Even if a default is provided, this validation prevents a user from explicitly overriding a node's type to a conflicting value. It enforces a strict contract: a `Server` object is always and only a server. This prevents object state confusion and simplifies pattern matching in the simulation engine. |
+| **Unique Node IDs** | `@model_validator` in `TopologyNodes` | **Rule:** All `id` fields across all `Server` nodes and the `Client` node must be unique. <br><br> **Rationale:** This is fundamental to creating a valid graph. Node IDs are the primary keys used to address components. If two nodes shared the same ID, any `Edge` pointing to that ID would be ambiguous. This global validator prevents such ambiguity, guaranteeing that every node in the system is uniquely identifiable, which is a precondition for the final referential integrity check. |
 
----
-
-### **3. Defining Components: System Nodes**
-
-Nodes are the macro-components of your architecture where work is performed and resources are located.
-
-#### **`ServerResources` and `Server`**
-A `Server` node hosts endpoints and owns a set of physical resources. These resources are mapped directly to specific SimPy primitives, which govern how requests queue and contend for service.
-
-```python
-class ServerResources(BaseModel):
-    """Quantifiable resources available on a server node."""
-    cpu_cores: PositiveInt = Field(ge=ServerResourcesDefaults.MINIMUM_CPU_CORES)
-    ram_mb: PositiveInt = Field(ge=ServerResourcesDefaults.MINIMUM_RAM_MB)
-    db_connection_pool: PositiveInt | None = None
-
-class Server(BaseModel):
-    """A node that hosts endpoints and owns resources."""
-    id: str
-    type: SystemNodes = SystemNodes.SERVER
-    server_resources: ServerResources
-    endpoints: list[Endpoint]
-```
-
-> **Design Rationale: Mapping to SimPy Primitives**
-> *   `cpu_cores` maps to a `simpy.Resource`. This models a classic semaphore where only `N` processes can execute concurrently, and others must wait in a queue. It perfectly represents CPU-bound tasks competing for a limited number of cores.
-> *   `ram_mb` maps to a `simpy.Container`. A container models a divisible resource where processes can request and return variable amounts. This is ideal for memory, as multiple requests can simultaneously hold different amounts of RAM without exclusively locking the entire memory pool.
-
-#### **`Client`**
-The `Client` is a special, resource-less node that serves as the origin point for all requests generated during the simulation.
-
-#### **Node Aggregation and Validation (`TopologyNodes`)**
-All `Server` and `Client` nodes are collected in the `TopologyNodes` model, which performs a critical validation check: ensuring all component IDs are unique across the entire system.
-
----
-
-### **4. Connecting the Components: `Edge`**
-
+#### **4. `Edge`**: Connecting the Components
 An `Edge` represents a directed network link between two nodes, defining how requests flow through the system.
 
-```python
-class Edge(BaseModel):
-    """A directed connection in the topology graph."""
-    source: str
-    target: str
-    latency: RVConfig
-    probability: float = Field(1.0, ge=0.0, le=1.0)
-    edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
-```
+| Validation Check | Pydantic Hook | Rule & Rationale |
+| :--- | :--- | :--- |
+| **No Self-Loops** | `@model_validator` | **Rule:** An edge's `source` ID cannot be the same as its `target` ID. <br><br> **Rationale:** In the context of a distributed system topology, a network call from a service to itself is a logical anti-pattern. Such an operation would typically be modeled as an internal process (i.e., another `Step`), not a network hop. This validator prevents this common configuration error and simplifies the routing logic by disallowing trivial cycles. |
 
-> **Design Rationale:**
-> *   **Stochastic Latency:** Latency is not a fixed number but an `RVConfig` object. This allows you to model realistic network conditions using various probability distributions (e.g., log-normal for internet RTTs, exponential for failure retries), making the simulation far more accurate.
-> *   **Probabilistic Routing:** The `probability` field enables modeling of simple load balancing or A/B testing scenarios where traffic from a single `source` can be split across multiple `target` nodes.
+#### **5. `TopologyGraph`**: The Complete System
+This is the root model that aggregates all `nodes` and `edges` and performs the final, most critical validation: ensuring referential integrity.
 
----
+| Validation Check | Pydantic Hook | Rule & Rationale |
+| :--- | :--- | :--- |
+| **Referential Integrity** | `@model_validator` | **Rule:** Every `edge.source` and `edge.target` ID must correspond to an actual node ID defined in `TopologyNodes`. <br><br> **Rationale:** This is the capstone validation that guarantees the structural integrity of the entire system graph. It prevents "dangling edges"—connections that point to non-existent nodes. Without this check, the simulation could start with a broken topology and crash unexpectedly at runtime when a request attempts to traverse a broken link. By performing this check *after* all nodes and edges have been parsed, we ensure that the system described is a complete and validly connected graph, fully embodying the "fail-fast" principle. |
 
-### **5. The Complete System: `TopologyGraph`**
+### **3. Component: Global Simulation Control (`SimulationSettings`)**
 
-The `TopologyGraph` is the root of the configuration. It aggregates all `nodes` and `edges` and performs the final, most critical validation: ensuring referential integrity.
+This final component configures the simulation's execution parameters and, critically, determines what data is collected. It acts as the master control panel for the simulation run, governing both its duration and the scope of its output.
+
+#### **Payload Structure (`SimulationSettings`)**
 
 ```python
-class TopologyGraph(BaseModel):
-    """The complete system definition, uniting all nodes and edges."""
-    nodes: TopologyNodes
-    edges: list[Edge]
-
-    @model_validator(mode="after")
-    def edge_refs_valid(cls, model: "TopologyGraph") -> "TopologyGraph":
-        """Ensure every edge connects two valid, existing nodes."""
-        valid_ids = {s.id for s in model.nodes.servers} | {model.nodes.client.id}
-        for e in model.edges:
-            if e.source not in valid_ids or e.target not in valid_ids:
-                raise ValueError(f"Edge '{e.source}->{e.target}' references an unknown node.")
-        return model
+class SimulationSettings(BaseModel):
+    """Global parameters that apply to the whole run."""
+    total_simulation_time: int = Field(...)
+    enabled_sample_metrics: set[SampledMetricName] = Field(
+        default_factory=lambda: {
+            SampledMetricName.READY_QUEUE_LEN,
+            SampledMetricName.CORE_BUSY,
+            SampledMetricName.RAM_IN_USE,
+        },
+        description="Which time‑series KPIs to collect by default.",
+    )
+    enabled_event_metrics: set[EventMetricName] = Field(
+        default_factory=lambda: {
+            EventMetricName.RQS_LATENCY,
+        },
+        description="Which per‑event KPIs to collect by default.",
+    )
 ```
-> **Design Rationale:** This final check guarantees that the topology is a valid, connected graph. By confirming that every `edge.source` and `edge.target` corresponds to a defined node `id`, it prevents the simulation from starting with a broken or nonsensical configuration, embodying the "fail-fast" principle.
 
+| Field | Type | Purpose & Validation |
+| :--- | :--- | :--- |
+| `total_simulation_time` | `int` | The total simulation horizon in seconds. Must be `>= MIN_SIMULATION_TIME` (1800s). Defaults to `3600`. |
+| `enabled_sample_metrics` | `set[SampledMetricName]` | A set of metrics to be sampled at fixed intervals, creating a time-series (e.g., `"ready_queue_len"`, `"ram_in_use"`). |
+| `enabled_event_metrics` | `set[EventMetricName]` | A set of metrics recorded only when specific events occur, with no time-series (e.g., `"rqs_latency"`, `"llm_cost"`). |
+
+We add standard default value for the metrics in case they will be omitted
 ---
 
-### **End-to-End Example**
+#### **Design Rationale: Pre-validated, On-Demand Metrics for Robust and Efficient Collection**
 
-Here is a minimal, complete JSON configuration that defines a single client and a single API server.
+The design of the `settings` component, particularly the `enabled_*_metrics` fields, is centered on two core principles: **user-driven selectivity** and **ironclad validation**. The rationale behind this approach is to create a system that is both flexible and fundamentally reliable.
+
+##### **1. The Principle of User-Driven Selectivity**
+
+We recognize that data collection is not free; it incurs performance overhead in terms of both memory (to store the data) and CPU cycles (to record it). Not every simulation requires every possible metric. For instance:
+*   A simulation focused on CPU contention may not need detailed LLM cost tracking.
+*   A high-level analysis of end-to-end latency might not require fine-grained data on event loop queue lengths.
+
+By allowing the user to explicitly select only the metrics they need, we empower them to tailor the simulation to their specific analytical goals. This on-demand approach makes the simulator more efficient and versatile, avoiding the waste of collecting and processing irrelevant data.
+
+##### **2. The Power of Ironclad, Upfront Validation**
+
+This is where the design choice becomes critical for robustness. Simply allowing users to provide a list of strings is inherently risky due to potential typos or misunderstandings of metric names. Our schema mitigates this risk entirely through a strict, upfront validation contract.
+
+*   **A Strict Contract via Enums:** The `enabled_sample_metrics` and `enabled_event_metrics` fields are not just sets of strings; they are sets of `SampledMetricName` and `EventMetricName` enum members. When Pydantic parses the input payload, it validates every single metric name provided by the user against these canonical `Enum` definitions.
+
+*   **Immediate Rejection of Invalid Input:** If a user provides a metric name that is not a valid member of the corresponding enum (e.g., a typo like `"request_latncy"` or a misunderstanding like `"cpu_usage"` instead of `"core_busy"`), Pydantic immediately rejects the entire payload with a clear `ValidationError`. This happens *before* a single line of the simulation engine code is executed.
+
+##### **3. The Benefit: Guaranteed Runtime Integrity**
+
+This pre-validation provides a crucial and powerful guarantee to the simulation engine, leading to a safer and more efficient runtime:
+
+*   **Safe, Error-Free Initialization:** At the very beginning of the simulation, the engine receives the *validated* set of metric names. It knows with absolute certainty the complete and exact set of metrics it needs to track. This allows it to safely initialize all necessary data collection structures (like dictionaries) at the start of the run. For example:
+    ```python
+    # This is safe because every key is guaranteed to be valid.
+    event_results = {metric_name: [] for metric_name in settings.enabled_event_metrics}
+    ```
+
+*   **Elimination of Runtime KeyErrors:** Because all dictionary keys are guaranteed to exist from the start, the core data collection logic within the simulation's tight event loop becomes incredibly lean and robust. The engine never needs to perform defensive, conditional checks like `if metric_name in event_results: ...`. It can directly and safely access the key: `event_results[metric_name].append(value)`. This completely eliminates an entire class of potential `KeyError` exceptions, which are notoriously difficult to debug in complex, asynchronous simulations.
+
+In summary, the design of `SimulationSettings` is a perfect example of the "fail-fast" philosophy. By forcing a clear and validated contract with the user upfront, we ensure that the data collection process is not only tailored and efficient but also fundamentally reliable. The engine operates with the confidence that the output data structures will perfectly and safely match the user's validated request, leading to a predictable and robust simulation from start to finish.
+---
+
+### **End-to-End Example (`SimulationPayload`)**
+
+The following JSON object shows how these three components combine into a single, complete `SimulationPayload` for a minimal client-server setup.
 
 ```jsonc
 {
-  "nodes": {
-    // The client node is the source of all generated requests.
-    "client": {
-      "id": "user_browser",
-      "type": "client"
+  // Defines the traffic workload profile.
+  "rqs_input": {
+    "avg_active_users": {
+      "mean": 50,
+      "distribution": "poisson"
     },
-    // A list of all server nodes in the system.
-    "servers": [
+    "avg_request_per_minute_per_user": {
+      "mean": 5.0,
+      "distribution": "normal",
+      "variance": 1.0
+    },
+    "user_sampling_window": 60
+  },
+  // Describes the system's architectural blueprint.
+  "topology_graph": {
+    "nodes": {
+      "client": {
+        "id": "mobile_client",
+        "type": "client"
+      },
+      "servers": [
+        {
+          "id": "api_server",
+          "type": "server",
+          "server_resources": {
+            "cpu_cores": 4,
+            "ram_mb": 4096
+          },
+          "endpoints": [
+            {
+              "endpoint_name": "/predict",
+              "steps": [
+                {
+                  "kind": "initial_parsing",
+                  "step_metrics": { "cpu_time": 0.005 }
+                },
+                {
+                  "kind": "io_db",
+                  "step_metrics": { "io_waiting_time": 0.050 }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "edges": [
       {
-        "id": "api_server_node",
-        "type": "server",
-        "server_resources": {
-          "cpu_cores": 2,
-          "ram_mb": 2048
-        },
-        "endpoints": [
-          {
-            "endpoint_name": "/predict",
-            "steps": [
-              {
-                "kind": "initial_parsing",
-                "step_metrics": { "cpu_time": 0.005 }
-              },
-              {
-                "kind": "io_db",
-                "step_metrics": { "io_waiting_time": 0.050 }
-              },
-              {
-                "kind": "cpu_bound_operation",
-                "step_metrics": { "cpu_time": 0.015 }
-              }
-            ]
-          }
-        ]
+        "source": "mobile_client",
+        "target": "api_server",
+        "latency": {
+          "distribution": "log_normal",
+          "mean": 0.04,
+          "variance": 0.01
+        }
       }
     ]
   },
-  "edges": [
-    // A network link from the client to the API server.
-    {
-      "source": "user_browser",
-      "target": "api_server_node",
-      "latency": {
-        "distribution": "log_normal",
-        "mean": 0.05,
-        "std_dev": 0.01
-      },
-      "probability": 1.0
-    }
-  ]
-}```
-
-
-
-
-> **YAML friendly:**  
-> The topology schema is 100 % agnostic to the wire format.  
-> You can encode the same structure in **YAML** with identical field
-> names and value types—Pydantic will parse either JSON or YAML as long
-> as the keys and data types respect the schema.  
-> No additional changes or converters are required.
+  // Configures the simulation run and metric collection.
+  "settings": {
+    "total_simulation_time": 3600,
+    "enabled_sample_metrics": [
+      "ready_queue_len",
+      "ram_in_use",
+      "throughput_rps"
+    ],
+    "enabled_event_metrics": [
+      "rqs_latency"
+    ]
+  }
+}
 ```
 
+### **Key Takeaways**
+
+*   **Single Source of Truth**: `Enum` classes centralize all valid string literals, providing robust, type-safe validation across the entire schema.
+*   **Layered Validation**: The `Constants → Component Schemas → SimulationPayload` hierarchy ensures that only well-formed and self-consistent configurations reach the simulation engine.
+*   **Separation of Concerns**: The three top-level keys (`rqs_input`, `topology_graph`, `settings`) clearly separate the workload, the system architecture, and simulation control, making configurations easier to read, write, and reuse.
 
 
-### **Key Takeaway**
 
-This rigorously validated, compositional schema is the foundation of FastSim's reliability. By defining a clear vocabulary of constants (`Metrics`, `SystemNodes`) and enforcing relationships with Pydantic validators, the schema guarantees that every simulation run starts from a **complete and self-consistent** system description. This allows you to refactor simulation logic or extend the model with new resources (e.g., GPU memory) with full confidence that existing configurations remain valid and robust.
+

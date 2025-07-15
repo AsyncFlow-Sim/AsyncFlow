@@ -12,13 +12,6 @@ class RqsGeneratorInput(BaseModel):
 
     avg_active_users: RVConfig
     avg_request_per_minute_per_user: RVConfig
-    total_simulation_time: int = Field(
-        default=TimeDefaults.SIMULATION_TIME,
-        ge=TimeDefaults.MIN_SIMULATION_TIME,
-        description=(
-            f"Simulation time in seconds (>= {TimeDefaults.MIN_SIMULATION_TIME})."
-        ),
-    )
 
     user_sampling_window: int = Field(
         default=TimeDefaults.USER_SAMPLING_WINDOW,

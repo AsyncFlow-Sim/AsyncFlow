@@ -182,3 +182,43 @@ class SystemEdges(StrEnum):
     """
 
     NETWORK_CONNECTION = "network_connection"
+
+# ======================================================================
+# CONSTANTS FOR SAMPLED METRICS
+# ======================================================================
+
+class SampledMetricName(StrEnum):
+  """
+  define the metrics sampled every fixed amount of
+  time to create a time series
+  """
+
+  READY_QUEUE_LEN = "ready_queue_len" #length of the event loop ready q
+  CORE_BUSY = "core_busy"
+  EVENT_LOOP_IO_SLEEP = "event_loop_io_sleep"
+  RAM_IN_USE = "ram_in_use"
+  THROUGHPUT_RPS = "throughput_rps"
+
+# ======================================================================
+# CONSTANTS FOR EVENT METRICS
+# ======================================================================
+
+class EventMetricName(StrEnum):
+  """
+  define the metrics triggered by event with no
+  time series
+  """
+
+  RQS_LATENCY = "rqs_latency"
+  LLM_COST = "llm_cost"
+
+
+# ======================================================================
+# CONSTANTS FOR AGGREGATED METRICS
+# ======================================================================
+
+class AggregatedMetricName(StrEnum):
+  """aggregated metrics to calculate at the end of simulation"""
+
+  LATENCY_STATS = "latency_stats"
+  LLM_STATS = "llm_stats"

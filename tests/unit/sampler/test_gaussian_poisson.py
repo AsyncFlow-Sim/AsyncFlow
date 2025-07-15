@@ -1,94 +1,109 @@
-"""Unit tests for gaussian_poisson_sampling."""
+"""Unit-tests for `gaussian_poisson_sampling`."""
 
 from __future__ import annotations
 
 import itertools
 from types import GeneratorType
+from typing import TYPE_CHECKING
 
-import numpy as np
 import pytest
+from numpy.random import Generator, default_rng
 
 from app.config.constants import TimeDefaults
-from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
+from app.core.event_samplers.gaussian_poisson import (
+    gaussian_poisson_sampling,
+)
 from app.schemas.random_variables_config import RVConfig
 from app.schemas.requests_generator_input import RqsGeneratorInput
 
+if TYPE_CHECKING:
+
+    from app.schemas.simulation_settings_input import SimulationSettings
+
 # ---------------------------------------------------------------------------
-# Fixture
+# FIXTURES
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def base_input() -> RqsGeneratorInput:
-    """Return a minimal, valid RqsGeneratorInput for the Gaussian-Poisson sampler."""
+def rqs_cfg() -> RqsGeneratorInput:
+    """Minimal, valid RqsGeneratorInput for Gaussian-Poisson tests."""
     return RqsGeneratorInput(
         avg_active_users=RVConfig(
-            mean=10.0, variance=4.0, distribution="normal",
+            mean=10.0,
+            variance=4.0,
+            distribution="normal",
         ),
         avg_request_per_minute_per_user=RVConfig(mean=30.0),
-        total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
         user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
     )
 
 
+
 # ---------------------------------------------------------------------------
-# Basic behaviour
+# BASIC BEHAVIOUR
 # ---------------------------------------------------------------------------
 
 
-def test_returns_generator_type(base_input: RqsGeneratorInput) -> None:
+def test_returns_generator_type(
+    rqs_cfg: RqsGeneratorInput,
+    sim_settings: SimulationSettings,
+    rng: Generator,
+) -> None:
     """The function must return a generator object."""
-    rng = np.random.default_rng(0)
-    gen = gaussian_poisson_sampling(base_input, rng=rng)
+    gen = gaussian_poisson_sampling(rqs_cfg, sim_settings, rng=rng)
     assert isinstance(gen, GeneratorType)
 
 
-def test_generates_positive_gaps(base_input: RqsGeneratorInput) -> None:
+def test_generates_positive_gaps(
+    rqs_cfg: RqsGeneratorInput,
+    sim_settings: SimulationSettings,
+) -> None:
     """
     With nominal parameters the sampler should emit at least a few positive
-    gaps and no gap must be non-positive.
+    gaps, and the cumulative time must stay below the horizon.
     """
-    rng = np.random.default_rng(42)
     gaps: list[float] = list(
-        itertools.islice(gaussian_poisson_sampling(base_input, rng=rng), 1000),
+        itertools.islice(
+            gaussian_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(42)),
+            1000,
+        ),
     )
 
-    # At least one event is expected.
-    assert gaps
-    # No gap may be negative or zero.
-    assert all(gap > 0.0 for gap in gaps)
-    # The cumulative time of gaps must stay below the horizon.
-    assert sum(gaps) < base_input.total_simulation_time
+    assert gaps, "Expected at least one event"
+    assert all(g > 0.0 for g in gaps), "No gap may be ≤ 0"
+    assert sum(gaps) < sim_settings.total_simulation_time
 
 
 # ---------------------------------------------------------------------------
-# Edge-case: zero users ⇒ no events
+# EDGE CASE: ZERO USERS
 # ---------------------------------------------------------------------------
 
 
 def test_zero_users_produces_no_events(
     monkeypatch: pytest.MonkeyPatch,
-    base_input: RqsGeneratorInput,
+    rqs_cfg: RqsGeneratorInput,
+    sim_settings: SimulationSettings,
 ) -> None:
     """
-    If every Gaussian draw returns 0 users, Λ == 0,
-    hence the generator must yield no events at all.
+    If every Gaussian draw returns 0 users, Λ == 0 and the generator must
+    yield no events at all.
     """
 
     def fake_truncated_gaussian(
         mean: float,
         var: float,
-        rng: np.random.Generator,
+        rng: Generator,
     ) -> float:
         return 0.0  # force U = 0
 
-    # Patch the helper so that it always returns 0 users.
     monkeypatch.setattr(
         "app.core.event_samplers.gaussian_poisson.truncated_gaussian_generator",
         fake_truncated_gaussian,
     )
 
-    rng = np.random.default_rng(123)
-    gaps = list(gaussian_poisson_sampling(base_input, rng=rng))
+    gaps: list[float] = list(
+        gaussian_poisson_sampling(rqs_cfg, sim_settings, rng=default_rng(123)),
+    )
 
     assert gaps == []  # no events should be generated

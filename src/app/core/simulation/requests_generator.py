@@ -17,10 +17,12 @@ if TYPE_CHECKING:
     import numpy as np
 
     from app.schemas.requests_generator_input import RqsGeneratorInput
+    from app.schemas.simulation_settings_input import SimulationSettings
 
 
 def requests_generator(
     input_data: RqsGeneratorInput,
+    sim_settings: SimulationSettings,
     *,
     rng: np.random.Generator | None = None,
 ) -> Generator[float, None, None]:
@@ -41,6 +43,7 @@ def requests_generator(
         #Gaussian-Poisson model
         return gaussian_poisson_sampling(
             input_data=input_data,
+            sim_settings=sim_settings,
             rng=rng,
 
         )
@@ -48,5 +51,6 @@ def requests_generator(
     # Poisson + Poisson
     return poisson_poisson_sampling(
         input_data=input_data,
+        sim_settings=sim_settings,
         rng=rng,
     )

@@ -14,10 +14,12 @@ from app.core.event_samplers.common_helpers import (
     uniform_variable_generator,
 )
 from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.simulation_settings_input import SimulationSettings
 
 
 def poisson_poisson_sampling(
     input_data: RqsGeneratorInput,
+    settings: SimulationSettings,
     *,
     rng: np.random.Generator | None = None,
 ) ->  Generator[float, None, None]:
@@ -32,11 +34,11 @@ def poisson_poisson_sampling(
          Λ = U * (mean_req_per_minute_per_user / 60)  [req/s].
     3. While inside the current window, draw gaps
          Δt ~ Exponential(Λ)   using inverse-CDF.
-    4. Stop once the virtual clock exceeds *simulation_time*.
+    4. Stop once the virtual clock exceeds *total_simulation_time*.
     """
     rng = rng or np.random.default_rng()
 
-    simulation_time = input_data.total_simulation_time
+    simulation_time = settings.total_simulation_time
     user_sampling_window = input_data.user_sampling_window
 
     # λ_u : mean concurrent users per window

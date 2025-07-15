@@ -13,7 +13,7 @@ def alloc_sample_metric(
     instantiate a dictionary to collect the sampled metrics the
     user want to measure
     """
-    # t is the alignmente parameter for example assume
+    # t is the alignment parameter for example assume
     # the snapshot for the sampled metrics are done every 10ms
     # t = [10,20,30,40....] to each t will correspond a measured
     # metric corresponding to that time interval

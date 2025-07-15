@@ -16,9 +16,9 @@ from app.schemas.random_variables_config import RVConfig
 from app.schemas.requests_generator_input import RqsGeneratorInput
 from app.schemas.simulation_settings_input import SimulationSettings
 from app.schemas.system_topology_schema.full_system_topology_schema import (
-    TopologyGraph,
     Client,
-    TopologyNodes
+    TopologyGraph,
+    TopologyNodes,
 )
 
 if TYPE_CHECKING:  # Only for static type-checking

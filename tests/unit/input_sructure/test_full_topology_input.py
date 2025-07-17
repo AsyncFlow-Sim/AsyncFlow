@@ -16,8 +16,8 @@ from pydantic import ValidationError
 
 from app.config.constants import (
     EndpointStepCPU,
-    StepOperation,
     ServerResourcesDefaults,
+    StepOperation,
     SystemEdges,
     SystemNodes,
 )

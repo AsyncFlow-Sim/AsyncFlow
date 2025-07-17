@@ -164,7 +164,8 @@ class SystemNodes(StrEnum):
     Each member represents a *macro-component* that may have its own SimPy
     resources (CPU cores, DB pool, etc.).
     """
-
+    
+    GENERATOR     = "generator"
     SERVER        = "server"
     CLIENT        = "client"
     LOAD_BALANCER = "load_balancer"

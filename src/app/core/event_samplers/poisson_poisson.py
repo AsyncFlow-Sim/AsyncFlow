@@ -21,7 +21,7 @@ def poisson_poisson_sampling(
     input_data: RqsGeneratorInput,
     sim_settings: SimulationSettings,
     *,
-    rng: np.random.Generator | None = None,
+    rng: np.random.Generator,
 ) ->  Generator[float, None, None]:
     """
     Yield inter-arrival gaps (seconds) for the compound Poisson-Poisson process.
@@ -36,8 +36,7 @@ def poisson_poisson_sampling(
          Δt ~ Exponential(Λ)   using inverse-CDF.
     4. Stop once the virtual clock exceeds *total_simulation_time*.
     """
-    rng = rng or np.random.default_rng()
-
+    
     simulation_time = sim_settings.total_simulation_time
     user_sampling_window = input_data.user_sampling_window
 

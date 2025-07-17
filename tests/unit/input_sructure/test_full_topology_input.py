@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from app.config.constants import (
     EndpointStepCPU,
-    Metrics,
+    StepOperation,
     ServerResourcesDefaults,
     SystemEdges,
     SystemNodes,
@@ -72,7 +72,7 @@ def _dummy_endpoint() -> Endpoint:
     """Return a minimal valid Endpoint needed to build a Server."""
     step = Step(
         kind=EndpointStepCPU.CPU_BOUND_OPERATION,
-        step_metrics={Metrics.CPU_TIME: 0.1},
+        step_operation={StepOperation.CPU_TIME: 0.1},
     )
     return Endpoint(endpoint_name="/ping", steps=[step])
 

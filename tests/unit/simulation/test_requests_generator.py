@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.core.simulation.requests_generator import requests_generator
-from app.core.simulation.simulation_run import run_simulation
+from app.core.helpers.requests_generator import requests_generator
+from app.core.simulation_run import run_simulation
 
 if TYPE_CHECKING:  # static-typing only
     from collections.abc import Iterator

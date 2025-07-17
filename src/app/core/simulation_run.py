@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import simpy
 
-from app.core.simulation.requests_generator import requests_generator
+from app.core.helpers.requests_generator import requests_generator
 from app.schemas.simulation_output import SimulationOutput
 
 if TYPE_CHECKING:

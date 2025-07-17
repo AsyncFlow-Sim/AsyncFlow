@@ -49,6 +49,7 @@ class Distribution(StrEnum):
     NORMAL = "normal"
     LOG_NORMAL = "log_normal"
     EXPONENTIAL = "exponential"
+    UNIFORM = "uniform"
 
 # ======================================================================
 # CONSTANTS FOR ENDPOINT STEP DEFINITION (REQUEST-HANDLER)
@@ -123,7 +124,7 @@ class EndpointStepRAM(StrEnum):
     RAM = "ram"
 
 
-class Metrics(StrEnum):
+class StepOperation(StrEnum):
     """
     Keys used inside the ``metrics`` dictionary of a *step*.
 
@@ -154,6 +155,15 @@ class ServerResourcesDefaults:
     DB_CONNECTION_POOL = None
 
 # ======================================================================
+# CONSTANTS FOR NETWORK PARAMETERS
+# ======================================================================
+
+class NetworkParameters:
+  """parameters for the network"""
+
+  DROPOUT_RATE = 0.01
+
+# ======================================================================
 # CONSTANTS FOR THE MACRO-TOPOLOGY GRAPH
 # ======================================================================
 
@@ -164,7 +174,7 @@ class SystemNodes(StrEnum):
     Each member represents a *macro-component* that may have its own SimPy
     resources (CPU cores, DB pool, etc.).
     """
-    
+
     GENERATOR     = "generator"
     SERVER        = "server"
     CLIENT        = "client"

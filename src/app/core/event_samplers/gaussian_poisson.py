@@ -39,7 +39,6 @@ def gaussian_poisson_sampling(
          Δt ~ Exponential(Λ)   using inverse-CDF.
     4. Stop once the virtual clock exceeds *total_simulation_time*.
     """
-
     simulation_time = sim_settings.total_simulation_time
     user_sampling_window = input_data.user_sampling_window
 

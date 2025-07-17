@@ -1,6 +1,10 @@
 """
-Continuous-time event sampling for the Poisson-Poisson
-and Gaussian-Poisson workload model.
+SimPy process that generates user requests at stochastic intervals.
+
+This node samples inter-arrival times according to the configured
+distribution (Gaussian-Poisson or Poisson-Poisson), constructs a
+RequestState for each new request, records its origin hop, and
+immediately pushes it into the next pipeline stage via an EdgeRuntime.
 """
 
 from __future__ import annotations
@@ -24,7 +28,7 @@ def requests_generator(
     input_data: RqsGeneratorInput,
     sim_settings: SimulationSettings,
     *,
-    rng: np.random.Generator | None = None,
+    rng: np.random.Generator,
 ) -> Generator[float, None, None]:
     """
     Return an iterator of inter-arrival gaps (seconds) according to the model

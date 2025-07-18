@@ -16,7 +16,7 @@ def poisson_variable_generator(
     mean: float,
     rng: np.random.Generator,
 ) -> float:
-    """Return a Poisson-distributed floateger with expectation *mean*."""
+    """Return a Poisson-distributed integer with expectation *mean*."""
     return rng.poisson(mean)
 
 def truncated_gaussian_generator(

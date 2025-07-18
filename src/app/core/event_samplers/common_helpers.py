@@ -9,7 +9,7 @@ from app.schemas.random_variables_config import RVConfig
 
 def uniform_variable_generator(rng: np.random.Generator) -> float:
     """Return U~Uniform(0, 1)."""
-    rng = rng or np.random.default_rng()
+    # rng is guaranteed to be a valid np.random.Generator due to the type signature.
     return rng.random()
 
 def poisson_variable_generator(

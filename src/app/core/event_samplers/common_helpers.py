@@ -43,7 +43,7 @@ def exponential_variable_generator(
     mean: float,
     rng: np.random.Generator,
 ) -> float:
-    """Return a Poisson-distributed floateger with expectation *mean*."""
+    """Return an exponentially-distributed float with mean *mean*."""
     return float(rng.exponential(mean))
 
 def general_sampler(random_variable: RVConfig, rng: np.random.Generator) -> float:

@@ -45,7 +45,7 @@ class EdgeRuntime:
         random_variable: RVConfig = self.edge_config.latency
 
         uniform_variable = self.rng.uniform()
-        if uniform_variable < NetworkParameters.DROPOUT_RATE:
+        if uniform_variable < self.edge_config.dropout_rate:
             state.finish_time = self.env.now
             state.record_hop(f"{self.edge_config.id}-dropped", state.finish_time)
             return

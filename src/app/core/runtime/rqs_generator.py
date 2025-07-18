@@ -5,7 +5,6 @@ that will be passed as a process in the simpy simulation
 
 from __future__ import annotations
 
-from collections.abc import Generator
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -16,6 +15,8 @@ from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
 
 if TYPE_CHECKING:
+
+    from collections.abc import Generator
 
     import simpy
 

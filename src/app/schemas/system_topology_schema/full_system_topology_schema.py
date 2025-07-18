@@ -6,6 +6,8 @@ latency necessary for the requests generated to move from
 one structure to another
 """
 
+from collections import Counter
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -16,6 +18,7 @@ from pydantic import (
 )
 
 from app.config.constants import (
+    NetworkParameters,
     ServerResourcesDefaults,
     SystemEdges,
     SystemNodes,
@@ -126,8 +129,10 @@ class TopologyNodes(BaseModel):
         ) -> "TopologyNodes":
         """Check that all id are unique"""
         ids = [server.id for server in model.servers] + [model.client.id]
-        if len(ids) != len(set(ids)):
-            msg = "Node ids must be unique"
+        counter = Counter(ids)
+        duplicate = [node_id for node_id, value in counter.items() if value > 1]
+        if duplicate:
+            msg = f"The following node ids are duplicate {duplicate}"
             raise ValueError(msg)
         return model
 
@@ -159,11 +164,21 @@ class Edge(BaseModel):
 
     """
 
+    id: str
     source: str
     target: str
     latency: RVConfig
     probability: float = Field(1.0, ge=0.0, le=1.0)
     edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
+    dropout_rate: float = Field(
+        NetworkParameters.DROPOUT_RATE,
+        ge = NetworkParameters.MIN_DROPOUT_RATE,
+        le = NetworkParameters.MAX_DROPOUT_RATE,
+        description=(
+            "for each nodes representing a network we define"
+            "a probability to drop the request"
+        ),
+    )
 
     @model_validator(mode="after") # type: ignore[arg-type]
     def check_src_trgt_different(cls, model: "Edge") -> "Edge": # noqa: N805
@@ -187,6 +202,20 @@ class TopologyGraph(BaseModel):
 
     nodes: TopologyNodes
     edges: list[Edge]
+
+    @model_validator(mode="after") # type: ignore[arg-type]
+    def unique_ids(
+        cls, # noqa: N805
+        model: "TopologyGraph",
+        ) -> "TopologyGraph":
+        """Check that all id are unique"""
+        counter = Counter(edge.id for edge in model.edges)
+        duplicate = [edge_id for edge_id, value in counter.items() if value > 1]
+        if duplicate:
+            msg = f"There are multiple edges with the following ids {duplicate}"
+            raise ValueError(msg)
+        return model
+
 
     @model_validator(mode="after") # type: ignore[arg-type]
     def edge_refs_valid(cls, model: "TopologyGraph") -> "TopologyGraph": # noqa: N805

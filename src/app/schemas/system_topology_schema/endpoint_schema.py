@@ -12,7 +12,7 @@ from app.config.constants import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
-    Metrics,
+    StepOperation,
 )
 
 
@@ -23,58 +23,58 @@ class Step(BaseModel):
     """
 
     kind: EndpointStepIO | EndpointStepCPU | EndpointStepRAM
-    step_metrics: dict[Metrics, PositiveFloat | PositiveInt]
+    step_operation: dict[StepOperation, PositiveFloat | PositiveInt]
 
-    @field_validator("step_metrics", mode="before")
+    @field_validator("step_operation", mode="before")
     def ensure_non_empty(
         cls, # noqa: N805
-        v: dict[Metrics, PositiveFloat | PositiveInt],
-        ) -> dict[Metrics, PositiveFloat | PositiveInt]:
-        """Ensure the dict step metrics exist"""
+        v: dict[StepOperation, PositiveFloat | PositiveInt],
+        ) -> dict[StepOperation, PositiveFloat | PositiveInt]:
+        """Ensure the dict step operation exist"""
         if not v:
-            msg = "step_metrics cannot be empty"
+            msg = "step_operation cannot be empty"
             raise ValueError(msg)
         return v
 
     @model_validator(mode="after") # type: ignore[arg-type]
-    def ensure_coherence_kind_metrics(
+    def ensure_coherence_type_operation(
         cls, # noqa: N805
         model: "Step",
         ) -> "Step":
         """
-        Validation to couple kind and metrics only when they are
+        Validation to couple kind and operation only when they are
         valid for example ram cannot have associated a cpu time
         """
-        metrics_keys = set(model.step_metrics)
+        operation_keys = set(model.step_operation)
 
         # Control of the length of the set to be sure only on key is passed
-        if len(metrics_keys) != 1:
-            msg = "step_metrics must contain exactly one entry"
+        if len(operation_keys) != 1:
+            msg = "step_operation must contain exactly one entry"
             raise ValueError(msg)
 
-        # Coherence CPU bound operation and metric
+        # Coherence CPU bound operation and operation
         if isinstance(model.kind, EndpointStepCPU):
-            if metrics_keys != {Metrics.CPU_TIME}:
+            if operation_keys != {StepOperation.CPU_TIME}:
                 msg = (
-                        "The metric to quantify a CPU BOUND step"
-                        f"must be {Metrics.CPU_TIME}"
+                        "The operation to quantify a CPU BOUND step"
+                        f"must be {StepOperation.CPU_TIME}"
                     )
                 raise ValueError(msg)
 
-        # Coherence RAM operation and metric
+        # Coherence RAM operation and operation
         elif isinstance(model.kind, EndpointStepRAM):
-            if metrics_keys != {Metrics.NECESSARY_RAM}:
+            if operation_keys != {StepOperation.NECESSARY_RAM}:
                 msg = (
-                       "The metric to quantify a RAM step"
-                       f"must be {Metrics.NECESSARY_RAM}"
+                       "The operation to quantify a RAM step"
+                       f"must be {StepOperation.NECESSARY_RAM}"
                     )
                 raise ValueError(msg)
 
-        # Coherence I/O operation and metric
-        elif metrics_keys != {Metrics.IO_WAITING_TIME}:
+        # Coherence I/O operation and operation
+        elif operation_keys != {StepOperation.IO_WAITING_TIME}:
             msg = (
-                "The metric to quantify an I/O step"
-                f"must be {Metrics.IO_WAITING_TIME}"
+                "The operation to quantify an I/O step"
+                f"must be {StepOperation.IO_WAITING_TIME}"
             )
             raise ValueError(msg)
 

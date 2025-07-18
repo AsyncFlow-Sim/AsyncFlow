@@ -1,13 +1,4 @@
-"""Unit-tests for the **topology schemas** (Client, ServerResources, …).
-
-Every section below is grouped by the object under test, separated by
-clear comment banners so that long files remain navigable.
-
-The tests aim for:
-* 100 % branch-coverage on custom validators.
-* mypy strict-compatibility (full type hints, no Any).
-* ruff compliance (imports ordered, no unused vars, ≤ 88-char lines).
-"""
+"""Unit-tests for topology schemas (Client, ServerResources, Edge, …)"""
 
 from __future__ import annotations
 
@@ -16,8 +7,9 @@ from pydantic import ValidationError
 
 from app.config.constants import (
     EndpointStepCPU,
-    Metrics,
+    NetworkParameters,
     ServerResourcesDefaults,
+    StepOperation,
     SystemEdges,
     SystemNodes,
 )
@@ -32,53 +24,58 @@ from app.schemas.system_topology_schema.full_system_topology_schema import (
     TopologyNodes,
 )
 
+# --------------------------------------------------------------------------- #
+# Client                                                                      #
+# --------------------------------------------------------------------------- #
 
-# --------------------------------------------------------------------------- #
-# Client
-# --------------------------------------------------------------------------- #
+
 def test_valid_client() -> None:
-    """A client with correct `type` should validate."""
+    """A client with correct ``type`` validates."""
     cli = Client(id="frontend", type=SystemNodes.CLIENT)
     assert cli.type is SystemNodes.CLIENT
 
 
 def test_invalid_client_type() -> None:
-    """Wrong `type` enum on Client must raise ValidationError."""
+    """Wrong ``type`` enumeration on Client raises ValidationError."""
     with pytest.raises(ValidationError):
-        Client(id="wrong", type=SystemNodes.SERVER)
+        Client(id="oops", type=SystemNodes.SERVER)
 
 
 # --------------------------------------------------------------------------- #
-# ServerResources
+# ServerResources                                                             #
 # --------------------------------------------------------------------------- #
+
+
 def test_server_resources_defaults() -> None:
-    """Default values must match the constant table."""
-    res = ServerResources()  # all defaults
+    """All defaults match constant table."""
+    res = ServerResources()
     assert res.cpu_cores == ServerResourcesDefaults.CPU_CORES
     assert res.ram_mb == ServerResourcesDefaults.RAM_MB
     assert res.db_connection_pool is ServerResourcesDefaults.DB_CONNECTION_POOL
 
 
 def test_server_resources_min_constraints() -> None:
-    """cpu_cores and ram_mb < minimum should fail validation."""
+    """Values below minimum trigger validation failure."""
     with pytest.raises(ValidationError):
         ServerResources(cpu_cores=0, ram_mb=128)  # too small
 
 
 # --------------------------------------------------------------------------- #
-# Server
+# Server                                                                      #
 # --------------------------------------------------------------------------- #
+
+
 def _dummy_endpoint() -> Endpoint:
-    """Return a minimal valid Endpoint needed to build a Server."""
+    """Return a minimal valid Endpoint for Server construction."""
     step = Step(
         kind=EndpointStepCPU.CPU_BOUND_OPERATION,
-        step_metrics={Metrics.CPU_TIME: 0.1},
+        step_operation={StepOperation.CPU_TIME: 0.1},
     )
     return Endpoint(endpoint_name="/ping", steps=[step])
 
 
 def test_valid_server() -> None:
-    """Server with correct type, resources and endpoint list."""
+    """Server with correct ``type`` and resources passes validation."""
     srv = Server(
         id="api-1",
         type=SystemNodes.SERVER,
@@ -89,10 +86,10 @@ def test_valid_server() -> None:
 
 
 def test_invalid_server_type() -> None:
-    """Server with wrong `type` enum must be rejected."""
+    """Server with wrong ``type`` raises ValidationError."""
     with pytest.raises(ValidationError):
         Server(
-            id="oops",
+            id="bad-srv",
             type=SystemNodes.CLIENT,
             server_resources=ServerResources(),
             endpoints=[_dummy_endpoint()],
@@ -100,10 +97,12 @@ def test_invalid_server_type() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# TopologyNodes
+# TopologyNodes                                                               #
 # --------------------------------------------------------------------------- #
+
+
 def _single_node_topology() -> TopologyNodes:
-    """Helper that returns a valid TopologyNodes with one server and one client."""
+    """Helper returning one server + one client topology."""
     srv = Server(
         id="svc-A",
         server_resources=ServerResources(),
@@ -114,22 +113,24 @@ def _single_node_topology() -> TopologyNodes:
 
 
 def test_unique_ids_validator() -> None:
-    """Duplicate node IDs should trigger the unique_ids validator."""
+    """Duplicate node IDs trigger the ``unique_ids`` validator."""
     nodes = _single_node_topology()
-    # duplicate client ID
     dup_srv = nodes.servers[0].model_copy(update={"id": "browser"})
     with pytest.raises(ValidationError):
         TopologyNodes(servers=[dup_srv], client=nodes.client)
 
 
 # --------------------------------------------------------------------------- #
-# Edge
+# Edge                                                                        #
 # --------------------------------------------------------------------------- #
+
+
 def test_edge_source_equals_target_fails() -> None:
-    """Edge with identical source/target must raise."""
+    """Edge with identical source/target raises ValidationError."""
     latency_cfg = RVConfig(mean=0.05)
     with pytest.raises(ValidationError):
         Edge(
+            id="edge-dup",
             source="same",
             target="same",
             latency=latency_cfg,
@@ -137,18 +138,48 @@ def test_edge_source_equals_target_fails() -> None:
         )
 
 
+def test_edge_missing_id_raises() -> None:
+    """Omitting mandatory ``id`` field raises ValidationError."""
+    latency_cfg = RVConfig(mean=0.01)
+    with pytest.raises(ValidationError):
+        Edge(  # type: ignore[call-arg]
+            source="a",
+            target="b",
+            latency=latency_cfg,
+        )
+
+
+@pytest.mark.parametrize(
+    "bad_rate",
+    [-0.1, NetworkParameters.MAX_DROPOUT_RATE + 0.1],
+)
+def test_edge_dropout_rate_bounds(bad_rate: float) -> None:
+    """Drop-out rate outside valid range triggers ValidationError."""
+    with pytest.raises(ValidationError):
+        Edge(
+            id="edge-bad-drop",
+            source="n1",
+            target="n2",
+            latency=RVConfig(mean=0.01),
+            dropout_rate=bad_rate,
+        )
+
+
 # --------------------------------------------------------------------------- #
-# TopologyGraph
+# TopologyGraph                                                               #
 # --------------------------------------------------------------------------- #
+
+
 def _latency() -> RVConfig:
-    """A tiny helper for RVConfig latency objects."""
+    """Tiny helper for latency objects."""
     return RVConfig(mean=0.02)
 
 
 def test_valid_topology_graph() -> None:
-    """End-to-end happy-path graph passes validation."""
+    """Happy-path graph passes validation."""
     nodes = _single_node_topology()
     edge = Edge(
+        id="edge-1",
         source="browser",
         target="svc-A",
         latency=_latency(),
@@ -159,9 +190,10 @@ def test_valid_topology_graph() -> None:
 
 
 def test_edge_refers_unknown_node() -> None:
-    """Edge pointing to a non-existent node ID must fail."""
+    """Edge pointing to a non-existent node fails validation."""
     nodes = _single_node_topology()
     bad_edge = Edge(
+        id="edge-ghost",
         source="browser",
         target="ghost-srv",
         latency=_latency(),

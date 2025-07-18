@@ -53,7 +53,7 @@ class EdgeRuntime:
         transit_time = general_sampler(random_variable, self.rng)
         yield self.env.timeout(transit_time)
         state.record_hop(self.edge_config.id, self.env.now)
-        self.target_box.put(state)
+        yield self.target_box.put(state)
 
 
     def transport(self, state: RequestState) -> simpy.Process:

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import simpy
 
+from app.config.constants import SystemEdges
 from app.config.rqs_state import RequestState
 from app.core.event_samplers.common_helpers import general_sampler
 from app.schemas.system_topology_schema.full_system_topology_schema import Edge
@@ -46,12 +47,20 @@ class EdgeRuntime:
         uniform_variable = self.rng.uniform()
         if uniform_variable < self.edge_config.dropout_rate:
             state.finish_time = self.env.now
-            state.record_hop(f"{self.edge_config.id}-dropped", state.finish_time)
+            state.record_hop(
+                SystemEdges.NETWORK_CONNECTION,
+                f"{self.edge_config.id}-dropped",
+                state.finish_time,
+            )
             return
 
         transit_time = general_sampler(random_variable, self.rng)
         yield self.env.timeout(transit_time)
-        state.record_hop(self.edge_config.id, self.env.now)
+        state.record_hop(
+            SystemEdges.NETWORK_CONNECTION,
+            self.edge_config.id,
+            self.env.now,
+            )
         yield self.target_box.put(state)
 
 

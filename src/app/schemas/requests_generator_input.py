@@ -3,13 +3,15 @@
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.config.constants import Distribution, TimeDefaults
+from app.config.constants import Distribution, SystemNodes, TimeDefaults
 from app.schemas.random_variables_config import RVConfig
 
 
 class RqsGeneratorInput(BaseModel):
     """Define the expected variables for the simulation"""
 
+    id: str
+    type: SystemNodes = SystemNodes.GENERATOR
     avg_active_users: RVConfig
     avg_request_per_minute_per_user: RVConfig
 

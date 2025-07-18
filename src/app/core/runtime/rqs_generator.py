@@ -106,7 +106,11 @@ class RqsGeneratorRuntime:
                 initial_time=self.env.now,
 
             )
-            state.record_hop(SystemNodes.GENERATOR, self.env.now)
+            state.record_hop(
+                SystemNodes.GENERATOR,
+                self.rqs_generator_data.id,
+                self.env.now,
+            )
             # transport is a method of the edge runtime
             # which define the step of how the state is moving
             # from one node to another

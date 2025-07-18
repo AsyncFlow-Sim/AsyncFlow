@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 def rqs_cfg() -> RqsGeneratorInput:
     """Return a minimal, valid RqsGeneratorInput for the sampler tests."""
     return RqsGeneratorInput(
+        id="gen-1",
         avg_active_users={"mean": 1.0, "distribution": "poisson"},
         avg_request_per_minute_per_user={"mean": 60.0, "distribution": "poisson"},
         user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
@@ -96,6 +97,7 @@ def test_zero_users_produces_no_events(
 ) -> None:
     """If the mean user count is zero the generator must yield no events."""
     cfg_zero = RqsGeneratorInput(
+        id="gen-1",
         avg_active_users=RVConfig(mean=0.0, distribution="poisson"),
         avg_request_per_minute_per_user=RVConfig(mean=60.0, distribution="poisson"),
         user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,

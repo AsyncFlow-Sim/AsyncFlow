@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 def rqs_cfg() -> RqsGeneratorInput:
     """Minimal, valid RqsGeneratorInput for Gaussian-Poisson tests."""
     return RqsGeneratorInput(
+        id= "gen-1",
         avg_active_users=RVConfig(
             mean=10.0,
             variance=4.0,

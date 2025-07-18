@@ -75,7 +75,7 @@ def test_dispatcher_selects_poisson_poisson(
 
     def _fake_pp(*args: object, **kwargs: object) -> Iterator[float]:
         called["pp"] = True
-        return iter(())  # iteratore già esaurito
+        return iter(())  # iterator already exhausted
 
     monkeypatch.setattr(RGR_MODULE, "poisson_poisson_sampling", _fake_pp)
 

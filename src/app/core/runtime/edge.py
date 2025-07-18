@@ -47,7 +47,7 @@ class EdgeRuntime:
         uniform_variable = self.rng.uniform()
         if uniform_variable < NetworkParameters.DROPOUT_RATE:
             state.finish_time = self.env.now
-            state.record_hop(f"{self.edge_config.id}-dropped")
+            state.record_hop(f"{self.edge_config.id}-dropped", state.finish_time)
             return
 
         transit_time = general_sampler(random_variable, self.rng)

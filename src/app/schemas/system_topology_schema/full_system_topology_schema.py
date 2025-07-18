@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 from app.config.constants import (
+    NetworkParameters,
     ServerResourcesDefaults,
     SystemEdges,
     SystemNodes,
@@ -169,6 +170,15 @@ class Edge(BaseModel):
     latency: RVConfig
     probability: float = Field(1.0, ge=0.0, le=1.0)
     edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
+    dropout_rate: float = Field(
+        NetworkParameters.DROPOUT_RATE,
+        ge = NetworkParameters.MIN_DROPOUT_RATE,
+        le = NetworkParameters.MAX_DROPOUT_RATE,
+        description=(
+            "for each nodes representing a network we define"
+            "a probability to drop the request"
+        ),
+    )
 
     @model_validator(mode="after") # type: ignore[arg-type]
     def check_src_trgt_different(cls, model: "Edge") -> "Edge": # noqa: N805

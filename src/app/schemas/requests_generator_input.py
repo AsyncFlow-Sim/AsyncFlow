@@ -24,7 +24,7 @@ class RqsGeneratorInput(BaseModel):
         ),
     )
 
-    @field_validator("avg_request_per_minute_per_user", mode="before")
+    @field_validator("avg_request_per_minute_per_user", mode="after")
     def ensure_avg_request_is_poisson(
         cls, # noqa: N805
         v: RVConfig,
@@ -39,7 +39,7 @@ class RqsGeneratorInput(BaseModel):
             raise ValueError(msg)
         return v
 
-    @field_validator("avg_active_users", mode="before")
+    @field_validator("avg_active_users", mode="after")
     def ensure_avg_user_is_poisson_or_gaussian(
         cls, # noqa: N805
         v: RVConfig,

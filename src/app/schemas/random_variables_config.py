@@ -25,7 +25,12 @@ class RVConfig(BaseModel):
 
     @model_validator(mode="after")  # type: ignore[arg-type]
     def default_variance(cls, model: "RVConfig") -> "RVConfig":  # noqa: N805
-        """Set variance = mean when distribution == 'normal' and variance is missing."""
-        if model.variance is None and model.distribution != Distribution.POISSON:
+        """Set variance = mean when distribution require and variance is missing."""
+        needs_variance: set[Distribution] = {
+            Distribution.NORMAL,
+            Distribution.LOG_NORMAL,
+        }
+
+        if model.variance is None and model.distribution in needs_variance:
             model.variance = model.mean
         return model

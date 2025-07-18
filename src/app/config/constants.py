@@ -161,7 +161,9 @@ class ServerResourcesDefaults:
 class NetworkParameters:
   """parameters for the network"""
 
+  MIN_DROPOUT_RATE = 0.0
   DROPOUT_RATE = 0.01
+  MAX_DROPOUT_RATE = 1.0
 
 # ======================================================================
 # CONSTANTS FOR THE MACRO-TOPOLOGY GRAPH

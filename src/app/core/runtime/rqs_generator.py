@@ -76,7 +76,7 @@ class RqsGeneratorRuntime:
         * Otherwise the default Poisson-Poisson sampler is returned.
 
         """
-        dist = self.rqs_generator_data.avg_active_users.distribution.lower()
+        dist = self.rqs_generator_data.avg_active_users.distribution
 
         if dist == Distribution.NORMAL:
             #Gaussian-Poisson model

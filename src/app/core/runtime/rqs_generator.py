@@ -16,7 +16,6 @@ from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
 
     import simpy
 

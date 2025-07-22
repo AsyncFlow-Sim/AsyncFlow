@@ -13,8 +13,8 @@ import numpy as np
 import simpy
 
 from app.config.constants import SystemEdges
-from app.config.rqs_state import RequestState
 from app.core.event_samplers.common_helpers import general_sampler
+from app.runtime.rqs_state import RequestState
 from app.schemas.system_topology_schema.full_system_topology_schema import Edge
 
 if TYPE_CHECKING:

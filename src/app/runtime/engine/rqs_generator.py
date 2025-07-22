@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from app.config.constants import Distribution, SystemNodes
-from app.config.rqs_state import RequestState
 from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
 from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
+from app.runtime.rqs_state import RequestState
 
 if TYPE_CHECKING:
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     import simpy
 
-    from app.core.runtime.edge import EdgeRuntime
+    from app.runtime.engine.edge import EdgeRuntime
     from app.schemas.requests_generator_input import RqsGeneratorInput
     from app.schemas.simulation_settings_input import SimulationSettings
 

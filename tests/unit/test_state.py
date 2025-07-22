@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from app.config.constants import SystemEdges, SystemNodes
-from app.config.rqs_state import Hop, RequestState
+from app.runtime.rqs_state import Hop, RequestState
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #

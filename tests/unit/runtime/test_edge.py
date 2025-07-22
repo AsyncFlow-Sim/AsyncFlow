@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, cast
 import simpy
 
 from app.config.constants import SystemEdges, SystemNodes
-from app.config.rqs_state import RequestState
-from app.core.runtime.edge import EdgeRuntime
+from app.runtime.engine.edge import EdgeRuntime
+from app.runtime.rqs_state import RequestState
 from app.schemas.random_variables_config import RVConfig
 from app.schemas.system_topology_schema.full_system_topology_schema import Edge
 

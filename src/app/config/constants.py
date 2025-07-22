@@ -128,15 +128,11 @@ class StepOperation(StrEnum):
     """
     Keys used inside the ``metrics`` dictionary of a *step*.
 
-    * ``NETWORK_LATENCY`` - Mean latency (seconds) incurred on a network edge
-      *outside* the service (used mainly for validation when steps model
-      short in-service hops).
     * ``CPU_TIME`` - Service time (seconds) during which the coroutine occupies
       the CPU / GIL.
     * ``NECESSARY_RAM`` - Peak memory (MB) required by the step.
     """
 
-    NETWORK_LATENCY = "network_latency"
     CPU_TIME        = "cpu_time"
     IO_WAITING_TIME = "io_waiting_time"
     NECESSARY_RAM   = "necessary_ram"
@@ -164,6 +160,7 @@ class NetworkParameters:
   MIN_DROPOUT_RATE = 0.0
   DROPOUT_RATE = 0.01
   MAX_DROPOUT_RATE = 1.0
+
 
 # ======================================================================
 # CONSTANTS FOR THE MACRO-TOPOLOGY GRAPH

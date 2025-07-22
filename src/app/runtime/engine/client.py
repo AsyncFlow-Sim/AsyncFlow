@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 import simpy
 
 from app.config.constants import SystemNodes
-from app.core.runtime.edge import EdgeRuntime
+from app.runtime.engine.edge import EdgeRuntime
 from app.schemas.system_topology_schema.full_system_topology_schema import Client
 
 if TYPE_CHECKING:
-    from app.config.rqs_state import RequestState
+    from app.runtime.rqs_state import RequestState
 
 
 

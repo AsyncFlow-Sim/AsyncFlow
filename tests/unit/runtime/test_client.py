@@ -5,8 +5,8 @@ from __future__ import annotations
 import simpy
 
 from app.config.constants import SystemEdges, SystemNodes
-from app.config.rqs_state import RequestState
-from app.core.runtime.client import ClientRuntime
+from app.runtime.engine.client import ClientRuntime
+from app.runtime.rqs_state import RequestState
 from app.schemas.system_topology_schema.full_system_topology_schema import (
     Client,
 )

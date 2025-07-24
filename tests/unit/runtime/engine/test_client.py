@@ -5,9 +5,9 @@ from __future__ import annotations
 import simpy
 
 from app.config.constants import SystemEdges, SystemNodes
-from app.runtime.engine.client import ClientRuntime
+from app.runtime.actors.client import ClientRuntime
 from app.runtime.rqs_state import RequestState
-from app.schemas.system_topology_schema.full_system_topology_schema import (
+from app.schemas.system_topology.full_system_topology import (
     Client,
 )
 
@@ -50,7 +50,7 @@ def _setup(
         completed_box=completed,
         client_config=cli_cfg,
     )
-    client.client_run()  # start the forwarder
+    client.start()  # start the forwarder
     return inbox, completed, edge_rt
 
 

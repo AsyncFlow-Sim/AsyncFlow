@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 import simpy
 
 from app.config.constants import SystemNodes
-from app.runtime.engine.edge import EdgeRuntime
-from app.schemas.system_topology_schema.full_system_topology_schema import Client
+from app.runtime.actors.edge import EdgeRuntime
+from app.schemas.system_topology.full_system_topology import Client
 
 if TYPE_CHECKING:
     from app.runtime.rqs_state import RequestState
@@ -54,6 +54,6 @@ class ClientRuntime:
             else:
                 self.out_edge.transport(state)
 
-    def client_run(self) -> simpy.Process:
+    def start(self) -> simpy.Process:
         """Initialization of the process"""
         return self.env.process(self._forwarder())

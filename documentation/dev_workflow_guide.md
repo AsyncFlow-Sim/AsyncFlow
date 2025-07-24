@@ -13,47 +13,65 @@ The project is built upon the following core technologies:
 -   **Caching**: Redis
 -   **Containerization**: Docker
 
-### 2.1. Backend Service (`FastSim-backend`)
+### 2.1  Backend Service (`FastSim-backend`)
 
-This repository contains all code related to the FastAPI backend service. Its primary responsibility is to handle business logic, interact with the database, and expose a RESTful API.
-
-**Folder Structure:**
-```
-project-backend/
-├── .github/                            # CI workflows: tests, builds, and publishes the Docker image
-│   └── workflows/
-│       └── main.yml
-├── src/
-│   └── app/                           # Main Python package
-│       ├── api/                       # API routers & endpoints
-│       ├── db/                        # Database session management & base models
-│       ├── models/                    # SQLAlchemy ORM models (database table definitions)
-│       ├── schemas/                   # Pydantic schemas for validation/serialization
-│       ├── core/                      # Business logic (services, utilities, etc.)
-│       ├── config/                    # settings.py & constants.py for configuration
-│       └── main.py                    # FastAPI application entrypoint
-├── Alembic/                           # Database migrations managed with Alembic
-│   ├── versions/                      # Generated migration files
-│   ├── env.py                         # Alembic environment setup
-│   └── script.py.mako                 # Template for new migrations
-├── tests/                             # Unit and integration tests
-├── alembic.ini                        # Alembic configuration file
-├── py.ini                             # Python tool configurations (flake8, mypy, etc.)
-├── .env.example                       # Template for environment variables
-├── .gitignore                         # Files and paths ignored by Git
-├── docker-compose.override.yml        # Local overrides (e.g., hot-reload)
-├── docker-compose.test.yml            # Docker Compose setup for isolated testing
-├── docker-compose.yml                 # Base Docker Compose configuration for development
-├── Dockerfile                         # Instructions to build the production Docker image
-├── poetry.lock                        # Locked dependency versions for Poetry
-├── pyproject.toml                     # Poetry project configuration (including src layout)
-└── README.md                          # Setup instructions and project overview
+The repository hosts the entire FastAPI backend for FastSim.
+Its job is to expose the REST API, run the discrete-event simulation, talk to the database, and provide metrics.
 
 ```
+fastsim-backend/
+├── Dockerfile
+├── docker_fs/                 # docker-compose for dev & prod
+│   ├── docker-compose.dev.yml
+│   └── docker-compose.prod.yml
+├── scripts/                   # helper bash scripts (lint, dev-startup, …)
+│   ├── init-docker-dev.sh
+│   └── quality-check.sh
+├── alembic/                   # DB migrations (versions/ contains revision files)
+│   ├── env.py
+│   └── versions/
+├── documentation/             # project vision & low-level docs
+│   └── backend_documentation/
+│       └── …
+├── tests/                     # unit & integration tests
+│   ├── unit/
+│   └── integration/
+├── src/                       # **application code lives here**
+│   └── app/
+│       ├── api/              # FastAPI routers & endpoint handlers
+│       ├── config/           # Pydantic Settings + constants
+│       ├── db/               # SQLAlchemy base, sessions, initial seed utilities
+│       ├── metrics/          # helpers to compute/aggregate simulation KPIs
+│       ├── resources/        # SimPy resource registry (CPU/RAM containers, etc.)
+│       ├── runtime/          # simulation core
+│       │   ├── rqs_state.py  # RequestState & Hop
+│       │   └── actors/       # SimPy “actors”: Edge, Server, Client, RqsGenerator
+│       ├── samplers/         # stochastic samplers (Gaussian-Poisson, etc.)
+│       ├── schemas/          # Pydantic input/output models
+│       ├── main.py           # FastAPI application factory / ASGI entry-point
+│       └── simulation_run.py # CLI utility to run a sim outside of HTTP layer
+├── poetry.lock
+├── pyproject.toml
+└── README.md
+```
 
-**Key Responsibilities:**
-*   To be testable in isolation.
-*   To produce a versioned Docker image (`backend:<tag>`) as its main artifact.
+#### What each top-level directory in `src/app` does
+
+| Directory               | Purpose                                                                                                                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`api/`**              | Defines the public HTTP surface. Each module holds a router with path operations and dependency wiring.                                                                            |
+| **`config/`**           | Centralised configuration: `settings.py` (Pydantic `BaseSettings`) reads env vars; `constants.py` stores enums and global literals.                                                |
+| **`db/`**               | Persistence layer. Contains the SQLAlchemy base class, the session factory, and a thin wrapper that seeds or resets the database (Alembic migration scripts live at project root). |
+| **`metrics/`**          | Post-processing helpers that turn raw simulation traces into aggregated KPIs (latency percentiles, cost per request, utilisation curves, …).                                       |
+| **`resources/`**        | A tiny run-time registry mapping every simulated server to its SimPy `Container`s (CPU, RAM). Keeps resource management separate from actor logic.                                 |
+| **`runtime/`**          | The heart of the simulator. `rqs_state.py` holds the mutable `RequestState`; sub-package **`actors/`** contains each SimPy process class (Generator, Edge, Server, Client).        |
+| **`samplers/`**         | Probability-distribution utilities that generate inter-arrival and service-time samples—used by the actors during simulation.                                                      |
+| **`schemas/`**          | All Pydantic models for validation and (de)serialisation: request DTOs, topology definitions, simulation settings, outputs.                                                        |
+| **`main.py`**           | Creates and returns the FastAPI app; imported by Uvicorn/Gunicorn.                                                                                                                 |
+| **`simulation_run.py`** | Convenience script to launch a simulation offline (e.g. inside tests or CLI).                                                                                                      |
+
+Everything under `src/` is import-safe thanks to Poetry’s `packages = [{ include = "app" }]` entry in `pyproject.toml`.
+
 
 ## 3. Branching Strategy: Git Flow
 

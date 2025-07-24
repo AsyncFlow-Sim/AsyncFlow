@@ -11,7 +11,7 @@ from app.config.constants import (
     EndpointStepRAM,
     StepOperation,
 )
-from app.schemas.system_topology_schema.endpoint_schema import Endpoint, Step
+from app.schemas.system_topology.endpoint import Endpoint, Step
 
 
 # --------------------------------------------------------------------------- #

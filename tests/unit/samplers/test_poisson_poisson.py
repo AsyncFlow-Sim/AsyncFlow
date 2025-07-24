@@ -11,9 +11,9 @@ import pytest
 from numpy.random import Generator, default_rng
 
 from app.config.constants import TimeDefaults
-from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
+from app.samplers.poisson_poisson import poisson_poisson_sampling
 from app.schemas.random_variables_config import RVConfig
-from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.rqs_generator_input import RqsGeneratorInput
 
 if TYPE_CHECKING:
 

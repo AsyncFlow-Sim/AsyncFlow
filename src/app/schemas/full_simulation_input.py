@@ -2,9 +2,9 @@
 
 from pydantic import BaseModel
 
-from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.rqs_generator_input import RqsGeneratorInput
 from app.schemas.simulation_settings_input import SimulationSettings
-from app.schemas.system_topology_schema.full_system_topology_schema import TopologyGraph
+from app.schemas.system_topology.full_system_topology import TopologyGraph
 
 
 class SimulationPayload(BaseModel):

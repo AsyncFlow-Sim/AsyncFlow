@@ -30,9 +30,9 @@ from app.db.session import get_db
 from app.main import app
 from app.schemas.full_simulation_input import SimulationPayload
 from app.schemas.random_variables_config import RVConfig
-from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.rqs_generator_input import RqsGeneratorInput
 from app.schemas.simulation_settings_input import SimulationSettings
-from app.schemas.system_topology_schema.full_system_topology_schema import (
+from app.schemas.system_topology.full_system_topology import (
     Client,
     TopologyGraph,
     TopologyNodes,

@@ -14,8 +14,8 @@ from app.config.constants import (
     SystemNodes,
 )
 from app.schemas.random_variables_config import RVConfig
-from app.schemas.system_topology_schema.endpoint_schema import Endpoint, Step
-from app.schemas.system_topology_schema.full_system_topology_schema import (
+from app.schemas.system_topology.endpoint import Endpoint, Step
+from app.schemas.system_topology.full_system_topology import (
     Client,
     Edge,
     Server,

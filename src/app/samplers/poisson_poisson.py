@@ -9,11 +9,11 @@ from collections.abc import Generator
 import numpy as np
 
 from app.config.constants import TimeDefaults
-from app.core.event_samplers.common_helpers import (
+from app.samplers.common_helpers import (
     poisson_variable_generator,
     uniform_variable_generator,
 )
-from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.rqs_generator_input import RqsGeneratorInput
 from app.schemas.simulation_settings_input import SimulationSettings
 
 

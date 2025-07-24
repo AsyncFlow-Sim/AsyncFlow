@@ -232,3 +232,13 @@ class AggregatedMetricName(StrEnum):
 
   LATENCY_STATS = "latency_stats"
   LLM_STATS = "llm_stats"
+
+# ======================================================================
+# CONSTANTS FOR SERVER RUNTIME
+# ======================================================================
+
+class ServerResourceName(StrEnum):
+    """Keys for each server resource type, used when building the container map."""
+
+    CPU = "CPU"
+    RAM = "RAM"

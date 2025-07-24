@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.config.constants import Distribution, TimeDefaults
 from app.schemas.random_variables_config import RVConfig
-from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.rqs_generator_input import RqsGeneratorInput
 from app.schemas.simulation_settings_input import SimulationSettings
 
 # --------------------------------------------------------------------------- #

@@ -10,11 +10,11 @@ import pytest
 from numpy.random import Generator, default_rng
 
 from app.config.constants import TimeDefaults
-from app.core.event_samplers.gaussian_poisson import (
+from app.samplers.gaussian_poisson import (
     gaussian_poisson_sampling,
 )
 from app.schemas.random_variables_config import RVConfig
-from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.rqs_generator_input import RqsGeneratorInput
 
 if TYPE_CHECKING:
 
@@ -99,7 +99,7 @@ def test_zero_users_produces_no_events(
         return 0.0  # force U = 0
 
     monkeypatch.setattr(
-        "app.core.event_samplers.gaussian_poisson.truncated_gaussian_generator",
+        "app.samplers.gaussian_poisson.truncated_gaussian_generator",
         fake_truncated_gaussian,
     )
 

@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from app.config.constants import Distribution, SystemNodes
-from app.core.event_samplers.gaussian_poisson import gaussian_poisson_sampling
-from app.core.event_samplers.poisson_poisson import poisson_poisson_sampling
 from app.runtime.rqs_state import RequestState
+from app.samplers.gaussian_poisson import gaussian_poisson_sampling
+from app.samplers.poisson_poisson import poisson_poisson_sampling
 
 if TYPE_CHECKING:
 
@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
     import simpy
 
-    from app.runtime.engine.edge import EdgeRuntime
-    from app.schemas.requests_generator_input import RqsGeneratorInput
+    from app.runtime.actors.edge import EdgeRuntime
+    from app.schemas.rqs_generator_input import RqsGeneratorInput
     from app.schemas.simulation_settings_input import SimulationSettings
 
 
@@ -116,6 +116,6 @@ class RqsGeneratorRuntime:
             # from one node to another
             self.out_edge.transport(state)
 
-    def run(self) -> simpy.Process:
+    def start(self) -> simpy.Process:
         """Passing the structure as a simpy process"""
         return self.env.process(self._event_arrival())

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from app.config.constants import Distribution
-from app.core.event_samplers.common_helpers import (
+from app.samplers.common_helpers import (
     exponential_variable_generator,
     general_sampler,
     lognormal_variable_generator,

@@ -9,8 +9,8 @@ Processes can later retrieve CPU and RAM containers by indexing this registry.
 
 import simpy
 
-from app.runtime.types import ServerContainers, build_containers
-from app.schemas.system_topology_schema.full_system_topology_schema import TopologyGraph
+from app.resources.server_containers import ServerContainers, build_containers
+from app.schemas.system_topology.full_system_topology import TopologyGraph
 
 
 class ResourcesRuntime:

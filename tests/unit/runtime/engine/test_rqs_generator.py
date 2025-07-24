@@ -8,16 +8,16 @@ import numpy as np
 import simpy
 
 from app.config.constants import Distribution
-from app.runtime.engine.rqs_generator import RqsGeneratorRuntime
+from app.runtime.actors.rqs_generator import RqsGeneratorRuntime
 
 if TYPE_CHECKING:
 
     import pytest
     from numpy.random import Generator
 
-    from app.runtime.engine.edge import EdgeRuntime
+    from app.runtime.actors.edge import EdgeRuntime
     from app.runtime.rqs_state import RequestState
-    from app.schemas.requests_generator_input import RqsGeneratorInput
+    from app.schemas.rqs_generator_input import RqsGeneratorInput
     from app.schemas.simulation_settings_input import SimulationSettings
 
 import importlib
@@ -63,7 +63,7 @@ def _make_runtime(
 # --------------------------------------------------------------------------- #
 
 
-RGR_MODULE = importlib.import_module("app.runtime.engine.rqs_generator")
+RGR_MODULE = importlib.import_module("app.runtime.actors.rqs_generator")
 
 def test_dispatcher_selects_poisson_poisson(
     monkeypatch: pytest.MonkeyPatch,

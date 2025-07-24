@@ -24,7 +24,7 @@ from app.config.constants import (
     SystemNodes,
 )
 from app.schemas.random_variables_config import RVConfig
-from app.schemas.system_topology_schema.endpoint_schema import Endpoint
+from app.schemas.system_topology.endpoint import Endpoint
 
 #-------------------------------------------------------------
 # Definition of the nodes structure for the graph representing
@@ -137,7 +137,6 @@ class TopologyNodes(BaseModel):
         return model
 
     model_config = ConfigDict(extra="forbid")
-
 
 #-------------------------------------------------------------
 # Definition of the edges structure for the graph representing

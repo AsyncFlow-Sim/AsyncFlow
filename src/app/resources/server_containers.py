@@ -6,27 +6,20 @@ to build SimPy Containers for each server in the topology, improving
 readability and ensuring a single point of truth for resource setup.
 """
 
-from enum import StrEnum
+
 from typing import TypedDict
 
 import simpy
 
-from app.schemas.system_topology_schema.full_system_topology_schema import (
-        ServerResources,
-    )
+from app.config.constants import ServerResourceName
+from app.schemas.system_topology.full_system_topology import (
+    ServerResources,
+)
 
 # ==============================================================
 # DICT FOR THE REGISTRY TO INITIALIZE RESOURCES FOR EACH SERVER
 # ==============================================================
 
-# enum in this case is to have the availabale key and improve
-#code readability not for the validation
-
-class ServerResourceName(StrEnum):
-    """Keys for each server resource type, used when building the container map."""
-
-    CPU = "CPU"
-    RAM = "RAM"
 
 class ServerContainers(TypedDict):
     """
@@ -68,11 +61,13 @@ def build_containers(
 
     """
     return {
-        ServerResourceName.CPU.value: simpy.Container(env, capacity=spec.cpu_cores),
-        ServerResourceName.RAM.value: simpy.Container(env, capacity=spec.ram_mb),
+        ServerResourceName.CPU.value: simpy.Container(
+            env, capacity=spec.cpu_cores, init=spec.cpu_cores,
+        ),
+        ServerResourceName.RAM.value: simpy.Container(
+            env, capacity=spec.ram_mb, init=spec.ram_mb,
+        ),
     }
-
-
 
 
 

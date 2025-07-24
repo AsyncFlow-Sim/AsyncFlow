@@ -1,0 +1,19 @@
+"""Unit test: build_containers must return full containers."""
+
+import simpy
+
+from app.config.constants import ServerResourceName
+from app.resources.server_containers import build_containers
+from app.schemas.system_topology.full_system_topology import ServerResources
+
+
+def test_containers_start_full() -> None:
+    env = simpy.Environment()
+    spec = ServerResources(cpu_cores=4, ram_mb=2048)
+    containers = build_containers(env, spec)
+
+    cpu = containers[ServerResourceName.CPU.value]
+    ram = containers[ServerResourceName.RAM.value]
+
+    assert cpu.level == cpu.capacity == 4
+    assert ram.level == ram.capacity == 2048

@@ -30,9 +30,9 @@ from app.db.session import get_db
 from app.main import app
 from app.schemas.full_simulation_input import SimulationPayload
 from app.schemas.random_variables_config import RVConfig
-from app.schemas.requests_generator_input import RqsGeneratorInput
+from app.schemas.rqs_generator_input import RqsGeneratorInput
 from app.schemas.simulation_settings_input import SimulationSettings
-from app.schemas.system_topology_schema.full_system_topology_schema import (
+from app.schemas.system_topology.full_system_topology import (
     Client,
     TopologyGraph,
     TopologyNodes,
@@ -153,14 +153,14 @@ def rng() -> NpGenerator:
     return default_rng(0)
 
 
-# ---------------------------------------------------------------------------
-# Metrics sets
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
+# Metric sets                                                                 #
+# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture(scope="session")
 def enabled_sample_metrics() -> set[SampledMetricName]:
-    """Default sample-level KPIs tracked in most tests."""
+    """Default time-series KPIs collected in most tests."""
     return {
         SampledMetricName.READY_QUEUE_LEN,
         SampledMetricName.RAM_IN_USE,
@@ -169,13 +169,15 @@ def enabled_sample_metrics() -> set[SampledMetricName]:
 
 @pytest.fixture(scope="session")
 def enabled_event_metrics() -> set[EventMetricName]:
-    """Default event-level KPIs tracked in most tests."""
-    return {EventMetricName.RQS_LATENCY}
+    """Default per-event KPIs collected in most tests."""
+    return {
+        EventMetricName.RQS_LATENCY,
+    }
 
 
-# ---------------------------------------------------------------------------
-# Global simulation settings
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
+# Global simulation settings                                                  #
+# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture
@@ -183,7 +185,12 @@ def sim_settings(
     enabled_sample_metrics: set[SampledMetricName],
     enabled_event_metrics: set[EventMetricName],
 ) -> SimulationSettings:
-    """A minimal `SimulationSettings` instance for unit tests."""
+    """
+    Minimal :class:`SimulationSettings` instance.
+
+    The simulation horizon is fixed to the lowest allowed value so that unit
+    tests run quickly.
+    """
     return SimulationSettings(
         total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
         enabled_sample_metrics=enabled_sample_metrics,
@@ -191,37 +198,46 @@ def sim_settings(
     )
 
 
-# ---------------------------------------------------------------------------
-# Traffic profile
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
+# Traffic profile                                                             #
+# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture
 def rqs_input() -> RqsGeneratorInput:
-    """`RqsGeneratorInput` with 1 user and 2 req/min for quick tests."""
+    """
+    One active user issuing two requests per minute—sufficient to
+    exercise the entire request-generator pipeline with minimal overhead.
+    """
     return RqsGeneratorInput(
+        id="rqs-1",
         avg_active_users=RVConfig(mean=1.0),
         avg_request_per_minute_per_user=RVConfig(mean=2.0),
         user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
     )
 
 
-# ---------------------------------------------------------------------------
-# Minimal topology (one client, no servers, no edges)
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
+# Minimal topology (one client, no servers, no edges)                         #
+# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture
 def topology_minimal() -> TopologyGraph:
-    """Valid topology with a single client and zero servers/edges."""
+    """
+    A valid topology containing a single client and **no** servers or edges.
+
+    Suitable for low-level tests that do not need to traverse the server
+    layer or network graph.
+    """
     client = Client(id="client-1")
     nodes = TopologyNodes(servers=[], client=client)
     return TopologyGraph(nodes=nodes, edges=[])
 
 
-# ---------------------------------------------------------------------------
-# Full simulation payload
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
+# Complete simulation payload                                                 #
+# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture
@@ -230,7 +246,12 @@ def payload_base(
     sim_settings: SimulationSettings,
     topology_minimal: TopologyGraph,
 ) -> SimulationPayload:
-    """End-to-end payload used by high-level simulation tests."""
+    """
+    End-to-end payload used by integration tests and FastAPI endpoint tests.
+
+    It wires together the individual fixtures into the single object expected
+    by the simulation engine.
+    """
     return SimulationPayload(
         rqs_input=rqs_input,
         topology_graph=topology_minimal,

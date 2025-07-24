@@ -210,7 +210,7 @@ def rqs_input() -> RqsGeneratorInput:
     exercise the entire request-generator pipeline with minimal overhead.
     """
     return RqsGeneratorInput(
-        id= "rqs-1",
+        id="rqs-1",
         avg_active_users=RVConfig(mean=1.0),
         avg_request_per_minute_per_user=RVConfig(mean=2.0),
         user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,

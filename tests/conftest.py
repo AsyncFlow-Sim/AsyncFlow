@@ -23,6 +23,7 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 from app.config.constants import (
     EventMetricName,
     SampledMetricName,
+    SamplePeriods,
     TimeDefaults,
 )
 from app.config.settings import settings
@@ -195,6 +196,7 @@ def sim_settings(
         total_simulation_time=TimeDefaults.MIN_SIMULATION_TIME,
         enabled_sample_metrics=enabled_sample_metrics,
         enabled_event_metrics=enabled_event_metrics,
+        sample_period_s=SamplePeriods.STANDARD_TIME,
     )
 
 

@@ -208,6 +208,17 @@ class SampledMetricName(StrEnum):
   EVENT_LOOP_IO_SLEEP = "event_loop_io_sleep"
   RAM_IN_USE = "ram_in_use"
   THROUGHPUT_RPS = "throughput_rps"
+  EDGE_CONCURRENT_CONNECTION = "edge_concurrent_connection"
+
+class SamplePeriods(IntEnum):
+  """
+  defining the value of the sample periods for the metrics for which
+  we have to extract a time series
+  """
+
+  STANDARD_TIME = 0.005 # 5 MILLISECONDS
+  MINIMUM_TIME = 0.001 # 1 MILLISECOND
+  MAXIMUM_TIME = 0.1    # 10 MILLISECONDS
 
 # ======================================================================
 # CONSTANTS FOR EVENT METRICS

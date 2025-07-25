@@ -2,7 +2,12 @@
 
 from pydantic import BaseModel, Field
 
-from app.config.constants import EventMetricName, SampledMetricName, TimeDefaults
+from app.config.constants import (
+    EventMetricName,
+    SampledMetricName,
+    SamplePeriods,
+    TimeDefaults,
+)
 
 
 class SimulationSettings(BaseModel):
@@ -19,6 +24,7 @@ class SimulationSettings(BaseModel):
             SampledMetricName.READY_QUEUE_LEN,
             SampledMetricName.CORE_BUSY,
             SampledMetricName.RAM_IN_USE,
+            SampledMetricName.EDGE_CONCURRENT_CONNECTION,
         },
         description="Which time-series KPIs to collect by default.",
     )
@@ -27,5 +33,12 @@ class SimulationSettings(BaseModel):
             EventMetricName.RQS_LATENCY,
         },
         description="Which per-event KPIs to collect by default.",
+    )
+
+    sample_period_s: int = Field(
+        default = SamplePeriods.STANDARD_TIME,
+        ge = SamplePeriods.MINIMUM_TIME,
+        le = SamplePeriods.MAXIMUM_TIME,
+        description="constant interval of time to build time series for metrics",
     )
 

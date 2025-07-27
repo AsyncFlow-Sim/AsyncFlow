@@ -13,13 +13,16 @@ from app.config.constants import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
+    SampledMetricName,
     ServerResourceName,
     StepOperation,
     SystemNodes,
 )
+from app.metrics.server import build_server_metrics
 from app.resources.server_containers import ServerContainers
 from app.runtime.actors.edge import EdgeRuntime
 from app.runtime.rqs_state import RequestState
+from app.schemas.simulation_settings_input import SimulationSettings
 from app.schemas.system_topology.full_system_topology import Server
 
 
@@ -33,19 +36,10 @@ class ServerRuntime:
         server_config: Server,
         out_edge: EdgeRuntime,
         server_box: simpy.Store,
+        settings: SimulationSettings,
         rng: np.random.Generator | None = None,
     ) -> None:
-        """Server attributes
-
-        Args:
-            env (simpy.Environment): _description_
-            server_resources (ServerContainers): _description_
-            server_config (Server): _description_
-            out_edge (EdgeRuntime): _description_
-            server_box (simpy.Store): _description_
-            rng (np.random.Generator | None, optional): _description_. Defaults to None.
-
-        """
+        """Docstring to complete"""
         self.env = env
         self.server_resources = server_resources
         self.server_config = server_config
@@ -58,6 +52,15 @@ class ServerRuntime:
         self._ram_in_use: int | float = 0
         # length of the queue of the I/O task of the vent loop
         self._el_io_queue_len: int = 0
+
+        # Right now is not necessary but as we will introduce
+        # non mandatory metrics we will need this structure to
+        # check if we have to measure a given metric
+        # right now it is not necessary because we are dealing
+        # only with mandatory metrics
+        self._server_enabled_metrics = build_server_metrics(
+            settings.enabled_sample_metrics,
+        )
 
     # right now we disable the warnings but a refactor will be done soon
     def _handle_request( # noqa: PLR0915, PLR0912, C901
@@ -246,6 +249,12 @@ class ServerRuntime:
     def ram_in_use(self) -> int | float:
         """Total RAM (MB) currently reserved by active requests."""
         return self._ram_in_use
+
+    @property
+    def enabled_metrics(self) -> dict[SampledMetricName, list[float | int]]:
+        """Read-only access to the metric store."""
+        return self._server_enabled_metrics
+
 
 
     def _dispatcher(self) -> Generator[simpy.Event, None, None]:

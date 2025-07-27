@@ -52,9 +52,15 @@ class ServerRuntime:
         self.out_edge = out_edge
         self.server_box = server_box
         self.rng = rng or np.random.default_rng()
+        # length of the active queue of the event loop
+        self._el_ready_queue_len: int = 0
+        # total ram used in the server
+        self._ram_in_use: int | float = 0
+        # length of the queue of the I/O task of the vent loop
+        self._el_io_queue_len: int = 0
 
-
-    def _handle_request(
+    # right now we disable the warnings but a refactor will be done soon
+    def _handle_request( # noqa: PLR0915, PLR0912, C901
         self,
         state: RequestState,
         ) -> Generator[simpy.Event, None, None]:
@@ -79,44 +85,168 @@ class ServerRuntime:
         selected_endpoint_idx = self.rng.integers(low=0, high=endpoints_number)
         selected_endpoint = endpoints_list[selected_endpoint_idx]
 
-        # RAM management:
-        # first calculate the ram needed
-        # Ask if it is available
-        # Release everything when the operation completed
 
+        # Extract the total ram to execute the endpoint
         total_ram = sum(
             step.step_operation[StepOperation.NECESSARY_RAM]
             for step in selected_endpoint.steps
             if isinstance(step.kind, EndpointStepRAM)
         )
 
+        # ------------------------------------------------------------------
+        # CPU & RAM SCHEDULING
+        #
+        #  RAM FIRST, CPU LATER
+        #   - The request reserves its full working set (total_ram) before
+        #     acquiring any CPU core. If memory isn't available, it stays
+        #     queued and leaves cores free for other requests.
+        #
+        #  LAZY-CPU LOCK
+        #   - A core token is acquired only at the FIRST CPU step
+        #     (`if not core_locked`) and held for all consecutive CPU steps.
+        #   - As soon as an I/O step is encountered, the core is released
+        #     (`CPU.put(1)`) and remains free until the next CPU step,
+        #     which will re-acquire it.
+        #
+        #  WHY THIS IS REALISTIC
+        #    Prevents “core-hogging” during long I/O awaits.
+        #    Avoids redundant get/put calls for consecutive CPU steps
+        #      (one token for the entire sequence).
+        #    Mirrors a real Python async server: the GIL/worker thread is
+        #      held only during CPU-bound code and released on each await.
+        #
+        #  END OF HANDLER
+        #   - If we still hold the core at the end (`core_locked == True`),
+        #     we put it back, then release the reserved RAM.
+        # ------------------------------------------------------------------
 
+        # Ask the necessary ram to the server
         if total_ram:
             yield self.server_resources[ServerResourceName.RAM.value].get(total_ram)
+            self._ram_in_use += total_ram
+
+        # Initial conditions of the server a rqs a priori is not in any queue
+        # and it does not occupy a core until it started to be elaborated
+        core_locked = False
+        is_in_io_queue = False
+        is_in_ready_queue = False
 
 
         # --- Step Execution: Process CPU and IO operations ---
+        #  EDGE CASE
+        #  First-step I/O
+        #     A request could (in theory) start with an I/O step. In that case
+        #     it doesn't hold any core; we enter the
+        #     `not core_locked and not is_in_io_queue` branch and add +1
+        #     to the I/O queue without touching the ready queue.
+        #
+        #  Consecutive I/O steps
+        #     The second I/O sees `is_in_io_queue == True`, so it does NOT
+        #     increment again—no double counting.
+        #
+        #  Transition CPU → I/O → CPU
+        #     - CPU step: `core_locked` becomes True, +1 ready queue
+        #     - I/O step: core is put back, -1 ready queue, +1 I/O queue
+        #     - Next CPU step: core is acquired, -1 I/O queue, +1 ready queue
+        #
+        #  Endpoint completion
+        #     If `core_locked == True`  we were in the ready queue (-1)
+        #     Otherwise  we were in the I/O queue (-1)
+        #     In both cases we clear the local flags so no “ghost” entries
+        #     remain in the global counters.
+        # ------------------------------------------------------------------
+
+
         for step in selected_endpoint.steps:
 
             if isinstance(step.kind, EndpointStepCPU):
-                cpu_time = step.step_operation[StepOperation.CPU_TIME]
+                # with the boolean we avoid redundant operation of asking
+                # the core multiple time on a given step
+                # for example if we have two consecutive cpu bound step
+                # in this configuration we are asking the cpu just in the
+                # first one
 
-                # Acquire one core
-                yield self.server_resources[ServerResourceName.CPU.value].get(1)
-                # Hold the core busy
+                if not core_locked:
+                    core_locked = True
+
+                    if is_in_io_queue:
+                        is_in_io_queue = False
+                        self._el_io_queue_len -= 1
+
+                    if not is_in_ready_queue:
+                        is_in_ready_queue = True
+                        self._el_ready_queue_len += 1
+
+
+                    yield self.server_resources[ServerResourceName.CPU.value].get(1)
+
+                cpu_time = step.step_operation[StepOperation.CPU_TIME]
+                # Execute the step giving back the control to the simpy env
                 yield self.env.timeout(cpu_time)
-                # Release the core
-                yield self.server_resources[ServerResourceName.CPU.value].put(1)
+
 
             elif isinstance(step.kind, EndpointStepIO):
                 io_time = step.step_operation[StepOperation.IO_WAITING_TIME]
+                # Same here with the boolean if we have multiple I/O steps
+                # we release the core just the first time if the previous step
+                # was a cpu bound step
+
+                if not core_locked and not is_in_io_queue:
+                    is_in_io_queue = True
+                    self._el_io_queue_len += 1
+
+
+                if core_locked:
+                    # if the core is locked in the function it means that for sure
+                    # we had a cpu bound step so the if statement will be always
+                    # satisfy and we have to remove one element from the ready queue
+
+                    if is_in_ready_queue:
+                        is_in_ready_queue = False
+                        self._el_ready_queue_len -= 1
+
+                    if not is_in_io_queue:
+                        is_in_io_queue = True
+                        self._el_io_queue_len += 1
+
+                    yield self.server_resources[ServerResourceName.CPU.value].put(1)
+                    core_locked = False
                 yield self.env.timeout(io_time)  # Wait without holding a CPU core
 
-        # release the ram
+
+        if core_locked:
+            is_in_ready_queue = False
+            self._el_ready_queue_len -= 1
+            yield self.server_resources[ServerResourceName.CPU.value].put(1)
+        else:
+            is_in_io_queue = False
+            self._el_io_queue_len -= 1
+
         if total_ram:
+
+            self._ram_in_use -= total_ram
             yield self.server_resources[ServerResourceName.RAM.value].put(total_ram)
 
         self.out_edge.transport(state)
+
+
+    # we need three accessor because we need to read these private attribute
+    # in the sampled metric collector
+    @property
+    def ready_queue_len(self) -> int:
+        """Current length of the event-loop ready queue for this server."""
+        return self._el_ready_queue_len
+
+    @property
+    def io_queue_len(self) -> int:
+        """Current length of the event-loop I/O queue for this server."""
+        return self._el_io_queue_len
+
+    @property
+    def ram_in_use(self) -> int | float:
+        """Total RAM (MB) currently reserved by active requests."""
+        return self._ram_in_use
+
 
     def _dispatcher(self) -> Generator[simpy.Event, None, None]:
         """

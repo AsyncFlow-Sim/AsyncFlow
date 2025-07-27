@@ -176,19 +176,42 @@ An `EdgeRuntime` is a direct analog for a **physical or virtual network link**. 
 
 -----
 
-### **5.3  `ServerRuntime` — The Workhorse 📦**
+### **5.3  `ServerRuntime` — The Workhorse 📦 (2025 edition)**
 
-`ServerRuntime` models an application server that owns finite CPU/RAM resources and executes a chain of steps for every incoming request.
-With the 2025 refactor it now uses a **dispatcher / handler** pattern: the dispatcher sits in an infinite loop, and each request is handled in its own SimPy subprocess. This enables many concurrent in-flight requests while keeping the code easy to reason about.
+`ServerRuntime` emulates an application server that owns **finite CPU / RAM containers** and executes an ordered chain of **Step** objects for every incoming request.
+The 2025 refactor keeps the classic **dispatcher / handler** pattern, adds **live metric counters** (ready‑queue length, I/O‑queue length, RAM‑in‑use) and implements the **lazy‑CPU lock** algorithm described earlier.
 
-| `__init__` parameter   | Meaning                                                                                                                                                                                                 |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`env`**              | The shared `simpy.Environment`. Every timeout and resource operation is scheduled here.                                                                                                                 |
-| **`server_resources`** | A `ServerContainers` mapping (`{"CPU": Container, "RAM": Container}`) created by `ResourcesRuntime`. The containers are **pre-filled** (`level == capacity`) so the server can immediately pull tokens. |
-| **`server_config`**    | The validated Pydantic `Server` model: server-wide ID, resource spec, and a list of `Endpoint` objects (each endpoint is an ordered list of `Step`s).                                                   |
-| **`out_edge`**         | The `EdgeRuntime` (or stub) that receives the `RequestState` once processing finishes.                                                                                                                  |
-| **`server_box`**       | A `simpy.Store` acting as the server’s inbox. Up-stream actors drop `RequestState`s here.                                                                                                               |
-| **`rng`**              | Instance of `numpy.random.Generator`; defaults to `default_rng()`. Used to pick a random endpoint.                                                                                                      |
+| `__init__` parameter   | Meaning                                                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`env`**              | Shared `simpy.Environment`. Every timeout or resource operation is scheduled here.                                                                                    |
+| **`server_resources`** | A `ServerContainers` mapping `{"CPU": Container, "RAM": Container}` created by `ResourcesRuntime`. Containers start **full** so a server can immediately pull tokens. |
+| **`server_config`**    | Validated Pydantic `Server` model: ID, resource spec, list `endpoints: list[Endpoint]`.                                                                               |
+| **`out_edge`**         | `EdgeRuntime` (or stub) that receives the `RequestState` once processing finishes.                                                                                    |
+| **`server_box`**       | `simpy.Store` acting as the server’s inbox. Up‑stream actors drop `RequestState`s here.                                                                               |
+| **`rng`**              | `numpy.random.Generator`; defaults to `default_rng()`. Used to pick a random endpoint.                                                                                |
+
+---
+
+#### **Live metric fields**
+
+| Field                 | Unit     | Updated when…                                    | Used for…                                                                |
+| --------------------- | -------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| `_el_ready_queue_len` | requests | a CPU step acquires / releases a core            | **Ready queue length** (how many coroutines wait for the GIL / a worker) |
+| `_el_io_queue_len`    | requests | an I/O step enters / leaves the socket wait list | **I/O queue length** (awaits in progress)                                |
+| `_ram_in_use`         | MB       | RAM `get` / `put`                                | Instant **RAM usage** per server                                         |
+
+Accessor properties expose them read‑only:
+
+```python
+@property
+def ready_queue_len(self) -> int: return self._el_ready_queue_len
+
+@property
+def io_queue_len(self) -> int: return self._el_io_queue_len
+
+@property
+def ram_in_use(self) -> int: return self._ram_in_use
+```
 
 ---
 
@@ -211,54 +234,109 @@ Registers the **dispatcher** coroutine in the environment and returns the create
                         │
                         ▼
             RAM get → CPU/IO steps → RAM put → out_edge.transport()
+                      ▲        │
+                      │        └── metric counters updated here
+                      └── lazy CPU lock (get once, put on first I/O)
 ```
 
 1. **Dispatcher loop**
 
-   ```python
-   while True:
-       raw_state = yield self.server_box.get()          # blocks until a request arrives
-       state = cast(RequestState, raw_state)
-       self.env.process(self._handle_request(state))    # fire-and-forget
-   ```
-
-   *Spawning a new process per request mimics worker thread concurrency.*
+```python
+while True:
+    raw_state = yield self.server_box.get()           # blocks until a request arrives
+    state = cast(RequestState, raw_state)
+    self.env.process(self._handle_request(state))     # fire‑and‑forget
+```
 
 2. **Handler coroutine (`_handle_request`)**
 
-   | Stage                           | Implementation detail                                                                                                                                                          |
-   | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-   | **Record arrival**              | `state.record_hop(SystemNodes.SERVER, self.server_config.id, env.now)` – leaves a breadcrumb for tracing.                                                                      |
-   | **Endpoint selection**          | Uniform random index `rng.integers(0, len(endpoints))`. (Hook point for custom routing later.)                                                                                 |
-   | **Reserve RAM (back-pressure)** | Compute `total_ram` (sum of all `StepOperation.NECESSARY_RAM`). `yield RAM.get(total_ram)`. If not enough RAM is free, the coroutine blocks, creating natural memory pressure. |
-   | **Execute steps in order**      |                                                                                                                                                                                |
-   | – CPU-bound step                | `yield CPU.get(1)` → `yield env.timeout(cpu_time)` → `yield CPU.put(1)` – exactly one core is busy for the duration.                                                           |
-   | – I/O-bound step                | `yield env.timeout(io_wait)` – no core is held, modelling non-blocking I/O.                                                                                                    |
-   | **Release RAM**                 | `yield RAM.put(total_ram)`.                                                                                                                                                    |
-   | **Forward**                     | `out_edge.transport(state)` – hands the request to the next hop without waiting for network latency.                                                                           |
+| Stage                           | Implementation detail                                                                     |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Record arrival**              | `state.record_hop(SystemNodes.SERVER, self.server_config.id, env.now)`                    |
+| **Endpoint selection**          | Uniform random index `rng.integers(0, len(endpoints))` (plug‑in point for custom routing) |
+| **Reserve RAM (back‑pressure)** | compute `total_ram` → `yield RAM.get(total_ram)` → `_ram_in_use += total_ram`             |
+| **Execute steps**               | handled in a loop with *lazy CPU lock* and metric updates (see edge‑case notes below)     |
+| **Release RAM**                 | `_ram_in_use -= total_ram` → `yield RAM.put(total_ram)`                                   |
+| **Forward**                     | `out_edge.transport(state)` — send to next hop without awaiting latency                   |
+
+---
+
+#### **CPU / I‑O loop details**
+
+* **Lazy‑CPU lock** – first CPU step acquires one core; all following contiguous CPU steps reuse it.
+* **Release on I/O** – on the first I/O step the core is released; it remains free until the next CPU step.
+* **Metric updates** – counters are modified only on the **state transition** (CPU→I/O, I/O→CPU) so there is never double‑counting.
+
+```python
+if isinstance(step.kind, EndpointStepCPU):
+    if not core_locked:
+        yield CPU.get(1)
+        core_locked = True
+        self._el_ready_queue_len += 1        # entered ready queue
+        if is_in_io_queue:
+            self._el_io_queue_len -= 1
+            is_in_io_queue = False
+    yield env.timeout(cpu_time)
+
+elif isinstance(step.kind, EndpointStepIO):
+    if core_locked:
+        yield CPU.put(1)
+        core_locked = False
+        self._el_ready_queue_len -= 1
+    if not is_in_io_queue:
+        self._el_io_queue_len += 1
+        is_in_io_queue = True
+    yield env.timeout(io_time)
+```
+
+**Handler epilogue**
+
+```python
+# at exit, remove ourselves from whichever queue we are in
+if core_locked:           # we are still in ready queue
+    self._el_ready_queue_len -= 1
+    yield CPU.put(1)
+elif is_in_io_queue:      # finished while awaiting I/O
+    self._el_io_queue_len -= 1
+```
+
+> This guarantees both queues always balance back to 0 after the last request completes.
 
 ---
 
 #### **Concurrency Guarantees**
 
-* **CPU contention** – because CPU is a token bucket (`simpy.Container`) the maximum number of concurrent CPU-bound steps equals `cpu_cores`.
-* **RAM contention** – large requests can stall entirely until enough RAM frees up, accurately modelling out-of-memory throttling.
-* **Non-blocking I/O** – while a handler waits on an I/O step it releases the core, allowing other handlers to run; this mirrors an async framework where the event loop can service other sockets.
+* **CPU contention** – the `CPU` container is a token bucket; max concurrent CPU‑bound steps = `cpu_cores`.
+* **RAM contention** – requests block at `RAM.get()` until memory is free (models cgroup / OOM throttling).
+* **Non‑blocking I/O** – while in `env.timeout(io_wait)` no core token is held, so other handlers can run; mirrors an async server where workers return to the event‑loop on each `await`.
 
 ---
 
-#### **Real-World Analogy**
+#### **Edge‑case handling (metrics)**
 
-| Runtime concept                       | Real server analogue                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `server_box`                          | A web server’s accept queue.                                                               |
-| `CPU.get(1)`                          | Obtaining one worker thread/process in Gunicorn, uWSGI, or a Node.js “JS thread”.          |
-| `env.timeout(io_wait)` without a core | An `await` on a database or HTTP call; the worker is idle while the OS handles the socket. |
-| RAM token bucket                      | Process resident set or container memory limit; requests block when heap is exhausted.     |
-
-Thus a **CPU-bound step** is a tight Python loop holding the GIL, while an **I/O-bound step** is `await cursor.execute(...)` that frees the event loop.
+* **First‑step I/O** – counted only in I/O queue (`+1`), never touches ready queue.
+* **Consecutive I/O steps** – second I/O sees `is_in_io_queue == True`, so no extra increment (no double count).
+* **CPU → I/O → CPU** –
+   – CPU step: `core_locked=True`, `+1` ready queue
+   – I/O step: core released, `‑1` ready queue, `+1` I/O queue
+   – next CPU: core reacquired, `‑1` I/O queue, `+1` ready queue
+* **Endpoint finishes** – epilogue removes the request from whichever queue it still occupies, avoiding “ghost” entries.
 
 ---
+
+#### **Real‑World Analogy**
+
+| Runtime concept                         | Real server analogue                                                                    |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| `server_box`                            | Web server accept queue (e.g., `accept()` backlog).                                     |
+| `CPU.get(1)` / `CPU.put(1)`             | Claiming / releasing a worker thread or GIL slot (Gunicorn, uWSGI, Node.js event‑loop). |
+| `env.timeout(io_wait)` (without a core) | `await redis.get()` – coroutine parked while the kernel handles the socket.             |
+| RAM token bucket                        | cgroup memory limit / container hard‑RSS; requests block when heap is exhausted.        |
+
+Thus a **CPU‑bound step** models tight Python code holding the GIL, while an **I/O‑bound step** models an `await` that yields control back to the event loop, freeing the core.
+
+---
+
 
 
 ### **5.4. ClientRuntime: The Destination**

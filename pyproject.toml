@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "FastSim-backend"
+name = "FastSim"
 version = "0.1.0"
 description = "Simulate fastapi event loop to manage resources"
 authors = ["Gioele Botta"]
@@ -11,25 +11,16 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = "^0.115.14"
-sqlalchemy = "^2.0.41"
-psycopg = {extras = ["binary"], version = "^3.2.9"}
-uvicorn = {extras = ["standard"], version = "^0.34.3"}
-gunicorn = "^23.0.0"
 pydantic-settings = "^2.10.1"
 pydantic = {extras = ["email"], version = "^2.11.7"}
-asyncpg = "^0.30.0"
-sqlalchemy-utils = "^0.41.2"
 numpy = "^2.3.1"
 simpy = "^4.1.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
 pytest-asyncio = "^1.0.0"
-httpx = "^0.28.1"
 pytest-cov = "^6.2.1"
 mypy = "^1.16.1"
-alembic = "^1.16.2"
 ruff = "^0.12.1"
 
 [build-system]

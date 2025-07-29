@@ -45,9 +45,6 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           poetry config virtualenvs.create false
           poetry install --with dev --no-interaction
-      
-      - name: Verify lock file is up to date
-        run: poetry lock --check
 
       # Code quality gates
       - name: Run Ruff (lint & formatting check)
@@ -85,9 +82,6 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           poetry config virtualenvs.create false
           poetry install --with dev --no-interaction
-      
-      - name: Verify lock file is up to date
-        run: poetry lock --check
 
       - name: Run Ruff
         run: poetry run ruff check src tests

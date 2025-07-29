@@ -7,7 +7,6 @@ import simpy
 from app.config.constants import SampledMetricName
 from app.runtime.actors.edge import EdgeRuntime
 from app.runtime.actors.server import ServerRuntime
-from app.runtime.actors.client import ClientRuntime
 from app.schemas.simulation_settings_input import SimulationSettings
 
 # The idea for this class is to gather list of runtime objects that
@@ -33,7 +32,7 @@ class SampledMetricCollector:
         self.sim_settings = sim_settings
         self.env = env
         self._sample_period = sim_settings.sample_period_s
-        
+
 
         # enum keys instance-level for mandatory sampled metrics to collect
         self._conn_key   = SampledMetricName.EDGE_CONCURRENT_CONNECTION

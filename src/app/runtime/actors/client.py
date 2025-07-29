@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING
 import simpy
 
 from app.config.constants import SystemNodes
-from app.metrics.client import build_client_metrics
+from app.metrics.client import RqsClock
 from app.runtime.actors.edge import EdgeRuntime
-from app.schemas.simulation_settings_input import SimulationSettings
 from app.schemas.system_topology.full_system_topology import Client
 
 if TYPE_CHECKING:
@@ -19,14 +18,13 @@ if TYPE_CHECKING:
 class ClientRuntime:
     """class to define the client runtime"""
 
-    def __init__( # noqa: PLR0913
+    def __init__(
         self,
         env: simpy.Environment,
         out_edge: EdgeRuntime,
         client_box: simpy.Store,
         completed_box: simpy.Store,
         client_config: Client,
-        settings: SimulationSettings,
         ) -> None:
         """Definition of attributes for the client"""
         self.env = env
@@ -34,18 +32,11 @@ class ClientRuntime:
         self.client_config = client_config
         self.client_box = client_box
         self.completed_box = completed_box
-        self._rqs_latencies: list[float] = []
-        # list to collect the time when rqs are satisfied we need this
-        # to calculate the throughput in the collector
-        self._rqs_time_series: list[float] = []
-        # Right now is not necessary but as we will introduce
-        # non mandatory metrics we will need this structure to
-        # check if we have to measure a given metric
-        # right now it is not necessary because we are dealing
-        # only with mandatory metrics
-        self._server_enabled_metrics = build_client_metrics(
-            settings.enabled_sample_metrics,
-        )
+        # This list will be enough to calculate at the end
+        # of the simulation both the throughput and the
+        # latency distribution
+
+        self._rqs_clock: list[RqsClock] = []
 
 
     def _forwarder(self) -> Generator[simpy.Event, None, None]:
@@ -67,9 +58,11 @@ class ClientRuntime:
             # rqs generator and client registration
             if len(state.history) > 2:
                 state.finish_time = self.env.now
-                self._rqs_time_series.append(state.finish_time)
-                latency = state.finish_time - state.initial_time
-                self._rqs_latencies.append(latency)
+                clock_data = RqsClock(
+                    start=state.initial_time,
+                    finish=state.finish_time,
+                )
+                self._rqs_clock.append(clock_data)
                 yield self.completed_box.put(state)
             else:
                 self.out_edge.transport(state)
@@ -79,17 +72,9 @@ class ClientRuntime:
         return self.env.process(self._forwarder())
 
     @property
-    def request_latency(self) -> list[float]:
+    def rqs_clock(self) -> list[RqsClock]:
         """
-        Expose the value of the private list rqs latencies
-        just for reading purpose
+        Expose the value of the private list of the starting
+        and arrival time for each rqs just for reading purpose
         """
-        return self._rqs_latencies
-
-    @property
-    def rqs_time_series(self) -> list[float]:
-        """
-        Expose the value of the private list of the
-        arrival time for each rqs just for reading purpose
-        """
-        return self._rqs_time_series
+        return self._rqs_clock

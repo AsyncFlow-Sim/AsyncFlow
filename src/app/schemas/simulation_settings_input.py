@@ -31,7 +31,7 @@ class SimulationSettings(BaseModel):
     )
     enabled_event_metrics: set[EventMetricName] = Field(
         default_factory=lambda: {
-            EventMetricName.RQS_LATENCY,
+            EventMetricName.RQS_CLOCK,
         },
         description="Which per-event KPIs to collect by default.",
     )

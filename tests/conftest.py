@@ -54,7 +54,7 @@ def enabled_sample_metrics() -> set[SampledMetricName]:
 def enabled_event_metrics() -> set[EventMetricName]:
     """Default per-event KPIs collected in most tests."""
     return {
-        EventMetricName.RQS_LATENCY,
+        EventMetricName.RQS_CLOCK,
     }
 
 

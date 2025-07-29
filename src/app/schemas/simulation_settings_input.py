@@ -26,7 +26,6 @@ class SimulationSettings(BaseModel):
             SampledMetricName.EVENT_LOOP_IO_SLEEP,
             SampledMetricName.RAM_IN_USE,
             SampledMetricName.EDGE_CONCURRENT_CONNECTION,
-            SampledMetricName.THROUGHPUT_RPS,
         },
         description="Which time-series KPIs to collect by default.",
     )

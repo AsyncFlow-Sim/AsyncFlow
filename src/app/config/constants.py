@@ -207,7 +207,6 @@ class SampledMetricName(StrEnum):
   READY_QUEUE_LEN = "ready_queue_len" #length of the event loop ready q
   EVENT_LOOP_IO_SLEEP = "event_loop_io_sleep"
   RAM_IN_USE = "ram_in_use"
-  THROUGHPUT_RPS = "throughput_rps"
   EDGE_CONCURRENT_CONNECTION = "edge_concurrent_connection"
 
 
@@ -232,7 +231,7 @@ class EventMetricName(StrEnum):
   """
 
   # Mandatory
-  RQS_LATENCY = "rqs_latency"
+  RQS_CLOCK = "rqs_clock"
   # Not mandatory
   LLM_COST = "llm_cost"
 
@@ -245,6 +244,7 @@ class AggregatedMetricName(StrEnum):
   """aggregated metrics to calculate at the end of simulation"""
 
   LATENCY_STATS = "latency_stats"
+  THROUGHPUT_RPS = "throughput_rps"
   LLM_STATS = "llm_stats"
 
 # ======================================================================

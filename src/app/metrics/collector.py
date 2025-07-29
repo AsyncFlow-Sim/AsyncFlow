@@ -7,6 +7,7 @@ import simpy
 from app.config.constants import SampledMetricName
 from app.runtime.actors.edge import EdgeRuntime
 from app.runtime.actors.server import ServerRuntime
+from app.runtime.actors.client import ClientRuntime
 from app.schemas.simulation_settings_input import SimulationSettings
 
 # The idea for this class is to gather list of runtime objects that
@@ -28,18 +29,17 @@ class SampledMetricCollector:
         ) -> None:
         """Docstring to complete"""
         self.edges = edges
+        self.servers = servers
         self.sim_settings = sim_settings
         self.env = env
         self._sample_period = sim_settings.sample_period_s
-        self.servers = servers
+        
 
         # enum keys instance-level for mandatory sampled metrics to collect
         self._conn_key   = SampledMetricName.EDGE_CONCURRENT_CONNECTION
         self._ram_key    = SampledMetricName.RAM_IN_USE
         self._io_key     = SampledMetricName.EVENT_LOOP_IO_SLEEP
         self._ready_key  = SampledMetricName.READY_QUEUE_LEN
-        # to add in a short period
-        self._throughput = SampledMetricName.THROUGHPUT_RPS
 
 
         env.process(self._build_time_series())

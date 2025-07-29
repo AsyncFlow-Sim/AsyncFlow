@@ -1,11 +1,12 @@
 """
-initialization of the structure to gather the sampled metrics
+initialization of the structure to gather the metrics
 for the client of the system
 """
 
 from collections.abc import Iterable
+from typing import NamedTuple
 
-from app.config.constants import SampledMetricName
+from app.config.constants import EventMetricName
 
 # Initialize one time outside the function all possible metrics
 # related to the client, the idea of this structure is to
@@ -13,12 +14,22 @@ from app.config.constants import SampledMetricName
 # will be considered
 
 CLIENT_METRICS = (
-    SampledMetricName.THROUGHPUT_RPS,
+    EventMetricName.RQS_CLOCK
 )
 
+class RqsClock(NamedTuple):
+    """
+    structure to register time of generation and
+    time of elaboration for each request
+    """
+
+    start: float
+    finish: float
+    
+
 def build_client_metrics(
-    enabled_sample_metrics: Iterable[SampledMetricName],
-    ) -> dict[SampledMetricName, list[float | int]]:
+    enabled_sample_metrics: Iterable[EventMetricName],
+    ) -> dict[EventMetricName, list[float | int]]:
     """
     Function to populate a dictionary to collect values for
     time series of sampled metrics related to the client of

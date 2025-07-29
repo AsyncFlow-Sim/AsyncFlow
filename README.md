@@ -1,7 +1,3 @@
-Certamente. Ecco il contenuto del `README.md` visualizzato direttamente qui.
-
------
-
 # **FastSim Project Overview**
 
 ## **1. Why FastSim?**

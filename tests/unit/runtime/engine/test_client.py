@@ -7,6 +7,7 @@ import simpy
 from app.config.constants import SystemEdges, SystemNodes
 from app.runtime.actors.client import ClientRuntime
 from app.runtime.rqs_state import RequestState
+from app.schemas.simulation_settings_input import SimulationSettings
 from app.schemas.system_topology.full_system_topology import (
     Client,
 )
@@ -42,6 +43,7 @@ def _setup(
     completed: simpy.Store = simpy.Store(env)
     edge_rt = DummyEdgeRuntime(env)
     cli_cfg = Client(id="cli-1")
+    settings = SimulationSettings(total_simulation_time=1900, sample_period_s=0.1)
 
     client = ClientRuntime(
         env=env,
@@ -49,6 +51,7 @@ def _setup(
         client_box=inbox,
         completed_box=completed,
         client_config=cli_cfg,
+        settings=settings,
     )
     client.start()  # start the forwarder
     return inbox, completed, edge_rt

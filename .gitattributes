@@ -1,4 +1,0 @@
-*.sh text eol=lf
-*.py text eol=lf
-*.env text eol=lf
-*.yml text eol=lf

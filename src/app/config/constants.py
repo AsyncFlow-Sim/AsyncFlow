@@ -178,10 +178,6 @@ class SystemNodes(StrEnum):
     SERVER        = "server"
     CLIENT        = "client"
     LOAD_BALANCER = "load_balancer"
-    API_GATEWAY   = "api_gateway"
-    DATABASE      = "database"
-    CACHE         = "cache"
-
 
 class SystemEdges(StrEnum):
     """

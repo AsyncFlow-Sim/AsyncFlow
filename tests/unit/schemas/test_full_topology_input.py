@@ -18,6 +18,7 @@ from app.schemas.system_topology.endpoint import Endpoint, Step
 from app.schemas.system_topology.full_system_topology import (
     Client,
     Edge,
+    LoadBalancer,
     Server,
     ServerResources,
     TopologyGraph,
@@ -95,6 +96,18 @@ def test_invalid_server_type() -> None:
             endpoints=[_dummy_endpoint()],
         )
 
+# --------------------------------------------------------------------------- #
+# Load Balancer                                                          #
+# --------------------------------------------------------------------------- #
+
+def test_valid_lb() -> None:
+    """A LB with correct ``type`` validates."""
+    cli = LoadBalancer(
+        id="LB",
+        type=SystemNodes.LOAD_BALANCER,
+        server_covered=["s1", "s2"],
+    )
+    assert cli.type is SystemNodes.LOAD_BALANCER
 
 # --------------------------------------------------------------------------- #
 # TopologyNodes                                                               #
@@ -174,6 +187,37 @@ def _latency() -> RVConfig:
     """Tiny helper for latency objects."""
     return RVConfig(mean=0.02)
 
+def _topology_with_lb(
+    cover: set[str],
+    extra_edges: list[Edge] | None = None,
+) -> TopologyGraph:
+    """Build a minimal graph with 1 client, 1 server and a load balancer."""
+    nodes = _single_node_topology()
+    lb = LoadBalancer(id="lb-1", server_covered=cover)
+    nodes = TopologyNodes(
+        servers=nodes.servers,
+        client=nodes.client,
+        load_balancer=lb,
+    )
+
+    edges: list[Edge] = [
+        Edge(  # client -> LB
+            id="cli-lb",
+            source="browser",
+            target="lb-1",
+            latency=_latency(),
+        ),
+        Edge(  # LB -> server (may be removed in invalid tests)
+            id="lb-srv",
+            source="lb-1",
+            target="svc-A",
+            latency=_latency(),
+        ),
+    ]
+    if extra_edges:
+        edges.extend(extra_edges)
+    return TopologyGraph(nodes=nodes, edges=edges)
+
 
 def test_valid_topology_graph() -> None:
     """Happy-path graph passes validation."""
@@ -188,6 +232,19 @@ def test_valid_topology_graph() -> None:
     graph = TopologyGraph(nodes=nodes, edges=[edge])
     assert len(graph.edges) == 1
 
+def test_topology_graph_without_lb_still_valid() -> None:
+    """Graph without load balancer validates just like before."""
+    nodes = _single_node_topology()
+    edge = Edge(
+        id="edge-1",
+        source="browser",
+        target="svc-A",
+        latency=_latency(),
+    )
+    graph = TopologyGraph(nodes=nodes, edges=[edge])
+    assert graph.nodes.load_balancer is None
+
+
 
 def test_edge_refers_unknown_node() -> None:
     """Edge pointing to a non-existent node fails validation."""
@@ -200,3 +257,49 @@ def test_edge_refers_unknown_node() -> None:
     )
     with pytest.raises(ValidationError):
         TopologyGraph(nodes=nodes, edges=[bad_edge])
+
+
+# --------------------------------------------------------------------------- #
+# 2) LB is valid                                                                #
+# --------------------------------------------------------------------------- #
+def test_load_balancer_valid_graph() -> None:
+    """LB covering a server with proper edges passes validation."""
+    graph = _topology_with_lb({"svc-A"})
+    assert graph.nodes.load_balancer is not None
+    assert graph.nodes.load_balancer.server_covered == {"svc-A"}
+
+
+# --------------------------------------------------------------------------- #
+# 3) LB con server inesistente                                                #
+# --------------------------------------------------------------------------- #
+def test_lb_references_unknown_server() -> None:
+    """LB that lists a non-existent server triggers ValidationError."""
+    with pytest.raises(ValidationError):
+        _topology_with_lb({"ghost-srv"})
+
+
+# --------------------------------------------------------------------------- #
+# 4) LB no edge with a server covered                                         #
+# --------------------------------------------------------------------------- #
+def test_lb_missing_edge_to_covered_server() -> None:
+    """LB covers svc-A but edge LB→svc-A is missing → ValidationError."""
+    # costruiamo il grafo senza l'edge lb-srv
+    nodes = _single_node_topology()
+    lb = LoadBalancer(id="lb-1", server_covered={"svc-A"})
+    nodes = TopologyNodes(
+        servers=nodes.servers,
+        client=nodes.client,
+        load_balancer=lb,
+    )
+    edges = [
+        Edge(
+            id="cli-lb",
+            source="browser",
+            target="lb-1",
+            latency=_latency(),
+        ),
+    ]
+    with pytest.raises(ValidationError):
+        TopologyGraph(nodes=nodes, edges=edges)
+
+

@@ -13,11 +13,15 @@ from app.config.plot_constants import (
     RAM_PLOT,
     SERVER_QUEUES_PLOT,
     THROUGHPUT_PLOT,
+    PlotCfg,
 )
 
 if TYPE_CHECKING:
 
+    from collections.abc import Iterable
+
     from matplotlib.axes import Axes
+    from matplotlib.lines import Line2D
 
     from app.runtime.actors.client import ClientRuntime
     from app.runtime.actors.edge import EdgeRuntime
@@ -35,7 +39,7 @@ class ResultsAnalyzer:
     """
 
     # Class attribute to define the period to calculate the throughput in s
-    _WINDOW_SIZE_S: float = 1
+    _WINDOW_SIZE_S: float = 1.0
 
     def __init__(
         self,
@@ -63,6 +67,22 @@ class ResultsAnalyzer:
         self.latency_stats: dict[LatencyKey, float] | None = None
         self.throughput_series: tuple[list[float], list[float]] | None = None
         self.sampled_metrics: dict[str, dict[str, list[float]]] | None = None
+
+    @staticmethod
+    def _apply_plot_cfg(
+        ax: Axes,
+        cfg: PlotCfg,
+        *,
+        legend_handles: Iterable[Line2D] | None = None,
+    ) -> None:
+        """Apply title / axis labels / grid and (optionally) legend to ax."""
+        ax.set_title(cfg.title)
+        ax.set_xlabel(cfg.x_label)
+        ax.set_ylabel(cfg.y_label)
+        ax.grid(visible=True)
+
+        if legend_handles:
+            ax.legend(handles=legend_handles)
 
     def process_all_metrics(self) -> None:
         """Compute all aggregated and sampled metrics if not already done."""
@@ -150,32 +170,26 @@ class ResultsAnalyzer:
         return self.sampled_metrics
 
     def plot_latency_distribution(self, ax: Axes) -> None:
-        """Draw a histogram of request latencies onto the given Axes."""
+        """Plot the distribution of the latency"""
         if not self.latencies:
             ax.text(0.5, 0.5, LATENCY_PLOT.no_data, ha="center", va="center")
             return
 
         ax.hist(self.latencies, bins=50)
-        ax.set_title(LATENCY_PLOT.title)
-        ax.set_xlabel(LATENCY_PLOT.x_label)
-        ax.set_ylabel(LATENCY_PLOT.y_label)
-        ax.grid(visible=True)
+        self._apply_plot_cfg(ax, LATENCY_PLOT)
 
     def plot_throughput(self, ax: Axes) -> None:
-        """Draw throughput (RPS) over time onto the given Axes."""
+        """Plot the distribution of the throughput"""
         timestamps, values = self.get_throughput_series()
         if not timestamps:
             ax.text(0.5, 0.5, THROUGHPUT_PLOT.no_data, ha="center", va="center")
             return
 
         ax.plot(timestamps, values, marker="o", linestyle="-")
-        ax.set_title(THROUGHPUT_PLOT.title)
-        ax.set_xlabel(THROUGHPUT_PLOT.x_label)
-        ax.set_ylabel(THROUGHPUT_PLOT.y_label)
-        ax.grid(visible=True)
+        self._apply_plot_cfg(ax, THROUGHPUT_PLOT)
 
     def plot_server_queues(self, ax: Axes) -> None:
-        """Draw server queue lengths over time onto the given Axes."""
+        """Plot the server queues"""
         metrics = self.get_sampled_metrics()
         ready = metrics.get(SampledMetricName.READY_QUEUE_LEN, {})
         io_q = metrics.get(SampledMetricName.EVENT_LOOP_IO_SLEEP, {})
@@ -197,14 +211,11 @@ class ResultsAnalyzer:
                 linestyle="--",
             )
 
-        ax.set_title(SERVER_QUEUES_PLOT.title)
-        ax.set_xlabel(SERVER_QUEUES_PLOT.x_label)
-        ax.set_ylabel(SERVER_QUEUES_PLOT.y_label)
-        ax.legend()
-        ax.grid(visible=True)
+        self._apply_plot_cfg(ax, SERVER_QUEUES_PLOT, legend_handles=ax.lines)
+
 
     def plot_ram_usage(self, ax: Axes) -> None:
-        """Draw RAM usage over time onto the given Axes."""
+        """Plot the ram usage"""
         metrics = self.get_sampled_metrics()
         ram = metrics.get(SampledMetricName.RAM_IN_USE, {})
 
@@ -218,8 +229,4 @@ class ResultsAnalyzer:
         for sid, vals in ram.items():
             ax.plot(times, vals, label=f"{sid} {RAM_PLOT.legend_label}")
 
-        ax.set_title(RAM_PLOT.title)
-        ax.set_xlabel(RAM_PLOT.x_label)
-        ax.set_ylabel(RAM_PLOT.y_label)
-        ax.legend()
-        ax.grid(visible=True)
+        self._apply_plot_cfg(ax, RAM_PLOT, legend_handles=ax.lines)

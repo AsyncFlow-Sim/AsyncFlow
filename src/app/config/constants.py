@@ -161,6 +161,16 @@ class NetworkParameters:
   DROPOUT_RATE = 0.01
   MAX_DROPOUT_RATE = 1.0
 
+# ======================================================================
+# NAME FOR LOAD BALANCER ALGORITHMS
+# ======================================================================
+
+class LbAlgorithmsName(StrEnum):
+  """definition of the available algortithms for the Load Balancer"""
+
+  ROUND_ROBIN = "round_robin"
+  LEAST_CONNECTIONS = "least_connection"
+
 
 # ======================================================================
 # CONSTANTS FOR THE MACRO-TOPOLOGY GRAPH

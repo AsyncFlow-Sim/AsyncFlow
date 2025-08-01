@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 from app.config.constants import (
+    LbAlgorithmsName,
     NetworkParameters,
     ServerResourcesDefaults,
     SystemEdges,
@@ -117,7 +118,9 @@ class LoadBalancer(BaseModel):
 
     id: str
     type: SystemNodes = SystemNodes.LOAD_BALANCER
+    algorithms: LbAlgorithmsName = LbAlgorithmsName.ROUND_ROBIN
     server_covered: set[str] = Field(default_factory=set)
+
 
 
     @field_validator("type", mode="after")
@@ -260,7 +263,7 @@ class TopologyGraph(BaseModel):
         valid_ids = {s.id for s in model.nodes.servers} | {model.nodes.client.id}
         if model.nodes.load_balancer is not None:
             valid_ids.add(model.nodes.load_balancer.id)
-        
+
         for e in model.edges:
             if e.source not in valid_ids or e.target not in valid_ids:
                 msg = f"Edge {e.source}->{e.target} references unknown node"

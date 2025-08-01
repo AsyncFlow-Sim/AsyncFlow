@@ -15,6 +15,7 @@ pydantic-settings = "^2.10.1"
 pydantic = {extras = ["email"], version = "^2.11.7"}
 numpy = "^2.3.1"
 simpy = "^4.1.1"
+matplotlib = "^3.10.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"

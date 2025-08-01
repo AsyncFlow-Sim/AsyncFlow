@@ -216,9 +216,9 @@ class SamplePeriods(float, Enum):
   we have to extract a time series
   """
 
-  STANDARD_TIME = 0.005 # 5 MILLISECONDS
+  STANDARD_TIME = 0.01 # 10 MILLISECONDS
   MINIMUM_TIME = 0.001 # 1 MILLISECOND
-  MAXIMUM_TIME = 0.1    # 10 MILLISECONDS
+  MAXIMUM_TIME = 0.1   # 100 MILLISECONDS
 
 # ======================================================================
 # CONSTANTS FOR EVENT METRICS
@@ -244,7 +244,7 @@ class AggregatedMetricName(StrEnum):
   """aggregated metrics to calculate at the end of simulation"""
 
   LATENCY_STATS = "latency_stats"
-  THROUGHPUT_RPS = "throughput_rps"
+  THROUGHPUT = "throughput_rps"
   LLM_STATS = "llm_stats"
 
 # ======================================================================
@@ -252,7 +252,23 @@ class AggregatedMetricName(StrEnum):
 # ======================================================================
 
 class ServerResourceName(StrEnum):
-    """Keys for each server resource type, used when building the container map."""
+  """Keys for each server resource type, used when building the container map."""
 
-    CPU = "CPU"
-    RAM = "RAM"
+  CPU = "CPU"
+  RAM = "RAM"
+
+# ======================================================================
+# CONSTANTS FOR LATENCY STATS
+# ======================================================================
+
+class LatencyKey(StrEnum):
+  """Keys for the collection of the latency stats"""
+
+  TOTAL_REQUESTS = "total_requests"
+  MEAN           = "mean"
+  MEDIAN         = "median"
+  STD_DEV        = "std_dev"
+  P95            = "p95"
+  P99            = "p99"
+  MIN            = "min"
+  MAX            = "max"

@@ -359,3 +359,93 @@ The client pulls requests from its `client_box`. It then makes a critical decisi
 **Design Note & Real-World Analogy:**
 The current logic for this decision—`if state.history[-2].component_type != SystemNodes.GENERATOR`—is **fragile**. While it works, it's not robust. A future improvement would be to add a more explicit routing mechanism.
 In the real world, the `ClientRuntime` could be a user's **web browser**, a **mobile application**, or even a **Backend-For-Frontend (BFF)** service that both initiates requests and receives the final aggregated responses.
+
+## **5.5  `LoadBalancerRuntime` — The Traffic Cop 🚦**
+
+The **Load Balancer** actor lives in `app/runtime/actors/load_balancer_runtime.py`.
+It receives a `RequestState` from the client side, decides **which outbound
+edge** should carry it to a server, and immediately forwards the request.
+
+```text
+lb_box.get()            choose edge                transport(state)
+┌───────────────┐  ───────────────────────────►  ┌────────────────┐
+│ LoadBalancer  │                                │ EdgeRuntime n  │
+└───────────────┘  ◄───────────────────────────┘ └────────────────┘
+```
+
+### **Constructor Parameters**
+
+| Parameter     | Meaning                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `env`         | Shared `simpy.Environment`                                              |
+| `lb_config`   | Validated `LoadBalancer` schema (ID, chosen algorithm enum)             |
+| `outer_edges` | Immutable list `list[EdgeRuntime]`, one per target server               |
+| `lb_box`      | `simpy.Store` acting as the inbox for requests arriving from the client |
+
+```python
+self._round_robin_index: int = 0   # round-robin pointer (private state)
+```
+
+### **Supported Algorithms**
+
+| Enum value (`LbAlgorithmsName`) | Function used                                 | Signature |
+| ------------------------------- | --------------------------------------------- | --------- |
+| `ROUND_ROBIN`                   | `round_robin(edges, idx)` → `(edge, new_idx)` | O(1)      |
+| `LEAST_CONNECTIONS`             | `least_connections(edges)` → `edge`           | O(N) scan |
+
+*Both helpers live in* `app/runtime/actors/helpers/lb_algorithms.py`.
+
+#### **Why an index and not list rotation?**
+
+`outer_edges` is **shared** with other components (e.g. metrics collector,
+tests). Rotating it in-place would mutate a shared object and create
+hard-to-trace bugs (aliasing).
+Keeping `_round_robin_index` inside the LB runtime preserves immutability while
+still advancing the pointer on every request.
+
+### **Process Workflow**
+
+```python
+def _forwarder(self) -> Generator[simpy.Event, None, None]:
+    while True:
+        state: RequestState = yield self.lb_box.get()     # ① wait for a request
+
+        state.record_hop(SystemNodes.LOAD_BALANCER,
+                         self.lb_config.id,
+                         self.env.now)                    # ② trace
+
+        if self.lb_config.algorithms is LbAlgorithmsName.ROUND_ROBIN:
+            edge, self._round_robin_index = round_robin(
+                self.outer_edges,
+                self._round_robin_index,
+            )                                             # ③a choose RR edge
+        else:                                             # LEAST_CONNECTIONS
+            edge = least_connections(self.outer_edges)    # ③b choose LC edge
+
+        edge.transport(state)                             # ④ forward
+```
+
+| Step | What happens                                                             | Real-world analogue                      |
+| ---- | ------------------------------------------------------------------------ | ---------------------------------------- |
+| ①    | Pull next `RequestState` out of `lb_box`.                                | Socket `accept()` on the LB front-end.   |
+| ②    | Add a `Hop` stamped `LOAD_BALANCER`.                                     | Trace span in NGINX/Envoy access log.    |
+| ③a   | **Round-Robin** – pick `outer_edges[_round_robin_index]`, advance index. | Classic DNS-RR or NGINX default.         |
+| ③b   | **Least-Connections** – `min(edges, key=concurrent_connections)`.        | HAProxy `leastconn`, NGINX `least_conn`. |
+| ④    | Spawn network transit via `EdgeRuntime.transport()`.                     | LB writes request to backend socket.     |
+
+### **Edge-Case Safety**
+
+* **Empty `outer_edges`** → impossible by schema validation (LB must cover >1 server).
+* **Single server** → RR degenerates to index 0; LC always returns that edge.
+* **Concurrency metric** (`edge.concurrent_connections`) is updated inside
+  `EdgeRuntime` in real time, so `least_connections` adapts instantly to load spikes.
+
+### **Key Takeaways**
+
+1. **Stateful but side-effect-free** – `_round_robin_index` keeps per-LB state without mutating the shared edge list.
+2. **Uniform API** – both algorithms integrate through a simple `if/else`; additional strategies can be added with negligible changes.
+3. **Deterministic & reproducible** – no randomness inside the LB, ensuring repeatable simulations.
+
+With these mechanics the `LoadBalancerRuntime` faithfully emulates behaviour of
+production LBs (NGINX, HAProxy, AWS ALB) while remaining lightweight and
+fully deterministic inside the FastSim event loop.

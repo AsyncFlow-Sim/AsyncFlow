@@ -31,6 +31,7 @@ class ServerRuntime:
 
     def __init__(  # noqa: PLR0913
         self,
+        *,
         env: simpy.Environment,
         server_resources: ServerContainers,
         server_config: Server,
@@ -262,6 +263,7 @@ class ServerRuntime:
         The main dispatcher loop. It pulls requests from the inbox and
         spawns a new '_handle_request' process for each one.
         """
+        assert self.out_edge is not None
         while True:
             # Wait for a request to arrive in the server's inbox
             raw_state = yield self.server_box.get()

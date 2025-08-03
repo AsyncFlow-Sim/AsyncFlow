@@ -33,11 +33,11 @@ class RqsGeneratorRuntime:
 
     def __init__(
         self,
+        *,
         env: simpy.Environment,
         out_edge: EdgeRuntime,
         rqs_generator_data: RqsGeneratorInput,
         sim_settings: SimulationSettings,
-        *,
         rng: np.random.Generator | None = None,
         ) -> None:
         """
@@ -96,6 +96,8 @@ class RqsGeneratorRuntime:
 
     def _event_arrival(self) -> Generator[simpy.Event, None, None]:
         """Simulating the process of event generation"""
+        assert self.out_edge is not None
+
         time_gaps = self._requests_generator()
 
         for gap in time_gaps:

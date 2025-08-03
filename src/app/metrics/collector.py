@@ -61,7 +61,9 @@ class SampledMetricCollector:
                     server.enabled_metrics[self._io_key].append(server.io_queue_len)
                     server.enabled_metrics[self._ready_key].append(server.ready_queue_len)
 
-
+    def start(self) -> simpy.Process:
+        """Definition of the process to collect sampled metrics"""
+        return self.env.process(self._build_time_series())
 
 
 

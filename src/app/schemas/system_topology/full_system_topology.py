@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 from app.config.constants import (
+    LbAlgorithmsName,
     NetworkParameters,
     ServerResourcesDefaults,
     SystemEdges,
@@ -50,7 +51,7 @@ class Client(BaseModel):
         return v
 
 # -------------------------------------------------------------
-# SERVER RESOURCES EXAMPLE
+# SERVER RESOURCES
 # -------------------------------------------------------------
 
 class ServerResources(BaseModel):
@@ -107,6 +108,29 @@ class Server(BaseModel):
             raise ValueError(msg)
         return v
 
+class LoadBalancer(BaseModel):
+    """
+    basemodel for the load balancer
+    - id: unique name associated to the lb
+    - type: type of the node in the structure
+    - server_covered: list of server id connected to the lb
+    """
+
+    id: str
+    type: SystemNodes = SystemNodes.LOAD_BALANCER
+    algorithms: LbAlgorithmsName = LbAlgorithmsName.ROUND_ROBIN
+    server_covered: set[str] = Field(default_factory=set)
+
+
+
+    @field_validator("type", mode="after")
+    def ensure_type_is_standard(cls, v: SystemNodes) -> SystemNodes: # noqa: N805
+        """Ensure the type of the server is standard"""
+        if v != SystemNodes.LOAD_BALANCER:
+            msg = f"The type should have a standard value: {SystemNodes.LOAD_BALANCER}"
+            raise ValueError(msg)
+        return v
+
 # -------------------------------------------------------------
 # NODES CLASS WITH ALL POSSIBLE OBJECTS REPRESENTED BY A NODE
 # -------------------------------------------------------------
@@ -121,6 +145,7 @@ class TopologyNodes(BaseModel):
 
     servers: list[Server]
     client: Client
+    load_balancer: LoadBalancer | None = None
 
     @model_validator(mode="after") # type: ignore[arg-type]
     def unique_ids(
@@ -236,10 +261,48 @@ class TopologyGraph(BaseModel):
         Returning the (unchanged) model signals that the integrity check passed.
         """
         valid_ids = {s.id for s in model.nodes.servers} | {model.nodes.client.id}
+        if model.nodes.load_balancer is not None:
+            valid_ids.add(model.nodes.load_balancer.id)
+
         for e in model.edges:
             if e.source not in valid_ids or e.target not in valid_ids:
                 msg = f"Edge {e.source}->{e.target} references unknown node"
                 raise ValueError(msg)
+        return model
+
+    @model_validator(mode="after") # type: ignore[arg-type]
+    def valid_load_balancer(cls, model: "TopologyGraph") -> "TopologyGraph": # noqa: N805
+        """
+        Check de validity of the load balancer: first we check
+        if is present in the simulation, second we check if the LB list
+        is a proper subset of the server sets of ids, then we check if
+        edge from LB to the servers are well defined
+        """
+        lb = model.nodes.load_balancer
+        if lb is None:
+            return model
+
+        server_ids = {s.id for s in model.nodes.servers}
+
+        # 1) LB list ⊆ server_ids
+        missing = lb.server_covered - server_ids
+        if missing:
+
+            msg = (f"Load balancer '{lb.id}'"
+                  "references unknown servers: {sorted(missing)}")
+            raise ValueError(msg)
+
+        # edge are well defined
+        targets_from_lb = {e.target for e in model.edges if e.source == lb.id}
+        not_linked = lb.server_covered - targets_from_lb
+        if not_linked:
+            msg = (
+                    f"Servers {sorted(not_linked)} are covered by LB '{lb.id}' "
+                    "but have no outgoing edge from it."
+                )
+
+            raise ValueError(msg)
+
         return model
 
 

@@ -20,8 +20,9 @@ class ClientRuntime:
 
     def __init__(
         self,
+        *,
         env: simpy.Environment,
-        out_edge: EdgeRuntime,
+        out_edge: EdgeRuntime | None,
         client_box: simpy.Store,
         completed_box: simpy.Store,
         client_config: Client,
@@ -41,6 +42,7 @@ class ClientRuntime:
 
     def _forwarder(self) -> Generator[simpy.Event, None, None]:
         """Updtate the state before passing it to another node"""
+        assert self.out_edge is not None
         while True:
             state: RequestState = yield self.client_box.get()  # type: ignore[assignment]
 

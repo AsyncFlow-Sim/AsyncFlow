@@ -18,6 +18,7 @@ class ResourcesRuntime:
 
     def __init__(
         self,
+        *,
         env: simpy.Environment,
         data: TopologyGraph,
 

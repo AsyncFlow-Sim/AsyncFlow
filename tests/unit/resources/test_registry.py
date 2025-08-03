@@ -39,7 +39,7 @@ def test_registry_initialises_filled_containers() -> None:
     """CPU and RAM containers must start full for every server."""
     env = simpy.Environment()
     topo = _build_topology()
-    registry = ResourcesRuntime(env, topo)
+    registry = ResourcesRuntime(env=env, data=topo)
 
     for srv in topo.nodes.servers:
         containers = registry[srv.id]
@@ -54,7 +54,7 @@ def test_registry_initialises_filled_containers() -> None:
 def test_getitem_unknown_server_raises_keyerror() -> None:
     """Accessing an undefined server ID should raise KeyError."""
     env = simpy.Environment()
-    registry = ResourcesRuntime(env, _build_topology())
+    registry = ResourcesRuntime(env=env, data=_build_topology())
 
     with pytest.raises(KeyError):
         _ = registry["non-existent-server"]

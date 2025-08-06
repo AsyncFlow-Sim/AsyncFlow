@@ -158,9 +158,11 @@ class ResultsAnalyzer:
         return self.latency_stats or {}
 
     def get_throughput_series(self) -> tuple[list[float], list[float]]:
-        """Return throughput time series (timestamps, RPS)."""
+        """Return (timestamps, RPS).  Empty lists when no traffic."""
         self.process_all_metrics()
-        assert self.throughput_series is not None
+        if self.throughput_series is None:
+            return [], []
+
         return self.throughput_series
 
     def get_sampled_metrics(self) -> dict[str, dict[str, list[float]]]:

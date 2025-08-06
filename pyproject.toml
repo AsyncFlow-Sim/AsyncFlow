@@ -16,6 +16,7 @@ pydantic = {extras = ["email"], version = "^2.11.7"}
 numpy = "^2.3.1"
 simpy = "^4.1.1"
 matplotlib = "^3.10.3"
+pyyaml = "^6.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
@@ -23,6 +24,7 @@ pytest-asyncio = "^1.0.0"
 pytest-cov = "^6.2.1"
 mypy = "^1.16.1"
 ruff = "^0.12.1"
+types-pyyaml = "^6.0.12.20250516"
 
 [build-system]
 requires = ["poetry-core"]

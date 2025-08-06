@@ -35,7 +35,7 @@ class RqsGeneratorRuntime:
         self,
         *,
         env: simpy.Environment,
-        out_edge: EdgeRuntime,
+        out_edge: EdgeRuntime | None,
         rqs_generator_data: RqsGeneratorInput,
         sim_settings: SimulationSettings,
         rng: np.random.Generator | None = None,

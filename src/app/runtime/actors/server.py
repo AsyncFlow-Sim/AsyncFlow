@@ -29,18 +29,30 @@ from app.schemas.system_topology.full_system_topology import Server
 class ServerRuntime:
     """class to define the server during the simulation"""
 
-    def __init__(  # noqa: PLR0913
+    def __init__( # noqa: PLR0913
         self,
         *,
         env: simpy.Environment,
         server_resources: ServerContainers,
         server_config: Server,
-        out_edge: EdgeRuntime,
+        out_edge: EdgeRuntime | None,
         server_box: simpy.Store,
         settings: SimulationSettings,
         rng: np.random.Generator | None = None,
-    ) -> None:
-        """Docstring to complete"""
+        ) -> None:
+        """
+        Definition of the instance attributes
+        Args:
+            env (simpy.Environment): simpy environment
+            server_resources (ServerContainers):resource defined in the
+                input for each server
+            server_config (Server): parameter to define the server from the input
+            out_edge (EdgeRuntime): edge connecting the server to the next node
+            server_box (simpy.Store): box with the states that the server
+                should elaborate
+            settings (SimulationSettings): general input settings for the simulation
+            rng (np.random.Generator | None, optional): random number generator.
+        """
         self.env = env
         self.server_resources = server_resources
         self.server_config = server_config
@@ -231,6 +243,7 @@ class ServerRuntime:
             self._ram_in_use -= total_ram
             yield self.server_resources[ServerResourceName.RAM.value].put(total_ram)
 
+        assert self.out_edge is not None
         self.out_edge.transport(state)
 
 
@@ -263,7 +276,6 @@ class ServerRuntime:
         The main dispatcher loop. It pulls requests from the inbox and
         spawns a new '_handle_request' process for each one.
         """
-        assert self.out_edge is not None
         while True:
             # Wait for a request to arrive in the server's inbox
             raw_state = yield self.server_box.get()

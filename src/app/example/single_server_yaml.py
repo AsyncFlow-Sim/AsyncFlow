@@ -1,0 +1,1 @@
+"""yaml version of single server to verify the .from_yaml method"""

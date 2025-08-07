@@ -82,7 +82,7 @@ def _make_edge(
         id="edge-1",
         source="src",
         target="dst",
-        latency=RVConfig(mean=0.0, variance=1.0, distribution="normal"),
+        latency=RVConfig(mean=1.0, variance=1.0, distribution="normal"),
         dropout_rate=dropout_rate,
     )
 

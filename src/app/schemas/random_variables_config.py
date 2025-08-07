@@ -13,7 +13,7 @@ class RVConfig(BaseModel):
     variance: float | None = None
 
     @field_validator("mean", mode="before")
-    def ensure_mean_is_numeric(
+    def ensure_mean_is_numeric_and_positive(
         cls, # noqa: N805
         v: float,
         ) -> float:
@@ -21,6 +21,7 @@ class RVConfig(BaseModel):
         err_msg = "mean must be a number (int or float)"
         if not isinstance(v, (float, int)):
             raise ValueError(err_msg)  # noqa: TRY004
+
         return float(v)
 
     @model_validator(mode="after")  # type: ignore[arg-type]

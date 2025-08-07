@@ -16,6 +16,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_core.core_schema import ValidationInfo
 
 from app.config.constants import (
     LbAlgorithmsName,
@@ -203,6 +204,37 @@ class Edge(BaseModel):
             "a probability to drop the request"
         ),
     )
+
+    # The idea to put here the control about variance and mean about the edges
+    # latencies and not in RVConfig is to provide a better error handling
+    # providing a direct indication of the edge with the error
+    # The idea to put here the control about variance and mean about the edges
+    # latencies and not in RVConfig is to provide a better error handling
+    # providing a direct indication of the edge with the error
+    @field_validator("latency", mode="after")
+    def ensure_latency_is_non_negative(
+        cls, # noqa: N805
+        v: RVConfig,
+        info: ValidationInfo,
+        ) -> RVConfig:
+        """Ensures that the latency's mean and variance are positive."""
+        mean = v.mean
+        variance = v.variance
+
+        # We can get the edge ID from the validation context for a better error message
+        edge_id = info.data.get("id", "unknown")
+
+        if mean <= 0:
+            msg = f"The mean latency of the edge '{edge_id}' must be positive"
+            raise ValueError(msg)
+        if variance is not None and variance < 0: # Variance can be zero
+            msg = (
+                f"The variance of the latency of the edge {edge_id}"
+                "must be positive"
+            )
+            raise ValueError(msg)
+        return v
+
 
     @model_validator(mode="after") # type: ignore[arg-type]
     def check_src_trgt_different(cls, model: "Edge") -> "Edge": # noqa: N805

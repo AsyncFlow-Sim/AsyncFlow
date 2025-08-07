@@ -140,6 +140,7 @@ class ServerRuntime:
         if total_ram:
             yield self.server_resources[ServerResourceName.RAM.value].get(total_ram)
             self._ram_in_use += total_ram
+            
 
         # Initial conditions of the server a rqs a priori is not in any queue
         # and it does not occupy a core until it started to be elaborated

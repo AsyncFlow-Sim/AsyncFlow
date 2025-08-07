@@ -15,6 +15,7 @@ from app.schemas.simulation_settings_input import SimulationSettings
 # the global overhead
 
 
+
 class SampledMetricCollector:
     """class to define a centralized object to collect sampled metrics"""
 
@@ -41,8 +42,6 @@ class SampledMetricCollector:
         self._ready_key  = SampledMetricName.READY_QUEUE_LEN
 
 
-        env.process(self._build_time_series())
-
     def _build_time_series(self) -> Generator[simpy.Event, None, None]:
         """Function to build time series for enabled metrics"""
         while True:
@@ -60,6 +59,8 @@ class SampledMetricCollector:
                     server.enabled_metrics[self._ram_key].append(server.ram_in_use)
                     server.enabled_metrics[self._io_key].append(server.io_queue_len)
                     server.enabled_metrics[self._ready_key].append(server.ready_queue_len)
+
+
 
     def start(self) -> simpy.Process:
         """Definition of the process to collect sampled metrics"""

@@ -53,8 +53,10 @@ class Step(BaseModel):
             raise ValueError(msg)
 
         # Coherence CPU bound operation and operation
-        if isinstance(model.kind, EndpointStepCPU):
-            if operation_keys != {StepOperation.CPU_TIME}:
+        if (
+            isinstance(model.kind, EndpointStepCPU)
+            and operation_keys != {StepOperation.CPU_TIME}
+        ):
                 msg = (
                         "The operation to quantify a CPU BOUND step"
                         f"must be {StepOperation.CPU_TIME}"
@@ -62,8 +64,10 @@ class Step(BaseModel):
                 raise ValueError(msg)
 
         # Coherence RAM operation and operation
-        elif isinstance(model.kind, EndpointStepRAM):
-            if operation_keys != {StepOperation.NECESSARY_RAM}:
+        if (
+            isinstance(model.kind, EndpointStepRAM)
+            and operation_keys != {StepOperation.NECESSARY_RAM}
+        ):
                 msg = (
                        "The operation to quantify a RAM step"
                        f"must be {StepOperation.NECESSARY_RAM}"
@@ -71,11 +75,12 @@ class Step(BaseModel):
                 raise ValueError(msg)
 
         # Coherence I/O operation and operation
-        elif operation_keys != {StepOperation.IO_WAITING_TIME}:
-            msg = (
-                "The operation to quantify an I/O step"
-                f"must be {StepOperation.IO_WAITING_TIME}"
-            )
+        if (
+            isinstance(model.kind, EndpointStepIO)
+            and operation_keys != {StepOperation.IO_WAITING_TIME}
+        ):
+
+            msg = f"An I/O step must use {StepOperation.IO_WAITING_TIME}"
             raise ValueError(msg)
 
         return model

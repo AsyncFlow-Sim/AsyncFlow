@@ -41,7 +41,7 @@ def runner(env: simpy.Environment) -> SimulationRunner:
     from app.runtime.simulation_runner import SimulationRunner  # noqa: PLC0415
 
     yaml_path: Path = (
-        Path(__file__).parent.parent / "data" / "single_server.yml"
+        Path(__file__).parent / "data" / "single_server.yml"
     )
 
     return SimulationRunner.from_yaml(env=env, yaml_path=yaml_path)

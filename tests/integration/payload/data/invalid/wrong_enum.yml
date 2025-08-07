@@ -1,0 +1,13 @@
+rqs_input:
+  id: gen-1
+  avg_active_users: { mean: 1 }
+  avg_request_per_minute_per_user:
+    mean: 10
+    distribution: gamma   # not valid enum
+
+topology_graph:
+  nodes:
+    client: { id: cli }
+    servers: []
+  edges: []
+sim_settings: { total_simulation_time: 5 }

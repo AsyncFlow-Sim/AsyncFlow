@@ -28,7 +28,7 @@ def poisson_poisson_sampling(
 
     Algorithm
     ---------
-    1. Every *sampling_window_s* seconds, draw
+    1. Every sampling_window_s seconds, draw
          U ~ Poisson(mean_concurrent_user).
     2. Compute the aggregate rate
          Λ = U * (mean_req_per_minute_per_user / 60)  [req/s].

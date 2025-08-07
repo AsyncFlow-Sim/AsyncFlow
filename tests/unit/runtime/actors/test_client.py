@@ -84,6 +84,7 @@ def test_inbound_is_completed() -> None:
     req = RequestState(id=2, initial_time=0.0)
     req.record_hop(SystemNodes.GENERATOR, "gen-1", env.now)
     req.record_hop(SystemEdges.NETWORK_CONNECTION, "edge-X", env.now)
+    req.record_hop(SystemNodes.CLIENT, "cli-1", env.now)  # simulate return
 
     inbox.put(req)
     env.run()

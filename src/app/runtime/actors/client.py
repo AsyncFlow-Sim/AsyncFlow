@@ -44,6 +44,7 @@ class ClientRuntime:
         """Updtate the state before passing it to another node"""
         assert self.out_edge is not None
         while True:
+
             state: RequestState = yield self.client_box.get()  # type: ignore[assignment]
 
             state.record_hop(
@@ -58,7 +59,7 @@ class ClientRuntime:
             # would be equal to two would mean that the state
             # went through the mandatory path to be generated
             # rqs generator and client registration
-            if len(state.history) > 2:
+            if len(state.history) > 3:
                 state.finish_time = self.env.now
                 clock_data = RqsClock(
                     start=state.initial_time,

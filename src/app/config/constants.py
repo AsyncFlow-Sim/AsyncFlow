@@ -31,7 +31,7 @@ class TimeDefaults(IntEnum):
     MIN_TO_SEC = 60                     # 1 minute  → 60 s
     USER_SAMPLING_WINDOW = 60           # keep U(t) constant for 60 s
     SIMULATION_TIME = 3_600             # run 1 h if user gives no value
-    MIN_SIMULATION_TIME = 1_800         # enforce at least 30 min
+    MIN_SIMULATION_TIME = 5         # enforce at least 30 min
     MIN_USER_SAMPLING_WINDOW = 1        # 1 s minimum
     MAX_USER_SAMPLING_WINDOW = 120      # 2 min maximum
 

@@ -47,30 +47,43 @@ def exponential_variable_generator(
     return float(rng.exponential(mean))
 
 def general_sampler(random_variable: RVConfig, rng: np.random.Generator) -> float:
-    """Sample a number according to the distribution described in `random_variable`."""
-    dist = random_variable.distribution
-    mean = random_variable.mean
+    """
+    Draw one sample from the distribution described by *random_variable*.
+
+    Only **Normal** and **Log-normal** require an explicit ``variance``.
+    For **Uniform**, **Poisson** and **Exponential** the mean is enough.
+    """
+    dist  = random_variable.distribution
+    mean  = random_variable.mean
+    var   = random_variable.variance
 
     match dist:
+        # ── No extra parameters needed ──────────────────────────────────
         case Distribution.UNIFORM:
-
-            assert random_variable.variance is None
+            # Variance is meaningless for an ad-hoc uniform [0, 1) helper.
+            assert var is None
             return uniform_variable_generator(rng)
 
+        case Distribution.POISSON:
+            # λ == mean ; numpy returns ints → cast to float for consistency
+            assert var is None
+            return float(poisson_variable_generator(mean, rng))
+
+        case Distribution.EXPONENTIAL:
+            # β (scale) == mean ; nothing else required
+            assert var is None
+            return exponential_variable_generator(mean, rng)
+
+        # ── Distributions that *do* need a variance parameter ───────────
+        case Distribution.NORMAL:
+            assert var is not None
+            return truncated_gaussian_generator(mean, var, rng)
+
+        case Distribution.LOG_NORMAL:
+            assert var is not None
+            return lognormal_variable_generator(mean, var, rng)
+
+        # ── Anything else is unsupported ────────────────────────────────
         case _:
-
-            variance = random_variable.variance
-            assert variance is not None
-
-            match dist:
-                case Distribution.NORMAL:
-                    return truncated_gaussian_generator(mean, variance, rng)
-                case Distribution.LOG_NORMAL:
-                    return lognormal_variable_generator(mean, variance, rng)
-                case Distribution.POISSON:
-                    return float(poisson_variable_generator(mean, rng))
-                case Distribution.EXPONENTIAL:
-                    return exponential_variable_generator(mean, rng)
-                case _:
-                    msg = f"Unsupported distribution: {dist}"
-                    raise ValueError(msg)
+            msg = f"Unsupported distribution: {dist}"
+            raise ValueError(msg)

@@ -241,33 +241,55 @@ class TopologyGraph(BaseModel):
         return model
 
 
-    @model_validator(mode="after") # type: ignore[arg-type]
-    def edge_refs_valid(cls, model: "TopologyGraph") -> "TopologyGraph": # noqa: N805
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def edge_refs_valid(
+        cls,                         # noqa: N805
+        model: "TopologyGraph",
+    ) -> "TopologyGraph":
         """
-        Ensure that **every** edge points to valid nodes.
+        Validate that the graph is self-consistent.
 
-        The validator is executed *after* the entire ``TopologyGraph`` model has
-        been built, so all servers and the client already exist in ``m.nodes``.
-
-        Steps
-        -----
-        1. Build the set ``valid_ids`` containing:
-        * all ``Server.id`` values, **plus**
-        * the single ``Client.id``.
-        2. Iterate through each ``Edge`` in ``m.edges`` and raise
-        :class:`ValueError` if either ``edge.source`` or ``edge.target`` is
-        **not** present in ``valid_ids``.
-
-        Returning the (unchanged) model signals that the integrity check passed.
+        * All targets must be nodes declared in ``m.nodes``.
+        * External IDs are allowed as sources (entry points, generator) but
+          they must never appear as a target anywhere else.
         """
-        valid_ids = {s.id for s in model.nodes.servers} | {model.nodes.client.id}
+        # ------------------------------------------------------------------
+        # 1. Collect declared node IDs (servers, client, optional LB)
+        # ------------------------------------------------------------------
+        node_ids: set[str] = {srv.id for srv in model.nodes.servers}
+        node_ids.add(model.nodes.client.id)
         if model.nodes.load_balancer is not None:
-            valid_ids.add(model.nodes.load_balancer.id)
+            node_ids.add(model.nodes.load_balancer.id)
 
-        for e in model.edges:
-            if e.source not in valid_ids or e.target not in valid_ids:
-                msg = f"Edge {e.source}->{e.target} references unknown node"
+        # ------------------------------------------------------------------
+        # 2. Scan every edge once
+        # ------------------------------------------------------------------
+        external_sources: set[str] = set()
+
+        for edge in model.edges:
+            # ── Rule 1: target must be a declared node
+            if edge.target not in node_ids:
+                msg = (
+                    f"Edge {edge.source}->{edge.target} references "
+                    f"unknown target node '{edge.target}'."
+                )
                 raise ValueError(msg)
+
+            # Collect any source that is not a declared node
+            if edge.source not in node_ids:
+                external_sources.add(edge.source)
+
+        # ------------------------------------------------------------------
+        # 3. Ensure external sources never appear as targets elsewhere
+        # ------------------------------------------------------------------
+        forbidden_targets = external_sources & {e.target for e in model.edges}
+        if forbidden_targets:
+            msg = (
+                "External IDs cannot be used as targets as well:"
+                f"{sorted(forbidden_targets)}"
+                )
+            raise ValueError(msg)
+
         return model
 
     @model_validator(mode="after") # type: ignore[arg-type]

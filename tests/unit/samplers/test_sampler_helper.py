@@ -176,7 +176,7 @@ def test_general_sampler_normal_path() -> None:
 def test_general_sampler_poisson_path() -> None:
     """Poisson branch returns the dummy's preset integer as *float*."""
     dummy = cast("np.random.Generator", DummyRNG(poisson_value=4))
-    cfg = RVConfig(mean=5.0, variance=5.0, distribution=Distribution.POISSON)
+    cfg = RVConfig(mean=5.0, distribution=Distribution.POISSON)
     result = general_sampler(cfg, dummy)
     assert isinstance(result, float)
     assert result == 4.0
@@ -192,5 +192,5 @@ def test_general_sampler_lognormal_path() -> None:
 def test_general_sampler_exponential_path() -> None:
     """Exponential branch produces a strictly positive float."""
     rng = np.random.default_rng(7)
-    cfg = RVConfig(mean=1.5, variance=1.5, distribution=Distribution.EXPONENTIAL)
+    cfg = RVConfig(mean=1.5, distribution=Distribution.EXPONENTIAL)
     assert general_sampler(cfg, rng) > 0.0

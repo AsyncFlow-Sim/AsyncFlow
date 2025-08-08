@@ -8,43 +8,151 @@ This document describes the design of the **requests generator**, which models a
 
 Following the FastSim philosophy, we accept a small set of input parameters to drive a “what-if” analysis in a pre-production environment. These inputs let you explore reliability and cost implications under different traffic scenarios.
 
-**Inputs**
+## **Inputs**
 
-1. **Average concurrent users** – expected number of users (or sessions) simultaneously hitting the endpoint.
-2. **Average requests per minute per user** – average number of requests each user issues per minute.
-3. **Simulation time** – total duration of the simulation, in seconds.
+1. **Average Concurrent Users (`avg_active_users`)**
+   Expected number of simultaneous active users (or sessions) interacting with the system.
 
-**Output**
-A continuous sequence of timestamps (seconds) marking individual request arrivals.
+   * Modeled as a random variable (`RVConfig`).
+   * Allowed distributions: **Poisson** or **Normal**.
+
+2. **Average Requests per Minute per User (`avg_request_per_minute_per_user`)**
+   Average request rate per user, expressed in requests per minute.
+
+   * Modeled as a random variable (`RVConfig`).
+   * **Must** use the **Poisson** distribution.
+
+3. **User Sampling Window (`user_sampling_window`)**
+   Time interval (in seconds) over which active users are resampled.
+
+   * Constrained between `MIN_USER_SAMPLING_WINDOW` and `MAX_USER_SAMPLING_WINDOW`.
+   * Defaults to `USER_SAMPLING_WINDOW`.
 
 ---
 
-## Model Assumptions
+## **Model Assumptions**
 
-* *Concurrent users* and *requests per minute per user* are **random variables**.
-* *Simulation time* is **deterministic**.
+* **Random variables**:
 
-We model:
+  * *Concurrent users* and *requests per minute per user* are independent random variables.
+  * Each is configured via the `RVConfig` model, which specifies:
 
-* **Requests per minute per user** as Poisson($\lambda_r$).
-* **Concurrent users** as either Poisson($\lambda_u$) or truncated Normal.
-* **The variables are independent**
+    * **mean** (mandatory, must be numeric and positive),
+    * **distribution** (default: Poisson),
+    * **variance** (optional; defaults to `mean` for Normal and Log-Normal distributions).
+
+* **Supported joint sampling cases**:
+
+  * Poisson (users) × Poisson (requests)
+  * Normal (users) × Poisson (requests)
+
+  Other combinations are currently unsupported.
+
+* **Variance handling**:
+
+  * If the distribution is **Normal** or **Log-Normal** and `variance` is not provided, it is automatically set to the `mean`.
+
+---
+
+## **Validation Rules**
+
+* `avg_request_per_minute_per_user`:
+
+  * **Must** be Poisson-distributed.
+  * Validation enforces this constraint.
+
+* `avg_active_users`:
+
+  * Must be either Poisson or Normal.
+  * Validation enforces this constraint.
+
+* `mean` in `RVConfig`:
+
+  * Must be a positive number (int or float).
+  * Automatically coerced to `float`.
 
 ```python
-from pydantic import BaseModel
-from typing  import Literal
-
 class RVConfig(BaseModel):
-    """Configure a random-variable parameter."""
+    """class to configure random variables"""
+
     mean: float
-    distribution: Literal["poisson", "normal", "gaussian"] = "poisson"
-    variance: float | None = None  # required only for normal/gaussian
+    distribution: Distribution = Distribution.POISSON
+    variance: float | None = None
+
+    @field_validator("mean", mode="before")
+    def ensure_mean_is_numeric_and_positive(
+        cls, # noqa: N805
+        v: float,
+        ) -> float:
+        """Ensure `mean` is numeric, then coerce to float."""
+        err_msg = "mean must be a number (int or float)"
+        if not isinstance(v, (float, int)):
+            raise ValueError(err_msg)  # noqa: TRY004
+
+        return float(v)
+
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def default_variance(cls, model: "RVConfig") -> "RVConfig":  # noqa: N805
+        """Set variance = mean when distribution require and variance is missing."""
+        needs_variance: set[Distribution] = {
+            Distribution.NORMAL,
+            Distribution.LOG_NORMAL,
+        }
+
+        if model.variance is None and model.distribution in needs_variance:
+            model.variance = model.mean
+        return model
+
 
 class RqsGeneratorInput(BaseModel):
-    """Define simulation inputs."""
+    """Define the expected variables for the simulation"""
+
+    id: str
+    type: SystemNodes = SystemNodes.GENERATOR
     avg_active_users: RVConfig
     avg_request_per_minute_per_user: RVConfig
-    total_simulation_time: int | None = None
+
+    user_sampling_window: int = Field(
+        default=TimeDefaults.USER_SAMPLING_WINDOW,
+        ge=TimeDefaults.MIN_USER_SAMPLING_WINDOW,
+        le=TimeDefaults.MAX_USER_SAMPLING_WINDOW,
+        description=(
+            "Sampling window in seconds "
+            f"({TimeDefaults.MIN_USER_SAMPLING_WINDOW}-"
+            f"{TimeDefaults.MAX_USER_SAMPLING_WINDOW})."
+        ),
+    )
+
+    @field_validator("avg_request_per_minute_per_user", mode="after")
+    def ensure_avg_request_is_poisson(
+        cls, # noqa: N805
+        v: RVConfig,
+        ) -> RVConfig:
+        """
+        Force the distribution for the rqs generator to be poisson
+        at the moment we have a joint sampler just for the poisson-poisson
+        and gaussian-poisson case
+        """
+        if v.distribution != Distribution.POISSON:
+            msg = "At the moment the variable avg request must be Poisson"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("avg_active_users", mode="after")
+    def ensure_avg_user_is_poisson_or_gaussian(
+        cls, # noqa: N805
+        v: RVConfig,
+        ) -> RVConfig:
+        """
+        Force the distribution for the rqs generator to be poisson
+        at the moment we have a joint sampler just for the poisson-poisson
+        and gaussian-poisson case
+        """
+        if v.distribution not in {Distribution.POISSON, Distribution.NORMAL}:
+            msg = "At the moment the variable active user must be Poisson or Gaussian"
+            raise ValueError(msg)
+        return v
+
 ```
 
 ---

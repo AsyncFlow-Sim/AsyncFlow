@@ -20,58 +20,56 @@ Its job is to expose the REST API, run the discrete-event simulation, talk to th
 
 ```
 fastsim-backend/
-├── Dockerfile
-├── docker_fs/                 # docker-compose for dev & prod
-│   ├── docker-compose.dev.yml
-│   └── docker-compose.prod.yml
-├── scripts/                   # helper bash scripts (lint, dev-startup, …)
-│   ├── init-docker-dev.sh
+├── example/                         # examples of working simulations
+│   ├── data
+├── scripts/                         # helper bash scripts (lint, dev-startup, …)
 │   └── quality-check.sh
-├── alembic/                   # DB migrations (versions/ contains revision files)
-│   ├── env.py
-│   └── versions/
-├── documentation/             # project vision & low-level docs
-│   └── backend_documentation/
-│       └── …
-├── tests/                     # unit & integration tests
+├── docs/                            # project vision & low-level docs
+│   └── fastsim-documentation/
+├── tests/                           # unit & integration tests
 │   ├── unit/
 │   └── integration/
-├── src/                       # **application code lives here**
+├── src/                             # application code lives here
 │   └── app/
-│       ├── api/              # FastAPI routers & endpoint handlers
-│       ├── config/           # Pydantic Settings + constants
-│       ├── db/               # SQLAlchemy base, sessions, initial seed utilities
-│       ├── metrics/          # helpers to compute/aggregate simulation KPIs
-│       ├── resources/        # SimPy resource registry (CPU/RAM containers, etc.)
-│       ├── runtime/          # simulation core
-│       │   ├── rqs_state.py  # RequestState & Hop
-│       │   └── actors/       # SimPy “actors”: Edge, Server, Client, RqsGenerator
-│       ├── samplers/         # stochastic samplers (Gaussian-Poisson, etc.)
-│       ├── schemas/          # Pydantic input/output models
-│       ├── main.py           # FastAPI application factory / ASGI entry-point
-│       └── simulation_run.py # CLI utility to run a sim outside of HTTP layer
+│       ├── config/                  # Pydantic Settings + constants
+│       ├── metrics/                 # logic to compute/aggregate simulation KPIs
+│       ├── resources/               # SimPy resource registry (CPU/RAM containers, etc.)
+│       ├── runtime/                 # simulation core
+│       │   ├── rqs_state.py         # RequestState & Hop
+│       │   ├── simulation_runner.py # logic to initialize the whole simulation
+        |   └── actors/              # SimPy “actors”: Edge, Server, Client, RqsGenerator
+│       ├── samplers/                # stochastic samplers (Gaussian-Poisson, etc.)
+│       ├── schemas/                 # Pydantic input/output models
 ├── poetry.lock
 ├── pyproject.toml
 └── README.md
 ```
+### **What each top-level directory in `src/app` does**
 
-#### What each top-level directory in `src/app` does
+| Directory        | Purpose                                                                                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`config/`**    | Centralised configuration layer. Contains Pydantic `BaseSettings` classes for reading environment variables and constants/enums used across the simulation engine.      |
+| **`metrics/`**   | Post-processing and analytics. Aggregates raw simulation traces into KPIs such as latency percentiles, throughput, resource utilisation, and other performance metrics. |
+| **`resources/`** | Runtime resource registry for simulated hardware components (e.g., SimPy `Container`s for CPU and RAM). Decouples resource management from actor behaviour.             |
+| **`runtime/`**   | Core simulation engine. Orchestrates SimPy execution, maintains request state, and wires together simulation components. Includes:                                      |
+|                  | - **`rqs_state.py`** — Defines `RequestState` and `Hop` for tracking request lifecycle.                                                                                 |
+|                  | - **`simulation_runner.py`** — Entry point for initialising and running simulations.                                                                                    |
+|                  | - **`actors/`** — SimPy actor classes representing system components (`RqsGenerator`, `Client`, `Server`, `Edge`) and their behaviour.                                  |
+| **`samplers/`**  | Random-variable samplers for stochastic simulation. Supports Poisson, Normal, and mixed distributions for modelling inter-arrival times and service steps.              |
+| **`schemas/`**   | Pydantic models for input/output validation and serialisation. Includes scenario definitions, topology graphs, simulation settings, and results payloads.               |
 
-| Directory               | Purpose                                                                                                                                                                            |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`api/`**              | Defines the public HTTP surface. Each module holds a router with path operations and dependency wiring.                                                                            |
-| **`config/`**           | Centralised configuration: `settings.py` (Pydantic `BaseSettings`) reads env vars; `constants.py` stores enums and global literals.                                                |
-| **`db/`**               | Persistence layer. Contains the SQLAlchemy base class, the session factory, and a thin wrapper that seeds or resets the database (Alembic migration scripts live at project root). |
-| **`metrics/`**          | Post-processing helpers that turn raw simulation traces into aggregated KPIs (latency percentiles, cost per request, utilisation curves, …).                                       |
-| **`resources/`**        | A tiny run-time registry mapping every simulated server to its SimPy `Container`s (CPU, RAM). Keeps resource management separate from actor logic.                                 |
-| **`runtime/`**          | The heart of the simulator. `rqs_state.py` holds the mutable `RequestState`; sub-package **`actors/`** contains each SimPy process class (Generator, Edge, Server, Client).        |
-| **`samplers/`**         | Probability-distribution utilities that generate inter-arrival and service-time samples—used by the actors during simulation.                                                      |
-| **`schemas/`**          | All Pydantic models for validation and (de)serialisation: request DTOs, topology definitions, simulation settings, outputs.                                                        |
-| **`main.py`**           | Creates and returns the FastAPI app; imported by Uvicorn/Gunicorn.                                                                                                                 |
-| **`simulation_run.py`** | Convenience script to launch a simulation offline (e.g. inside tests or CLI).                                                                                                      |
+---
 
-Everything under `src/` is import-safe thanks to Poetry’s `packages = [{ include = "app" }]` entry in `pyproject.toml`.
+### **Other Top-Level Directories**
 
+| Directory      | Purpose                                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`example/`** | Ready-to-run simulation scenarios and example configurations. Includes `data/` with YAML definitions and scripts to demonstrate engine usage.     |
+| **`scripts/`** | Utility shell scripts for development workflow, linting, formatting, and local startup (`quality-check.sh`, etc.).                                |
+| **`docs/`**    | Project documentation. Contains both high-level vision documents and low-level technical references (`fastsim-documentation/`).                   |
+| **`tests/`**   | Automated test suite, split into **unit** and **integration** tests to verify correctness of both individual components and end-to-end scenarios. |
+
+---
 
 ## 3. Branching Strategy: Git Flow
 
@@ -182,21 +180,11 @@ We will start to describe the CI part related to push and PR in the develop bran
 
 * **Full Suite (push to `develop`)**
   *Runs in a few minutes; includes real services and Docker.*
-
-  * All steps from the Quick Suite
-  * PostgreSQL service container started via `services:`
-  * Alembic migrations applied to the test database
+  
   * Full test suite, including `@pytest.mark.integration` tests
-  * Multi-stage Docker build of the backend image
-  * Smoke test: container started with Uvicorn → `curl /health`
+  
 
 
-### 4.1.3  Key Implementation Details
 
-* **Service containers** – PostgreSQL 17 is spun up in CI with a health-check to ensure migrations run against a live instance.
-* **Test markers** – integration tests are isolated with `@pytest.mark.integration`, enabling selective execution.
-* **Caching** – Poetry’s download cache is restored to cut installation time; Docker layer cache is reused between builds.
-* **Smoke test logic** – after the image is built, CI launches it in detached mode, polls the `/health` endpoint, prints logs, and stops the container. The job fails if the endpoint is unreachable.
-* **Secrets management** – database credentials and registry tokens are stored in GitHub Secrets and injected as environment variables only at runtime.
 
 

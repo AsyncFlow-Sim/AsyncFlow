@@ -1,15 +1,15 @@
 """
 Application-wide constants and configuration values.
 
-This module groups all the *static* enumerations used by the FastSim backend
+This module groups all the static enumerations used by the FastSim backend
 so that:
 
-* JSON / YAML payloads can be strictly validated with Pydantic.
-* Front-end and simulation engine share a single source of truth.
-* Ruff, mypy and IDEs can leverage the strong typing provided by Enum classes.
+ JSON / YAML payloads can be strictly validated with Pydantic.
+ Front-end and simulation engine share a single source of truth.
+ Ruff, mypy and IDEs can leverage the strong typing provided by Enum classes.
 
-**IMPORTANT:** Changing any enum *value* is a breaking-change for every
-stored configuration file.  Add new members whenever possible instead of
+IMPORTANT: Changing any enum value is a breaking-change for every
+stored configuration file. Add new members whenever possible instead of
 renaming existing ones.
 """
 
@@ -22,27 +22,27 @@ from enum import Enum, IntEnum, StrEnum
 
 class TimeDefaults(IntEnum):
     """
-    Default time-related constants (expressed in **seconds**).
+    Default time-related constants (expressed in seconds).
 
-    These values are used when the user omits an explicit parameter.  They also
+    These values are used when the user omits an explicit parameter. They also
     serve as lower / upper bounds for validation for the requests generator.
     """
 
-    MIN_TO_SEC = 60                     # 1 minute  → 60 s
-    USER_SAMPLING_WINDOW = 60           # keep U(t) constant for 60 s
-    SIMULATION_TIME = 3_600             # run 1 h if user gives no value
-    MIN_SIMULATION_TIME = 1_800         # enforce at least 30 min
-    MIN_USER_SAMPLING_WINDOW = 1        # 1 s minimum
-    MAX_USER_SAMPLING_WINDOW = 120      # 2 min maximum
+    MIN_TO_SEC = 60  # 1 minute → 60 s
+    USER_SAMPLING_WINDOW = 60  # every 60 seconds sample the number of active user
+    SIMULATION_TIME = 3_600  # run 1 h if user gives no value
+    MIN_SIMULATION_TIME = 5  # 5 seconds give a broad spectrum
+    MIN_USER_SAMPLING_WINDOW = 1 # 1 s minimum
+    MAX_USER_SAMPLING_WINDOW = 120 # 2 min maximum
 
 
 class Distribution(StrEnum):
     """
-    Probability distributions accepted by :class:`~app.schemas.RVConfig`.
+    Probability distributions accepted by app.schemas.RVConfig.
 
-    The *string value* is exactly the identifier that must appear in JSON
+    The string value is exactly the identifier that must appear in JSON
     payloads.  The simulation engine will map each name to the corresponding
-    random sampler (e.g. ``numpy.random.poisson``).
+    random sampler (e.g.numpy.random.poisson).
     """
 
     POISSON = "poisson"
@@ -55,43 +55,19 @@ class Distribution(StrEnum):
 # CONSTANTS FOR ENDPOINT STEP DEFINITION (REQUEST-HANDLER)
 # ======================================================================
 
-# The JSON received by the API for an endpoint step is expected to look like:
-#
-# {
-#   "endpoint_name": "/predict",
-#   "kind": "io_llm",
-#   "metrics": {
-#       "cpu_time": 0.150,
-#       "necessary_ram": 256
-#   }
-# }
-#
-# The Enum classes below guarantee that only valid *kind* and *metric* keys
-# are accepted by the Pydantic schema.
-
-
 class EndpointStepIO(StrEnum):
     """
-    I/O-bound operation categories that can occur inside an endpoint *step*.
-
-    .. list-table::
-       :header-rows: 1
-
-       * - Constant
-         - Meaning (executed by coroutine)
-       * - ``TASK_SPAWN``
-         - Spawns an additional ``asyncio.Task`` and returns immediately.
-       * - ``LLM``
-         - Performs a remote Large-Language-Model inference call.
-       * - ``WAIT``
-         - Passive, *non-blocking* wait for I/O completion; no new task spawned.
-       * - ``DB``
-         - Round-trip to a relational / NoSQL database.
-       * - ``CACHE``
-         - Access to a local or distributed cache layer.
-
-    The *value* of each member (``"io_llm"``, ``"io_db"``, …) is the exact
-    identifier expected in external JSON.
+    I/O-bound operation categories that can occur inside an endpoint step.
+      - TASK_SPAWN
+         Spawns an additional ``asyncio.Task`` and returns immediately.
+      - LLM
+         Performs a remote Large-Language-Model inference call.
+        - WAIT
+          Passive, *non-blocking* wait for I/O completion; no new task spawned.
+        - DB
+          Round-trip to a relational / NoSQL database.
+        - CACHE
+          Access to a local or distributed cache layer.
     """
 
     TASK_SPAWN = "io_task_spawn"
@@ -126,11 +102,11 @@ class EndpointStepRAM(StrEnum):
 
 class StepOperation(StrEnum):
     """
-    Keys used inside the ``metrics`` dictionary of a *step*.
+    Keys used inside the metrics dictionary of a step.
 
-    * ``CPU_TIME`` - Service time (seconds) during which the coroutine occupies
+    CPU_TIME - Service time (seconds) during which the coroutine occupies
       the CPU / GIL.
-    * ``NECESSARY_RAM`` - Peak memory (MB) required by the step.
+    NECESSARY_RAM - Peak memory (MB) required by the step.
     """
 
     CPU_TIME        = "cpu_time"
@@ -191,7 +167,7 @@ class SystemNodes(StrEnum):
 
 class SystemEdges(StrEnum):
     """
-    Edge categories connecting different :class:`SystemNodes`.
+    Edge categories connecting different class SystemNodes.
 
     Currently only network links are modeled; new types (IPC queue, message
     bus, stream) can be added without impacting existing payloads.
@@ -205,7 +181,7 @@ class SystemEdges(StrEnum):
 
 class SampledMetricName(StrEnum):
   """
-  define the metrics sampled every fixed amount of
+  Define the metrics sampled every fixed amount of
   time to create a time series
   """
 
@@ -218,7 +194,7 @@ class SampledMetricName(StrEnum):
 
 class SamplePeriods(float, Enum):
   """
-  defining the value of the sample periods for the metrics for which
+  Defining the value of the sample periods for the metrics for which
   we have to extract a time series
   """
 
@@ -232,12 +208,12 @@ class SamplePeriods(float, Enum):
 
 class EventMetricName(StrEnum):
   """
-  define the metrics triggered by event with no
+  Define the metrics triggered by event with no
   time series
   """
 
   # Mandatory
-  RQS_CLOCK = "rqs_clock"
+  RQS_CLOCK = "rqs_clock" # useful to collect starting and finishing time of rqs
   # Not mandatory
   LLM_COST = "llm_cost"
 

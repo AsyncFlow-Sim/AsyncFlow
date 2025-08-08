@@ -14,7 +14,6 @@ from app.schemas.simulation_settings_input import SimulationSettings
 # way we optimize the initialization of various objects reducing
 # the global overhead
 
-
 class SampledMetricCollector:
     """class to define a centralized object to collect sampled metrics"""
 
@@ -26,7 +25,14 @@ class SampledMetricCollector:
         env:  simpy.Environment,
         sim_settings: SimulationSettings,
         ) -> None:
-        """Docstring to complete"""
+        """
+        Args:
+            edges (list[EdgeRuntime]): list of the class EdgeRuntime
+            servers (list[ServerRuntime]): list of server of the class ServerRuntime
+            env (simpy.Environment): environment for the simulation
+            sim_settings (SimulationSettings): general settings for the simulation
+
+        """
         self.edges = edges
         self.servers = servers
         self.sim_settings = sim_settings
@@ -40,8 +46,6 @@ class SampledMetricCollector:
         self._io_key     = SampledMetricName.EVENT_LOOP_IO_SLEEP
         self._ready_key  = SampledMetricName.READY_QUEUE_LEN
 
-
-        env.process(self._build_time_series())
 
     def _build_time_series(self) -> Generator[simpy.Event, None, None]:
         """Function to build time series for enabled metrics"""
@@ -60,6 +64,8 @@ class SampledMetricCollector:
                     server.enabled_metrics[self._ram_key].append(server.ram_in_use)
                     server.enabled_metrics[self._io_key].append(server.io_queue_len)
                     server.enabled_metrics[self._ready_key].append(server.ready_queue_len)
+
+
 
     def start(self) -> simpy.Process:
         """Definition of the process to collect sampled metrics"""

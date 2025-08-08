@@ -6,6 +6,7 @@ from numpy.random import Generator as NpGenerator
 from numpy.random import default_rng
 
 from app.config.constants import (
+    Distribution,
     EventMetricName,
     SampledMetricName,
     SamplePeriods,
@@ -17,6 +18,7 @@ from app.schemas.rqs_generator_input import RqsGeneratorInput
 from app.schemas.simulation_settings_input import SimulationSettings
 from app.schemas.system_topology.full_system_topology import (
     Client,
+    Edge,
     TopologyGraph,
     TopologyNodes,
 )
@@ -109,15 +111,23 @@ def rqs_input() -> RqsGeneratorInput:
 @pytest.fixture
 def topology_minimal() -> TopologyGraph:
     """
-    A valid topology containing a single client and **no** servers or edges.
+    A valid *tiny* topology: one generator ➜ one client.
 
-    Suitable for low-level tests that do not need to traverse the server
-    layer or network graph.
+    The single edge has a negligible latency; its only purpose is to give the
+    generator a valid ``out_edge`` so that the runtime can start.
     """
     client = Client(id="client-1")
-    nodes = TopologyNodes(servers=[], client=client)
-    return TopologyGraph(nodes=nodes, edges=[])
 
+    # Stub edge: generator id comes from rqs_input fixture (“rqs-1”)
+    edge = Edge(
+        id="gen-to-client",
+        source="rqs-1",
+        target="client-1",
+        latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
+    )
+
+    nodes = TopologyNodes(servers=[], client=client)
+    return TopologyGraph(nodes=nodes, edges=[edge])
 
 # --------------------------------------------------------------------------- #
 # Complete simulation payload                                                 #

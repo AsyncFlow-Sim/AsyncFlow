@@ -21,12 +21,7 @@ from app.schemas.rqs_generator_input import RqsGeneratorInput
 
 if TYPE_CHECKING:
     from app.schemas.full_simulation_input import SimulationPayload
-    from app.schemas.full_simulation_input import (
-        SimulationPayload as _Payload,  # noqa: F401
-    )
-    from app.schemas.rqs_generator_input import (
-        RqsGeneratorInput as _RqsIn,  # noqa: F401
-    )
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 0-traffic generator (shadows the project-wide fixture)

@@ -141,6 +141,7 @@ class ServerRuntime:
             yield self.server_resources[ServerResourceName.RAM.value].get(total_ram)
             self._ram_in_use += total_ram
 
+
         # Initial conditions of the server a rqs a priori is not in any queue
         # and it does not occupy a core until it started to be elaborated
         core_locked = False
@@ -175,7 +176,7 @@ class ServerRuntime:
 
         for step in selected_endpoint.steps:
 
-            if isinstance(step.kind, EndpointStepCPU):
+            if step.kind in EndpointStepCPU:
                 # with the boolean we avoid redundant operation of asking
                 # the core multiple time on a given step
                 # for example if we have two consecutive cpu bound step
@@ -200,8 +201,9 @@ class ServerRuntime:
                 # Execute the step giving back the control to the simpy env
                 yield self.env.timeout(cpu_time)
 
-
-            elif isinstance(step.kind, EndpointStepIO):
+            # since the object is of an Enum class we check if the step.kind
+            # is one member of enum
+            elif step.kind in EndpointStepIO:
                 io_time = step.step_operation[StepOperation.IO_WAITING_TIME]
                 # Same here with the boolean if we have multiple I/O steps
                 # we release the core just the first time if the previous step

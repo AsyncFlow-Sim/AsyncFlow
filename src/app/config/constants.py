@@ -1,7 +1,7 @@
 """
 Application-wide constants and configuration values.
 
-This module groups all the *static* enumerations used by the FastSim backend
+This module groups all the static enumerations used by the FastSim backend
 so that:
 
  JSON / YAML payloads can be strictly validated with Pydantic.

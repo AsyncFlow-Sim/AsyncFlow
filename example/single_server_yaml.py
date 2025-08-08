@@ -20,23 +20,18 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Tuple
 
-import matplotlib
-
-# Headless backend (safe for CI/SSH)
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import simpy  # noqa: E402
-
-from app.config.constants import (  # noqa: E402
+import matplotlib.pyplot as plt  
+import numpy as np  
+import simpy  
+from app.config.constants import (  
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
     LatencyKey,
     StepOperation,
 )
-from app.metrics.analyzer import ResultsAnalyzer  # noqa: E402
-from app.runtime.simulation_runner import SimulationRunner  # noqa: E402
+from app.metrics.analyzer import ResultsAnalyzer  
+from app.runtime.simulation_runner import SimulationRunner  
 
 
 # ─────────────────────────────────────────────────────────────

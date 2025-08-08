@@ -21,18 +21,18 @@ This design separates **topology definition** (data models) from **execution log
 ```mermaid
 flowchart TD
     subgraph Input
-        A[SimulationPayload (Pydantic)]
+        A["SimulationPayload (Pydantic)"]
     end
 
     subgraph Build_Phase
         B1[Build RqsGeneratorRuntime]
         B2[Build ClientRuntime]
         B3[Build ServerRuntimes]
-        B4[Build LoadBalancerRuntime (optional)]
+        B4["Build LoadBalancerRuntime (optional)"]
     end
 
     subgraph Wire_Phase
-        C[Build EdgeRuntimes + assign target boxes]
+        C["Build EdgeRuntimes + assign target boxes"]
     end
 
     subgraph Start_Phase
@@ -41,7 +41,7 @@ flowchart TD
     end
 
     subgraph Run_Phase
-        E[SimPy env.run(until=total_simulation_time)]
+        E["SimPy env.run(until=total_simulation_time)"]
     end
 
     subgraph Output

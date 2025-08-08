@@ -51,11 +51,10 @@ class ResultsAnalyzer:
     ) -> None:
         """
         Args:
-            client:      Client runtime object, containing RqsClock entries.
-            servers:     List of server runtime objects.
-            edges:       List of edge runtime objects.
-            settings:    Original simulation settings.
-
+            client: Client runtime object, containing RqsClock entries.
+            servers: List of server runtime objects.
+            edges: List of edge runtime objects.
+            settings: Original simulation settings.
         """
         self._client = client
         self._servers = servers

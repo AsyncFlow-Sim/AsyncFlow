@@ -45,8 +45,8 @@ topology_graph:
 
 # 3. Simulation settings
 sim_settings:
-  total_simulation_time: 10
-  sample_period_s: 0.01
+  total_simulation_time: 500
+  sample_period_s: 0.05
   enabled_sample_metrics:
     - ready_queue_len
     - event_loop_io_sleep

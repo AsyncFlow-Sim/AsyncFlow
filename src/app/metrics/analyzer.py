@@ -55,6 +55,7 @@ class ResultsAnalyzer:
             servers: List of server runtime objects.
             edges: List of edge runtime objects.
             settings: Original simulation settings.
+
         """
         self._client = client
         self._servers = servers

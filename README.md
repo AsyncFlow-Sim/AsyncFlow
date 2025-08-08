@@ -1,127 +1,332 @@
-# **FastSim Project Overview**
+# **FastSim – Event-Loop Aware Simulation for Backend Systems**
 
-## **1. Why FastSim?**
+## **1. Overview**
 
-Modern async Python stacks like FastAPI + Uvicorn are incredibly fast, yet sizing them for production often involves guesswork, costly cloud load-tests, or late-stage surprises. **FastSim** fills that gap by acting as a **digital twin** of your service:
+Modern asynchronous Python stacks such as **FastAPI + Uvicorn** deliver impressive performance, yet capacity planning for production workloads often relies on guesswork, costly cloud-based load tests, or late-stage troubleshooting.
 
-  * It **replicates** the behavior of an async event-loop in SimPy, generating the same kinds of steps (parsing, CPU work, I/O waits) that happen in real code.
-  * It **models** your infrastructure primitives—CPU cores, connection pools, and rate-limiters—so you can see queue lengths, scheduling delays, resource utilization, and end-to-end latency.
-  * It **outputs** the very metrics you would scrape in production (p50/p95/p99 latency, ready-queue lag, concurrency, throughput), but entirely offline, in seconds.
+**FastSim** addresses this challenge by providing a **digital twin** of your service that can be run entirely offline. It models event-loop behaviour, resource constraints, and request lifecycles, enabling you to forecast performance under different workloads and architectural choices **before deployment**.
 
-With FastSim, you can ask, *“What happens if traffic doubles on Black Friday?”*, *“How many cores are needed to keep p95 latency below 100 ms?”*, or *“Is our new endpoint ready for prime time?”*—and get quantitative answers **before** you deploy.
+FastSim allows you to answer questions such as:
 
-**Outcome:** Data-driven capacity planning, early performance tuning, and far fewer surprises in production.
+* *What happens to p95 latency if traffic doubles during a peak event?*
+* *How many cores are required to maintain SLAs at scale?*
+* *What is the cost-per-request of adding a large language model (LLM) inference step?*
 
-## **2. Installation & Quick Start**
+The simulation outputs metrics identical in form to those collected in production—such as p50/p95/p99 latency, concurrency, resource utilisation, and throughput—making results directly actionable.
 
-FastSim is designed to be used as a Python library.
+**Outcome:** Data-driven capacity planning, early performance tuning, and reduced operational surprises.
+
+---
+
+## **2. Key Features**
+
+* **Event-loop accuracy** – Models a single-threaded asynchronous runtime, including CPU-bound work, I/O waits, and parsing.
+* **Resource modelling** – Simulates CPU cores, memory, connection pools, and rate limiters as discrete resources.
+* **Network simulation** – Models transport latency per edge in the system topology.
+* **Workload flexibility** – Supports stochastic arrival processes (e.g., Poisson, Normal) for user traffic generation.
+* **Metrics parity with production** – Produces time-series and event-level metrics aligned with observability tools.
+* **Offline and repeatable** – No need for costly cloud infrastructure to conduct performance tests.
+
+---
+
+## **3. Installation**
+
+Until published, clone the repository and install in editable mode:
+
+### Requirements
+- Python 3.11+ (recommended 3.12)
+- Poetry ≥ 1.6
+
+FastSim uses [Poetry](https://python-poetry.org/) for dependency management.
+If you do not have Poetry installed, follow these steps.
+
+### 3.1 Install Poetry (official method)
+
+**Linux / macOS**
 
 ```bash
-# Installation (coming soon to PyPI)
-pip install fastsim
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
-**Example Usage:**
+**Windows (PowerShell)**
 
-1.  Define your system topology in a `config.yml` file:
+```powershell
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+```
 
-    ```yaml
-    topology:
-      servers:
-        - id: "app-server-1"
-          # ... server configuration ...
-      load_balancers:
-        - id: "main-lb"
-          backends: ["app-server-1"]
-          # ... lb configuration ...
-    settings:
-      duration_s: 60
-    ```
+> **Note:** Ensure that Poetry’s binary directory is in your `PATH`.
+> On Linux/macOS this is typically `~/.local/bin`;
+> on Windows it is `%APPDATA%\Python\Scripts` or the path printed at the end of installation.
 
-2.  Run the simulation from a Python script:
+---
 
-    ```python
-    from fastsim import run_simulation
-    from fastsim.schemas import SimulationPayload
+### 3.2 Clone the repository and set up a local virtual environment
 
-    # Load and validate configuration using Pydantic
-    payload = SimulationPayload.from_yaml("config.yml")
+```bash
+# Clone the repository
+git clone https://github.com/GioeleB00/Fastsim-Backend.git
+cd Fastsim-Backend
 
-    # Run the simulation
-    results = run_simulation(payload)
+# Configure Poetry to always create a local `.venv` inside the project
+poetry config virtualenvs.in-project true
 
-    # Analyze and plot results
-    results.plot_latency_distribution()
-    print(results.summary())
-    ```
+# Install all dependencies (main + dev) inside the local venv
+poetry install --with dev
+```
 
-## **3. Who Benefits & Why**
+After this step, you will see a `.venv/` directory inside the project root.
+To activate the environment manually:
 
-| Audience | Pain-Point Solved | FastSim Value |
-| :--- | :--- | :--- |
-| **Backend Engineers** | Unsure if a 4-vCPU container can survive a traffic spike. | Run *what-if* scenarios, tweak CPU cores, and get p95 latency metrics before merging code. |
-| **DevOps / SRE** | Guesswork in capacity planning; high cost of over-provisioning. | Simulate 1 to N replicas to find the most cost-effective configuration that meets the SLA. |
-| **ML / LLM Teams** | LLM inference cost and latency are difficult to predict. | Model the LLM step with a price and latency distribution to estimate cost-per-request. |
-| **Educators / Trainers** | Students struggle to visualize event-loop internals. | Visualize GIL ready-queue lag, CPU vs. I/O steps, and the effect of blocking code. |
-| **System-Design Interviewees** | Hard to quantify trade-offs in whiteboard interviews. | Prototype real-time metrics to demonstrate how your design scales and where bottlenecks lie. |
+```bash
+source .venv/bin/activate   # Linux / macOS
+.venv\Scripts\activate      # Windows
+```
 
-## **4. Project Structure**
+Or simply run commands via Poetry without manual activation, for example:
 
-The project is a standard Python library managed with Poetry.
+```bash
+poetry run pytest
+poetry run python examples/single_server.py
+```
+
+---
+
+## **4. Quick Start**
+
+### 1. Define your simulation payload
+
+Go to the folder `/examples` open the file `single_server.py`
+and run it from the terminal, you will see the output of the system
+described in `/examples/data/single_server.yml` and you will see a 
+`.png` file with different plots.
+
+If you want to build your own configuration, read the guide in the `/docs` folder on how to craft a `.yml` input correctly.
+
+```yaml
+rqs_input:
+  id: generator-1
+  avg_active_users:
+    mean: 100
+    distribution: poisson
+  avg_request_per_minute_per_user:
+    mean: 20
+    distribution: poisson
+  user_sampling_window: 60
+
+topology_graph:
+  nodes:
+    client:
+      id: client-1
+      type: client
+    servers:
+      - id: app-server-1
+        type: server
+        server_resources:
+          cpu_cores: 2
+          ram_mb: 2048
+        endpoints:
+          - endpoint_name: /predict
+            steps:
+              - kind: ram
+                step_operation: { necessary_ram: 100 }
+              - kind: cpu
+                step_operation: { cpu_time: 0.005 }
+  edges:
+    - id: gen-to-client
+      source: generator-1
+      target: client-1
+      latency: { mean: 0.003, distribution: exponential }
+    - id: client-to-server
+      source: client-1
+      target: app-server-1
+      latency: { mean: 0.003, distribution: exponential }
+    - id: server-to-client
+      source: app-server-1
+      target: client-1
+      latency: { mean: 0.003, distribution: exponential }
+
+sim_settings:
+  total_simulation_time: 300
+  sample_period_s: 0.05
+  enabled_sample_metrics:
+    - ready_queue_len
+    - ram_in_use
+  enabled_event_metrics:
+    - rqs_clock
+```
+
+and add it to the `/examples/data` folder
+
+### 2. Run the simulation
+
+build a python file in the `/examples` folder and copy the 
+following script replacing `<your_file_name>` with the 
+real name
+
+
+```python
+
+from pathlib import Path
+
+import simpy
+import matplotlib.pyplot as plt
+
+from app.config.constants import LatencyKey
+from app.runtime.simulation_runner import SimulationRunner
+from app.metrics.analyzer import ResultsAnalyzer
+
+def print_latency_stats(res: ResultsAnalyzer) -> None:
+    """Print latency statistics returned by the analyzer."""
+    stats = res.get_latency_stats()
+    print("\n=== LATENCY STATS ===")
+    if not stats:
+        print("(empty)")
+        return
+
+    order: list[LatencyKey] = [
+        LatencyKey.TOTAL_REQUESTS,
+        LatencyKey.MEAN,
+        LatencyKey.MEDIAN,
+        LatencyKey.STD_DEV,
+        LatencyKey.P95,
+        LatencyKey.P99,
+        LatencyKey.MIN,
+        LatencyKey.MAX,
+    ]
+    for key in order:
+        if key in stats:
+            print(f"{key.name:<20} = {stats[key]:.6f}")
+
+def save_all_plots(res: ResultsAnalyzer, out_path: Path) -> None:
+    """Generate the 2x2 plot figure and save it to `out_path`."""
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    res.plot_latency_distribution(axes[0, 0])
+    res.plot_throughput(axes[0, 1])
+    res.plot_server_queues(axes[1, 0])
+    res.plot_ram_usage(axes[1, 1])
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f"Plots saved to: {out_path}")
+
+# Paths
+yaml_path = Path(__file__).parent / "data" /"<your_file_name>.yml"
+out_path = Path(__file__).parent / "<your_file_name>_plots.png"
+
+# Simulation
+env = simpy.Environment()
+runner = SimulationRunner.from_yaml(env=env, yaml_path=yaml_path)
+results: ResultsAnalyzer = runner.run()
+
+# Output
+print_latency_stats(results)
+save_all_plots(results, out_path)
 
 ```
-fastsim/
-├── documentation/
-│   └── ...
+run the script and you will see the different plots and on your terminal
+you will see the latency stats
+
+---
+
+## **5. Target Users and Use Cases**
+
+| Audience                 | Challenge                                         | FastSim Value                                                                    |
+| ------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Backend Engineers        | Sizing services for variable workloads            | Model endpoint workflows and resource bottlenecks before deployment              |
+| DevOps / SRE             | Balancing cost and SLA                            | Simulate scaling scenarios to choose optimal capacity                            |
+| ML / LLM Teams           | Unclear latency/cost impact of inference steps    | Integrate stochastic inference times and cost models into the service simulation |
+| Educators                | Explaining async runtime internals                | Demonstrate queueing, blocking effects, and CPU vs. I/O trade-offs               |
+| System Design Candidates | Quantifying architecture trade-offs in interviews | Prototype a simulated design to visualise scalability and bottlenecks            |
+
+---
+
+## **6. Project Structure**
+
+The project follows a standard Python package layout, managed with Poetry.
+
+```
+Fastsim-Backend/
+├── examples/                # Examples payloads and datasets
+├── scripts/                 # Utility scripts (linting, startup)
+├── docs/                    # Project vision and technical documentation
+├── tests/                   # Unit and integration tests
 ├── src/
 │   └── app/
-│       ├── config/
-│       ├── metrics/
-│       ├── resources/
-│       ├── runtime/
-│       │   ├── actors/
-│       │   └── rqs_state.py
-│       ├── samplers/
-│       └── schemas/
-├── tests/
-│   ├── unit/
-│   └── integration/
-├── .github/
-│   └── workflows/
-│       └── ci-develop.yml
+│       ├── config/          # Settings and constants
+│       ├── metrics/         # KPI computation and aggregation
+│       ├── resources/       # SimPy resource registry
+│       ├── runtime/         # Simulation core and actors
+│       ├── samplers/        # Random variable generators
+│       └── schemas/         # Pydantic models for validation
 ├── pyproject.toml
-├── poetry.lock
 └── README.md
 ```
 
-## **5. Development & Contribution**
+---
 
-We welcome contributions\! The development workflow is managed by Poetry and quality is enforced by Ruff and MyPy.
+## **7. Development Workflow**
 
-| Task | Command | Notes |
-| :--- | :--- | :--- |
-| **Install dependencies** | `poetry install --with dev` | Installs main and development packages. |
-| **Lint & format** | `poetry run ruff check src tests` | Style and best-practice validations. |
-| **Type checking** | `poetry run mypy src tests` | Static type enforcement. |
-| **Run all tests** | `poetry run pytest` | Executes the full test suite. |
+FastSim uses **Poetry** for dependency management and enforces quality via **Ruff** and **MyPy**.
 
-### **CI with GitHub Actions**
+| Task          | Command                           | Description                            |
+| ------------- | --------------------------------- | -------------------------------------- |
+| Install deps  | `poetry install --with dev`       | Main and development dependencies      |
+| Lint & format | `poetry run ruff check src tests` | Style and best-practice checks         |
+| Type checking | `poetry run mypy src tests`       | Static type enforcement                |
+| Run tests     | `poetry run pytest`               | Execute all unit and integration tests |
 
-We maintain two jobs on the `develop` branch to ensure code quality:
+---
 
-  * **Quick (on Pull Requests):** Runs Ruff, MyPy, and unit tests for immediate feedback.
-  * **Full (on pushes to `develop`):** Runs the full suite, including integration tests and code coverage reports.
+## **8. Continuous Integration**
 
-This guarantees that every commit in `develop` is style-checked, type-safe, and fully tested.
+The GitHub Actions pipeline enforces:
 
-## **6. Limitations – v0.1 (First Public Release)**
+* **Pull Requests:** Ruff, MyPy, and unit tests for rapid feedback.
+* **Develop branch:** Full suite including integration tests and coverage reporting.
 
-1.  **Network Delay Model:** Only pure transport latency is simulated. Bandwidth-related effects (e.g., payload size, link speed) are not yet accounted for.
-2.  **Concurrency Model:** The simulation models a single-threaded, cooperative event-loop (like `asyncio`). Multi-process or multi-threaded parallelism is not yet supported.
-3.  **CPU Core Allocation:** Every server instance is pinned to one physical CPU core. Horizontal scaling is achieved by adding more server instances, not by using multiple cores within a single process.
+No code is merged without passing all checks, ensuring maintainability and reliability.
 
-These constraints will be revisited in future milestones.
+---
 
-## **7. Documentation**
+## **9. Current Limitations (v0.1)**
 
-For a deeper understanding of FastSim, we recommend reading the detailed documentation located in the `/documentation` folder at the root of the project. A guided reading path is suggested within to build a comprehensive understanding of the project's vision, architecture, and technical implementation.
+1. **Network delay model** – Bandwidth effects and payload size are not yet considered.
+2. **Concurrency model** – Single-threaded async event-loop; no native multi-thread or multi-process simulation.
+3. **CPU allocation** – One process per server instance; multi-core within a process is not yet modelled.
+
+In addition to the items already listed (simplified network delay, single-threaded async model, and one process per server), keep in mind:
+
+* **Stationary, independent workload.** Traffic is sampled from stationary distributions; there is no diurnal seasonality, burst shaping, or feedback coupling (e.g., servers slowing down arrivals). Average users and per-user RPM are sampled independently.
+* **Simplified request flow.** Endpoints execute a linear sequence of steps; there is no conditional branching/fan-out within an endpoint (e.g., cache hit/miss paths, error paths) and no per-request control flow.
+* **Network realism is limited.** Beyond base latency and optional drops, the model does not account for payload size, bandwidth constraints, TCP behavior (slow start, congestion), retries/timeouts, or jitter.
+* **No backpressure or autoscaling.** The generator does not adapt to server state (queues, errors), and there is no policy loop for rate limiting or scaling during the run.
+* **Telemetry granularity.** Sampled metrics are collected at a fixed `sample_period_s` and may miss very short-lived spikes unless you lower the period (at a runtime cost). Event resolution itself is not affected by the sampling period.
+* **Reproducibility.** Unless you fix a random seed (not yet exposed in all entry points), repeated runs will vary within the chosen distributions.
+
+---
+
+## Mini Roadmap
+
+Short, high-impact items we plan to add next:
+
+1. **Cache modeling.** First-class cache layers (per-endpoint hit/miss with TTL and warm-up), configurable hit-ratio profiles, and their effect on latency, CPU, and RAM.
+2. **LLM inference as a step + cost accounting.** Treat inference as a dedicated endpoint step with its own latency distribution, concurrency limits/batching, and per-request cost model (tokens, provider pricing).
+3. **Fault and event injection.** Time-based events (node down/up, degraded edge, error-rate spikes) with deterministic timelines to test resilience and recovery.
+4. **Network bandwidth & payload size.** Throughput-aware links, request/response sizes, retries/timeouts, and simple congestion effects.
+5. **Branching/control-flow within endpoints.** Conditional steps (e.g., cache hit vs. miss), probabilistic routing, and fan-out/fan-in to external services.
+6. **Backpressure and autoscaling loops.** Rate limiting tied to queue depth/latency SLOs and simple scale-up/down policies during a run.
+
+
+Future milestones will extend these capabilities.
+
+---
+
+## **10. Documentation**
+
+Comprehensive documentation is available in the `/docs` directory, covering:
+
+* Simulation model and architecture
+* Schema definitions
+* Example scenarios
+* Extension guidelines
+
+---

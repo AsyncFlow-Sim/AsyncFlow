@@ -237,7 +237,7 @@ def main() -> None:
     parser.add_argument(
         "--yaml",
         type=Path,
-        default=Path("src/app/example/data/single_server.yml"),
+        default=Path(__file__).parent / "data" /"single_server.yml",
         help="Path to the simulation YAML file.",
     )
     parser.add_argument(

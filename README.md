@@ -328,5 +328,6 @@ Comprehensive documentation is available in the `/docs` directory, covering:
 * Schema definitions
 * Example scenarios
 * Extension guidelines
+* Guide to build valid .yaml as valid simulation input
 
 ---

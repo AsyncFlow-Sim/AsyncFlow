@@ -155,6 +155,10 @@ class TopologyNodes(BaseModel):
         ) -> "TopologyNodes":
         """Check that all id are unique"""
         ids = [server.id for server in model.servers] + [model.client.id]
+
+        if model.load_balancer is not None:
+            ids.append(model.load_balancer.id)
+
         counter = Counter(ids)
         duplicate = [node_id for node_id, value in counter.items() if value > 1]
         if duplicate:
@@ -193,7 +197,6 @@ class Edge(BaseModel):
     source: str
     target: str
     latency: RVConfig
-    probability: float = Field(1.0, ge=0.0, le=1.0)
     edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
     dropout_rate: float = Field(
         NetworkParameters.DROPOUT_RATE,
@@ -230,7 +233,7 @@ class Edge(BaseModel):
         if variance is not None and variance < 0: # Variance can be zero
             msg = (
                 f"The variance of the latency of the edge {edge_id}"
-                "must be positive"
+                "must be non negative"
             )
             raise ValueError(msg)
         return v
@@ -327,7 +330,7 @@ class TopologyGraph(BaseModel):
     @model_validator(mode="after") # type: ignore[arg-type]
     def valid_load_balancer(cls, model: "TopologyGraph") -> "TopologyGraph": # noqa: N805
         """
-        Check de validity of the load balancer: first we check
+        Check the validity of the load balancer: first we check
         if is present in the simulation, second we check if the LB list
         is a proper subset of the server sets of ids, then we check if
         edge from LB to the servers are well defined
@@ -343,7 +346,7 @@ class TopologyGraph(BaseModel):
         if missing:
 
             msg = (f"Load balancer '{lb.id}'"
-                  "references unknown servers: {sorted(missing)}")
+                  f"references unknown servers: {sorted(missing)}")
             raise ValueError(msg)
 
         # edge are well defined
@@ -360,3 +363,29 @@ class TopologyGraph(BaseModel):
         return model
 
 
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def no_fanout_except_lb(cls, model: "TopologyGraph") -> "TopologyGraph":  # noqa: N805
+        """Ensure only the LB (declared node) can have multiple outgoing edges."""
+        lb_id = model.nodes.load_balancer.id if model.nodes.load_balancer else None
+
+        # let us consider only nodes declared in the topology
+        node_ids: set[str] = {server.id for server in model.nodes.servers}
+        node_ids.add(model.nodes.client.id)
+        if lb_id:
+            node_ids.add(lb_id)
+
+        counts: dict[str, int] = {}
+        for edge in model.edges:
+            if edge.source not in node_ids:
+                continue
+            counts[edge.source] = counts.get(edge.source, 0) + 1
+
+        offenders = [src for src, c in counts.items() if c > 1 and src != lb_id]
+        if offenders:
+            msg = (
+                "Only the load balancer can have multiple outgoing edges. "
+                f"Offending sources: {offenders}"
+            )
+            raise ValueError(msg)
+
+        return model

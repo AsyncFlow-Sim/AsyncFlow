@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING
 import pytest
 from numpy.random import Generator, default_rng
 
-from app.config.constants import TimeDefaults
-from app.samplers.poisson_poisson import poisson_poisson_sampling
-from app.schemas.random_variables_config import RVConfig
-from app.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.config.constants import TimeDefaults
+from asyncflow.samplers.poisson_poisson import poisson_poisson_sampling
+from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
 
 if TYPE_CHECKING:
 
-    from app.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.simulation_settings_input import SimulationSettings
 
 
 @pytest.fixture

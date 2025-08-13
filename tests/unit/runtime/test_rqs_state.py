@@ -1,8 +1,8 @@
 """Unit-tests for :class:`RequestState` and :class:`Hop`."""
 from __future__ import annotations
 
-from app.config.constants import SystemEdges, SystemNodes
-from app.runtime.rqs_state import Hop, RequestState
+from asyncflow.config.constants import SystemEdges, SystemNodes
+from asyncflow.runtime.rqs_state import Hop, RequestState
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #

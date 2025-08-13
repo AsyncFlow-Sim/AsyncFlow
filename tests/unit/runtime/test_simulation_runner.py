@@ -15,15 +15,15 @@ import pytest
 import simpy
 import yaml
 
-from app.metrics.analyzer import ResultsAnalyzer
-from app.runtime.simulation_runner import SimulationRunner
+from asyncflow.metrics.analyzer import ResultsAnalyzer
+from asyncflow.runtime.simulation_runner import SimulationRunner
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from app.runtime.actors.client import ClientRuntime
-    from app.runtime.actors.rqs_generator import RqsGeneratorRuntime
-    from app.schemas.full_simulation_input import SimulationPayload
+    from asyncflow.runtime.actors.client import ClientRuntime
+    from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
+    from asyncflow.schemas.full_simulation_input import SimulationPayload
 
 
 # --------------------------------------------------------------------------- #

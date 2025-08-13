@@ -2,9 +2,9 @@
 
 import simpy
 
-from app.config.constants import ServerResourceName
-from app.resources.server_containers import build_containers
-from app.schemas.system_topology.full_system_topology import ServerResources
+from asyncflow.config.constants import ServerResourceName
+from asyncflow.resources.server_containers import build_containers
+from asyncflow.schemas.system_topology.full_system_topology import ServerResources
 
 
 def test_containers_start_full() -> None:

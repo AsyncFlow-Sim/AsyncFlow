@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, cast
 import pytest
 import simpy
 
-from app.config.constants import LbAlgorithmsName, SystemNodes
-from app.runtime.actors.load_balancer import LoadBalancerRuntime
-from app.schemas.system_topology.full_system_topology import LoadBalancer
+from asyncflow.config.constants import LbAlgorithmsName, SystemNodes
+from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
+from asyncflow.schemas.system_topology.full_system_topology import LoadBalancer
 
 if TYPE_CHECKING:
-    from app.runtime.actors.edge import EdgeRuntime
+    from asyncflow.runtime.actors.edge import EdgeRuntime
 
 
 

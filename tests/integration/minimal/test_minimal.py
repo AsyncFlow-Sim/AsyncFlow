@@ -18,11 +18,11 @@ from typing import TYPE_CHECKING
 import pytest
 import simpy
 
-from app.metrics.analyzer import ResultsAnalyzer
-from app.runtime.simulation_runner import SimulationRunner
+from asyncflow.metrics.analyzer import ResultsAnalyzer
+from asyncflow.runtime.simulation_runner import SimulationRunner
 
 if TYPE_CHECKING:
-    from app.schemas.full_simulation_input import SimulationPayload
+    from asyncflow.schemas.full_simulation_input import SimulationPayload
 
 
 # --------------------------------------------------------------------------- #

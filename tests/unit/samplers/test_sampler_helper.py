@@ -8,8 +8,8 @@ from typing import cast
 import numpy as np
 import pytest
 
-from app.config.constants import Distribution
-from app.samplers.common_helpers import (
+from asyncflow.config.constants import Distribution
+from asyncflow.samplers.common_helpers import (
     exponential_variable_generator,
     general_sampler,
     lognormal_variable_generator,
@@ -17,7 +17,7 @@ from app.samplers.common_helpers import (
     truncated_gaussian_generator,
     uniform_variable_generator,
 )
-from app.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.random_variables_config import RVConfig
 
 # --------------------------------------------------------------------------- #
 # Dummy RNG                                                                   #

@@ -9,16 +9,16 @@ from typing import TYPE_CHECKING
 import pytest
 from numpy.random import Generator, default_rng
 
-from app.config.constants import TimeDefaults
-from app.samplers.gaussian_poisson import (
+from asyncflow.config.constants import TimeDefaults
+from asyncflow.samplers.gaussian_poisson import (
     gaussian_poisson_sampling,
 )
-from app.schemas.random_variables_config import RVConfig
-from app.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
 
 if TYPE_CHECKING:
 
-    from app.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.simulation_settings_input import SimulationSettings
 
 # ---------------------------------------------------------------------------
 # FIXTURES
@@ -99,7 +99,7 @@ def test_zero_users_produces_no_events(
         return 0.0  # force U = 0
 
     monkeypatch.setattr(
-        "app.samplers.gaussian_poisson.truncated_gaussian_generator",
+        "asyncflow.samplers.gaussian_poisson.truncated_gaussian_generator",
         fake_truncated_gaussian,
     )
 

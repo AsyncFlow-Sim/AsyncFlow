@@ -14,13 +14,13 @@ from typing import TYPE_CHECKING
 import pytest
 import simpy
 
-from app.config.constants import TimeDefaults
-from app.runtime.simulation_runner import SimulationRunner
-from app.schemas.random_variables_config import RVConfig
-from app.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.config.constants import TimeDefaults
+from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
 
 if TYPE_CHECKING:
-    from app.schemas.full_simulation_input import SimulationPayload
+    from asyncflow.schemas.full_simulation_input import SimulationPayload
 
 
 # ──────────────────────────────────────────────────────────────────────────────

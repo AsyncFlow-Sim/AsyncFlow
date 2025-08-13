@@ -1,6 +1,6 @@
-# FastSim – YAML Input Guide
+# AsyncFlow – YAML Input Guide
 
-This guide explains **how to author the simulation YAML** for FastSim, covering every field, valid values, units, constraints, and the validation rules enforced by the Pydantic schemas.
+This guide explains **how to author the simulation YAML** for AsyncFlow, covering every field, valid values, units, constraints, and the validation rules enforced by the Pydantic schemas.
 
 The YAML you write is parsed into a single model:
 
@@ -264,7 +264,7 @@ sim_settings:
 
 ## 5) Graph-level Validation Rules (what’s checked before running)
 
-FastSim validates the entire payload. Key checks include:
+AsyncFlow validates the entire payload. Key checks include:
 
 1. **Unique IDs**
 

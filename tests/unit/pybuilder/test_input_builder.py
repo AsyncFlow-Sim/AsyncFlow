@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.pybuilder.input_builder import AsyncFlow
-from app.schemas.full_simulation_input import SimulationPayload
-from app.schemas.rqs_generator_input import RqsGeneratorInput
-from app.schemas.simulation_settings_input import SimulationSettings
-from app.schemas.system_topology.endpoint import Endpoint
-from app.schemas.system_topology.full_system_topology import Client, Edge, Server
+from asyncflow.pybuilder.input_builder import AsyncFlow
+from asyncflow.schemas.full_simulation_input import SimulationPayload
+from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.schemas.system_topology.endpoint import Endpoint
+from asyncflow.schemas.system_topology.full_system_topology import Client, Edge, Server
 
 
 # --------------------------------------------------------------------------- #

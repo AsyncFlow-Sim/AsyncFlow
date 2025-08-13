@@ -4,10 +4,10 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.config.constants import Distribution, TimeDefaults
-from app.schemas.random_variables_config import RVConfig
-from app.schemas.rqs_generator_input import RqsGeneratorInput
-from app.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.config.constants import Distribution, TimeDefaults
+from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.simulation_settings_input import SimulationSettings
 
 # --------------------------------------------------------------------------- #
 # RVCONFIG                                                                    #

@@ -6,7 +6,7 @@ This document describes the design of the **requests generator**, which models a
 
 ## Model Inputs and Output
 
-Following the FastSim philosophy, we accept a small set of input parameters to drive a “what-if” analysis in a pre-production environment. These inputs let you explore reliability and cost implications under different traffic scenarios.
+Following the AsyncFlow philosophy, we accept a small set of input parameters to drive a “what-if” analysis in a pre-production environment. These inputs let you explore reliability and cost implications under different traffic scenarios.
 
 ## **Inputs**
 
@@ -386,4 +386,4 @@ The sampling window length governs how often we re-sample $U$. It should reflect
 
 
 **Key takeaway:** By structuring the generator as
-$\Lambda = U\,\lambda_r/60$ with a two-stage Poisson→Exponential sampler, FastSim efficiently reproduces compound Poisson traffic dynamics without any complex CDF inversion.
+$\Lambda = U\,\lambda_r/60$ with a two-stage Poisson→Exponential sampler, AsyncFlow efficiently reproduces compound Poisson traffic dynamics without any complex CDF inversion.

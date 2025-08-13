@@ -22,19 +22,22 @@ from typing import TYPE_CHECKING
 import simpy
 from numpy.random import default_rng
 
-from app.config.constants import (
+from asyncflow.config.constants import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
     SampledMetricName,
     StepOperation,
 )
-from app.resources.server_containers import build_containers
-from app.runtime.actors.server import ServerRuntime
-from app.runtime.rqs_state import RequestState
-from app.schemas.simulation_settings_input import SimulationSettings
-from app.schemas.system_topology.endpoint import Endpoint, Step
-from app.schemas.system_topology.full_system_topology import Server, ServerResources
+from asyncflow.resources.server_containers import build_containers
+from asyncflow.runtime.actors.server import ServerRuntime
+from asyncflow.runtime.rqs_state import RequestState
+from asyncflow.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.schemas.system_topology.endpoint import Endpoint, Step
+from asyncflow.schemas.system_topology.full_system_topology import (
+    Server,
+    ServerResources,
+)
 
 if TYPE_CHECKING:
 

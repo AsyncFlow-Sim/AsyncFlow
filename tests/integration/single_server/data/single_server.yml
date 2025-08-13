@@ -1,5 +1,5 @@
 # ───────────────────────────────────────────────────────────────
-# FastSim scenario: generator ➜ client ➜ server ➜ client
+# AsyncFlow scenario: generator ➜ client ➜ server ➜ client
 # ───────────────────────────────────────────────────────────────
 
 # 1. Traffic generator (light load)

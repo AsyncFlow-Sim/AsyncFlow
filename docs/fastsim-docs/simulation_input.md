@@ -1,8 +1,8 @@
 # AsyncFlow — Simulation Input Schema (v2)
 
-This document describes the **complete input contract** used by AsyncFlow to run a simulation, the **design rationale** behind it, and the **guarantees** provided by the validation layer. It closes with an **end-to-end example** (YAML) you can drop into the project and run as-is.
+This document describes the **complete input contract** used by AsyncFlow to run a simulation, the **design rationale** behind it, and the **validation guarantees** enforced by the Pydantic layer. At the end you’ll find an **end-to-end YAML example** you can run as-is.
 
-The entry point is the Pydantic model:
+The entry point is:
 
 ```python
 class SimulationPayload(BaseModel):
@@ -14,40 +14,38 @@ class SimulationPayload(BaseModel):
 
 Everything the engine needs is captured by these three components:
 
-* **`rqs_input`** — the workload model (how traffic is generated).
-* **`topology_graph`** — the system under test, described as a directed graph (nodes & edges).
+* **`rqs_input`** — workload model (how traffic is generated).
+* **`topology_graph`** — system under test as a directed graph (nodes & edges).
 * **`sim_settings`** — global simulation controls and which metrics to collect.
 
 ---
 
-## Why this shape? (Rationale)
+## Rationale
 
-### 1) **Separation of concerns**
+### 1) Separation of concerns
 
-* **Workload** (traffic intensity & arrival process) is independent from the **topology** (architecture under test) and from **simulation control** (duration & metrics).
-* This lets you reuse the same topology with different workloads, or vice versa, without touching unrelated parts.
+* **Workload** (traffic intensity & arrival process) is independent from **topology** (architecture) and **simulation control** (duration & metrics).
+* You can reuse the same topology with different workloads (or vice versa) without touching unrelated parts.
 
-### 2) **Validation-first, fail-fast**
+### 2) Validation-first, fail-fast
 
-* All inputs are **typed** and **validated** with Pydantic before the engine starts.
-* Validation catches type errors, inconsistent references, and illegal combinations (e.g., an I/O step with a CPU metric).
-* When a payload parses successfully, the engine can run without defensive checks scattered in runtime code.
+* Inputs are **typed** and **validated** before the engine starts.
+* Validation catches type errors, dangling references, illegal step definitions, and inconsistent graphs.
+* Once a payload parses, the runtime code can remain lean (no defensive checks scattered everywhere).
 
-### 3) **Small-to-large composition**
+### 3) Small-to-large composition
 
 * The smallest unit is a **`Step`** (one resource-bound operation).
-* Steps compose into an **`Endpoint`** (an ordered workflow).
+* Steps compose into an **`Endpoint`** (ordered workflow).
 * Endpoints live on a **`Server`** node with finite resources.
 * Nodes and **Edges** form a **`TopologyGraph`**.
-* A disciplined set of **Enums** (no magic strings) ensure a closed vocabulary.
+* A closed set of **Enums** eliminates magic strings.
 
 ---
 
-## 1. Workload: `RqsGeneratorInput`
+## 1) Workload: `RqsGeneratorInput`
 
-### Purpose
-
-Defines the traffic generator that produces request arrivals.
+**Purpose:** Defines the stochastic traffic generator that produces request arrivals.
 
 ```python
 class RqsGeneratorInput(BaseModel):
@@ -55,7 +53,11 @@ class RqsGeneratorInput(BaseModel):
     type: SystemNodes = SystemNodes.GENERATOR
     avg_active_users: RVConfig
     avg_request_per_minute_per_user: RVConfig
-    user_sampling_window: int = Field( ... )  # seconds
+    user_sampling_window: int = Field(
+        default=TimeDefaults.USER_SAMPLING_WINDOW,
+        ge=TimeDefaults.MIN_USER_SAMPLING_WINDOW,
+        le=TimeDefaults.MAX_USER_SAMPLING_WINDOW,
+    )
 ```
 
 ### Random variables (`RVConfig`)
@@ -67,29 +69,24 @@ class RVConfig(BaseModel):
     variance: float | None = None
 ```
 
-#### Validation & guarantees
+**Validators & guarantees**
 
-* **`mean` is numeric**
-  `@field_validator("mean", mode="before")` coerces to `float` and rejects non-numeric values.
-* **Auto variance** for Normal/LogNormal
-  `@model_validator(mode="after")` sets `variance = mean` if missing and the distribution is `NORMAL` or `LOG_NORMAL`.
-* **Distribution constraints** on workload:
+* `mean` is **numeric** and coerced to `float`. (Non-numeric → `ValueError`.)
+* If `distribution ∈ {NORMAL, LOG_NORMAL}` and `variance is None`, then `variance := mean`.
+* Workload-specific constraints:
 
-  * `avg_request_per_minute_per_user` **must be Poisson** (engine currently optimised for Poisson arrivals).
-  * `avg_active_users` **must be Poisson or Normal**.
-  * Enforced via `@field_validator(..., mode="after")` with clear error messages.
+  * `avg_request_per_minute_per_user.distribution` **must be** `POISSON`.
+  * `avg_active_users.distribution` **must be** `POISSON` or `NORMAL`.
+* `user_sampling_window` is an **integer in seconds**, bounded to `[1, 120]`.
 
-#### Why these constraints?
-
-* They reflect the current joint-sampling logic in the generator: **Poisson–Poisson** and **Normal–Poisson** are implemented and tested. Additional combos can be enabled later without changing the public contract.
+**Why these constraints?**
+They match the currently implemented samplers (Poisson–Poisson and Normal–Poisson).
 
 ---
 
-## 2. System Graph: `TopologyGraph`
+## 2) System Graph: `TopologyGraph`
 
-### Purpose
-
-Defines the architecture under test as a **directed graph**: nodes are components (client, server, optional load balancer), edges are network links with latency models.
+**Purpose:** Describes the architecture as a **directed graph**. Nodes are macro-components (client, server, optional load balancer); edges are network links with latency models.
 
 ```python
 class TopologyGraph(BaseModel):
@@ -97,13 +94,15 @@ class TopologyGraph(BaseModel):
     edges: list[Edge]
 ```
 
-### Nodes
+### 2.1 Nodes
 
 ```python
 class TopologyNodes(BaseModel):
     servers: list[Server]
     client: Client
     load_balancer: LoadBalancer | None = None
+
+    # also: model_config = ConfigDict(extra="forbid")
 ```
 
 #### `Client`
@@ -112,23 +111,23 @@ class TopologyNodes(BaseModel):
 class Client(BaseModel):
     id: str
     type: SystemNodes = SystemNodes.CLIENT
+    # validator: type must equal SystemNodes.CLIENT
 ```
-
-* **Validator**: `type` must equal `SystemNodes.CLIENT`.
 
 #### `ServerResources`
 
 ```python
 class ServerResources(BaseModel):
-    cpu_cores: PositiveInt = Field(...)
-    db_connection_pool: PositiveInt | None = Field(...)
-    ram_mb: PositiveInt = Field(...)
+    cpu_cores: PositiveInt = Field(ServerResourcesDefaults.CPU_CORES,
+                                   ge=ServerResourcesDefaults.MINIMUM_CPU_CORES)
+    db_connection_pool: PositiveInt | None = Field(ServerResourcesDefaults.DB_CONNECTION_POOL)
+    ram_mb: PositiveInt = Field(ServerResourcesDefaults.RAM_MB,
+                                ge=ServerResourcesDefaults.MINIMUM_RAM_MB)
 ```
 
-* Maps directly to SimPy containers (CPU tokens, RAM capacity, etc.).
-* Bounds enforced via `Field(ge=..., ...)`.
+Each attribute maps directly to a SimPy primitive (core tokens, RAM container, optional DB pool).
 
-#### `Step` (the atomic unit)
+#### `Step` (atomic unit)
 
 ```python
 class Step(BaseModel):
@@ -136,20 +135,15 @@ class Step(BaseModel):
     step_operation: dict[StepOperation, PositiveFloat | PositiveInt]
 ```
 
-**Key validator (coherence):**
+**Coherence validator**
 
-```python
-@model_validator(mode="after")
-def ensure_coherence_type_operation(cls, model: "Step") -> "Step":
-    # exactly one operation key, and it must match the step kind
-```
+* `step_operation` must contain **exactly one** key.
+* Valid pairings:
 
-* If `kind` is CPU → the only key must be `CPU_TIME`.
-* If `kind` is RAM → only `NECESSARY_RAM`.
-* If `kind` is I/O → only `IO_WAITING_TIME`.
-* Values must be positive (`PositiveFloat/PositiveInt`).
-
-This guarantees every step is **unambiguous** and **physically meaningful**.
+  * CPU step → `{ cpu_time: PositiveFloat }`
+  * RAM step → `{ necessary_ram: PositiveInt | PositiveFloat }`
+  * I/O step → `{ io_waiting_time: PositiveFloat }`
+* Any mismatch (e.g., RAM step with `cpu_time`) → `ValueError`.
 
 #### `Endpoint`
 
@@ -159,11 +153,10 @@ class Endpoint(BaseModel):
     steps: list[Step]
 
     @field_validator("endpoint_name", mode="before")
-    def name_to_lower(cls, v: str) -> str:
-        return v.lower()
+    def name_to_lower(cls, v): return v.lower()
 ```
 
-* Canonical lowercase naming avoids duplicates differing only by case.
+Canonical lowercase names avoid accidental duplicates by case.
 
 #### `Server`
 
@@ -173,9 +166,8 @@ class Server(BaseModel):
     type: SystemNodes = SystemNodes.SERVER
     server_resources: ServerResources
     endpoints: list[Endpoint]
+    # validator: type must equal SystemNodes.SERVER
 ```
-
-* **Validator**: `type` must equal `SystemNodes.SERVER`.
 
 #### `LoadBalancer` (optional)
 
@@ -185,165 +177,153 @@ class LoadBalancer(BaseModel):
     type: SystemNodes = SystemNodes.LOAD_BALANCER
     algorithms: LbAlgorithmsName = LbAlgorithmsName.ROUND_ROBIN
     server_covered: set[str] = Field(default_factory=set)
+    # validator: type must equal SystemNodes.LOAD_BALANCER
 ```
 
-### Edges
+### 2.2 Edges
 
 ```python
 class Edge(BaseModel):
     id: str
-    source: str
-    target: str
+    source: str          # may be an external entrypoint (e.g., generator id)
+    target: str          # MUST be a declared node id
     latency: RVConfig
-    probability: float = Field(1.0, ge=0.0, le=1.0)
     edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
-    dropout_rate: float = Field(...)
+    dropout_rate: float = Field(NetworkParameters.DROPOUT_RATE,
+                                ge=NetworkParameters.MIN_DROPOUT_RATE,
+                                le=NetworkParameters.MAX_DROPOUT_RATE)
+    # validator: source != target
+    # validator on latency: mean > 0, variance >= 0 if provided
 ```
 
-#### Validation & guarantees
+> **Note:** The former `probability` field has been **removed**. Fan-out is controlled at the **load balancer** via `algorithms` (e.g., round-robin, least-connections). Non-LB nodes are not allowed to have multiple outgoing edges (see graph-level validators below).
 
-* **Latency sanity**
-  `@field_validator("latency", mode="after")` ensures `mean > 0` and `variance >= 0` (if provided). Error messages mention the **edge id** for clarity.
-* **No self-loops**
-  `@model_validator(mode="after")` rejects `source == target`.
-* **Unique edge IDs**
-  `TopologyGraph.unique_ids` enforces uniqueness across `edges`.
-* **Referential integrity**
-  `TopologyGraph.edge_refs_valid` ensures:
+### 2.3 Graph-level validators
 
-  * Every `target` is a declared node ID.
-  * **External sources** (e.g., the generator id) are allowed, but **may not** appear as a `target` anywhere.
-* **Load balancer integrity** (if present)
-  `TopologyGraph.valid_load_balancer` enforces:
+The `TopologyGraph` class performs several global checks:
 
-  * `server_covered ⊆ {server ids}`.
-  * For every covered server there exists an **outgoing edge from the LB** to that server.
+1. **Unique edge IDs**
 
-These checks make the graph **closed**, **consistent**, and **wirable** without surprises at runtime.
+   * Duplicate edge ids → `ValueError`.
+
+2. **Referential integrity**
+
+   * Every **`target`** must be a declared node (`client`, any `server`, optional `load_balancer`).
+   * **External IDs** (e.g., generator id) are **allowed only as sources** and **must never appear as a target** anywhere.
+
+3. **Load balancer integrity (if present)**
+
+   * `server_covered ⊆ declared server ids`.
+   * There must be **an outgoing edge from the LB to every covered server**; missing links → `ValueError`.
+
+4. **Fan-out restriction**
+
+   * Among **declared nodes**, **only the load balancer** may have **multiple outgoing edges**.
+   * Edges originating from non-declared external sources (e.g., generator) are ignored by this check.
+   * Violations list the offending source ids.
 
 ---
 
-## 3. Simulation Control: `SimulationSettings`
+## 3) Simulation Control: `SimulationSettings`
 
 ```python
 class SimulationSettings(BaseModel):
-    total_simulation_time: int = Field(..., ge=TimeDefaults.MIN_SIMULATION_TIME)
+    total_simulation_time: int = Field(
+        default=TimeDefaults.SIMULATION_TIME,
+        ge=TimeDefaults.MIN_SIMULATION_TIME,
+    )
     enabled_sample_metrics: set[SampledMetricName] = Field(default_factory=...)
     enabled_event_metrics: set[EventMetricName] = Field(default_factory=...)
-    sample_period_s: float = Field(..., ge=SamplePeriods.MINIMUM_TIME, le=SamplePeriods.MAXIMUM_TIME)
+    sample_period_s: float = Field(
+        default=SamplePeriods.STANDARD_TIME,
+        ge=SamplePeriods.MINIMUM_TIME,
+        le=SamplePeriods.MAXIMUM_TIME,
+    )
 ```
 
-### What it controls
+**What it controls**
 
-* **Clock** — `total_simulation_time` (seconds).
-* **Sampling cadence** — `sample_period_s` for time-series metrics.
-* **What to collect** — two sets of enums:
+* **Clock** — `total_simulation_time` in seconds (default 3600, min 5).
+* **Sampling cadence** — `sample_period_s` in seconds (default 0.01; bounds `[0.001, 0.1]`).
+* **Metric selection** — default sets include:
 
-  * `enabled_sample_metrics`: time-series KPIs (e.g., ready queue length, RAM in use, edge concurrency).
-  * `enabled_event_metrics`: per-event KPIs (e.g., request clocks/latency).
-
-### Why Enums matter here
-
-Letting users pass strings like `"ram_in_use"` is error-prone. By using **`SampledMetricName`** and **`EventMetricName`** enums, the settings are **validated upfront**, so the runtime collector knows exactly which lists to allocate and fill. No hidden `KeyError`s halfway through a run.
+  * Sampled (time-series): `ready_queue_len`, `event_loop_io_sleep`, `ram_in_use`, `edge_concurrent_connection`.
+  * Event (per-request): `rqs_clock`.
 
 ---
 
-## What these validations buy you
+## 4) Enums & Units (Quick Reference)
 
-* **Type safety** (no accidental strings where enums are expected).
-* **Physical realism** (no zero/negative times or RAM).
-* **Graph integrity** (no dangling edges or self-loops).
-* **Operational clarity** (every step has exactly one effect).
-* **Better errors** (validators point to the exact field/entity at fault).
+**Distributions:** `poisson`, `normal`, `log_normal`, `exponential`, `uniform`
+**Node types:** `generator`, `server`, `client`, `load_balancer` (fixed by models)
+**Edge types:** `network_connection`
+**LB algorithms:** `round_robin`, `least_connection`
+**Step kinds:**
 
-Together, they make the model **predictable** for the simulation engine and **pleasant** to debug.
+* CPU: `initial_parsing`, `cpu_bound_operation`
+* RAM: `ram`
+* I/O: `io_task_spawn`, `io_llm`, `io_wait`, `io_db`, `io_cache`
+  **Step operation keys:** `cpu_time`, `io_waiting_time`, `necessary_ram`
+  **Sampled metrics:** `ready_queue_len`, `event_loop_io_sleep`, `ram_in_use`, `edge_concurrent_connection`
+  **Event metrics:** `rqs_clock` (and `llm_cost` reserved)
 
----
+**Units & conventions**
 
-## End-to-End Example (YAML)
-
-This is a complete, valid payload you can load with `SimulationRunner.from_yaml(...)`.
-
-```yaml
-# ───────────────────────────────────────────────────────────────
-# AsyncFlow scenario: generator → client → server → client
-# ───────────────────────────────────────────────────────────────
-
-rqs_input:
-  id: rqs-1
-  # avg_active_users can be POISSON or NORMAL; mean is required.
-  avg_active_users:
-    mean: 100
-    distribution: poisson
-  # must be POISSON (engine constraint)
-  avg_request_per_minute_per_user:
-    mean: 20
-    distribution: poisson
-  user_sampling_window: 60  # seconds
-
-topology_graph:
-  nodes:
-    client:
-      id: client-1
-      type: client
-    servers:
-      - id: srv-1
-        type: server
-        server_resources:
-          cpu_cores: 1
-          ram_mb: 2048
-          # db_connection_pool: 50     # optional
-        endpoints:
-          - endpoint_name: /predict
-            steps:
-              - kind: ram
-                step_operation: { necessary_ram: 100 }
-              - kind: initial_parsing        # CPU step (enum in your code)
-                step_operation: { cpu_time: 0.001 }
-              - kind: io_wait                # I/O step
-                step_operation: { io_waiting_time: 0.100 }
-
-  edges:
-    - id: gen-to-client
-      source: rqs-1          # external source OK
-      target: client-1
-      latency: { mean: 0.003, distribution: exponential }
-
-    - id: client-to-server
-      source: client-1
-      target: srv-1
-      latency: { mean: 0.003, distribution: exponential }
-
-    - id: server-to-client
-      source: srv-1
-      target: client-1
-      latency: { mean: 0.003, distribution: exponential }
-
-sim_settings:
-  total_simulation_time: 500
-  sample_period_s: 0.05
-  enabled_sample_metrics:
-    - ready_queue_len
-    - event_loop_io_sleep
-    - ram_in_use
-    - edge_concurrent_connection
-  enabled_event_metrics:
-    - rqs_clock
-```
-
- Notes:
->
- * `kind` uses the **EndpointStep** enums you’ve defined (e.g., `ram`, `initial_parsing`, `io_wait`).
- * The coherence validator ensures that each `kind` uses the correct `step_operation` key and **exactly one** entry.
- * The **edge** constraints guarantee a clean, connected, and sensible graph.
+* **Time:** seconds (`cpu_time`, `io_waiting_time`, latencies, `total_simulation_time`, `sample_period_s`, `user_sampling_window`)
+* **RAM:** megabytes (`ram_mb`, `necessary_ram`)
+* **Rates:** requests/minute (`avg_request_per_minute_per_user.mean`)
+* **Probabilities:** `[0.0, 1.0]` (`dropout_rate`)
+* **IDs:** strings; must be **unique** within their category
 
 ---
 
-## Summary
+## 5) Validation Checklist (What is guaranteed if the payload parses)
 
-* The **payload** is small but expressive: workload, topology, and settings.
-* The **validators** are doing real work: they make illegal states unrepresentable.
-* The **enums** keep the contract tight and maintainable.
-* Together, they let you move fast **without** breaking the simulation engine.
+### Workload (`RqsGeneratorInput`, `RVConfig`)
 
-If you extend the engine (new distributions, step kinds, metrics), you can **keep the same contract** and enrich the enums & validators to preserve the same guarantees.
+* `mean` is numeric (`int|float`) and coerced to `float`.
+* If `distribution ∈ {NORMAL, LOG_NORMAL}` and `variance is None` → `variance := mean`.
+* `avg_request_per_minute_per_user.distribution == POISSON`.
+* `avg_active_users.distribution ∈ {POISSON, NORMAL}`.
+* `user_sampling_window ∈ [1, 120]` seconds.
+* `type` fields default to the correct enum (`generator`) and are strongly typed.
+
+### Steps & Endpoints
+
+* `endpoint_name` is normalized to lowercase.
+* Each `Step` has **exactly one** `step_operation` key.
+* `Step.kind` and `step_operation` key **must match**:
+
+  * CPU ↔ `cpu_time`
+  * RAM ↔ `necessary_ram`
+  * I/O ↔ `io_waiting_time`
+* All step operation values are strictly **positive**.
+
+### Nodes
+
+* `Client.type == client`, `Server.type == server`, `LoadBalancer.type == load_balancer` (enforced).
+* `ServerResources` obey lower bounds: `cpu_cores ≥ 1`, `ram_mb ≥ 256`.
+* `TopologyNodes` contains **unique ids** across `client`, `servers[]`, and (optional) `load_balancer`. Duplicates → `ValueError`.
+* `TopologyNodes` forbids unknown fields (`extra="forbid"`).
+
+### Edges
+
+* **No self-loops:** `source != target`.
+* **Latency sanity:** `latency.mean > 0`; if `variance` is provided, `variance ≥ 0`. Error messages reference the **edge id**.
+* `dropout_rate ∈ [0, 1]`.
+
+### Graph (`TopologyGraph`)
+
+* **Edge ids are unique.**
+* **Targets** are always **declared node ids**.
+* **External ids** (e.g., generator) are allowed only as **sources**; they must **never** appear as **targets**.
+* **Load balancer integrity:**
+
+  * `server_covered` is a subset of declared servers.
+  * Every covered server has a **corresponding edge from the LB** (LB → srv). Missing links → `ValueError`.
+* **Fan-out restriction:** among **declared nodes**, only the **LB** can have **multiple outgoing edges**. Offenders are listed.
+
+If your payload passes validation, the engine can wire and run the simulation deterministically with consistent semantics.
+
+
+

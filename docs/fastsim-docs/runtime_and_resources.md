@@ -1,10 +1,10 @@
 Of course. This is an excellent request. A deep dive into the "why" and the real-world analogies is what makes documentation truly valuable.
 
-Here is the comprehensive, detailed documentation for the FastSim Runtime Layer, written in English, incorporating all your requests.
+Here is the comprehensive, detailed documentation for the AsyncFlow Runtime Layer, written in English, incorporating all your requests.
 
 -----
 
-# **FastSim — The Runtime Layer Documentation**
+# **AsyncFlow — The Runtime Layer Documentation**
 
 *(Version July 2025 – Aligned with `app/runtime` and `app/resources`)*
 
@@ -80,7 +80,7 @@ Think of `RequestState` as a request context in a modern microservices architect
 ## **4  The Resource Layer — Modelling Contention ⚙️**
 
 In real infrastructures every machine has a hard ceiling: only *N* CPU cores, only *M* MB of RAM.
-FastSim mirrors that physical constraint through the **Resource layer**, which exposes pre-filled SimPy containers that actors must draw from. If a token is not available the coroutine simply blocks — giving you back-pressure “for free”.
+AsyncFlow mirrors that physical constraint through the **Resource layer**, which exposes pre-filled SimPy containers that actors must draw from. If a token is not available the coroutine simply blocks — giving you back-pressure “for free”.
 
 ---
 
@@ -127,7 +127,7 @@ defensive checks beyond the simple dictionary lookup.
 | RAM container tokens | **cgroup memory limit** or a pod’s allocatable memory; once exhausted new workloads must wait.            |
 
 Just like a Kubernetes scheduler won’t place a pod if a node lacks free CPU/RAM,
-FastSim won’t let an actor proceed until it obtains the necessary tokens.
+AsyncFlow won’t let an actor proceed until it obtains the necessary tokens.
 
 ## **5. The Actors: Bringing the System to Life**
 
@@ -448,4 +448,4 @@ def _forwarder(self) -> Generator[simpy.Event, None, None]:
 
 With these mechanics the `LoadBalancerRuntime` faithfully emulates behaviour of
 production LBs (NGINX, HAProxy, AWS ALB) while remaining lightweight and
-fully deterministic inside the FastSim event loop.
+fully deterministic inside the AsyncFlow event loop.

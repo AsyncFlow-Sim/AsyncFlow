@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "FastSim"
+name = "AsyncFlow"
 version = "0.1.0"
-description = "Simulate fastapi event loop to manage resources"
+description = "Simulate distributed system for what if analysis for the capacity planning"
 authors = ["Gioele Botta"]
 readme = "README.md"
 
 packages = [
-  { include = "app", from = "src" }
+  { include = "asyncflow", from = "src" }
 ]
 
 [tool.poetry.dependencies]

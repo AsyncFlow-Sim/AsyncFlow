@@ -7,18 +7,18 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import simpy
 
-from app.config.constants import Distribution
-from app.runtime.actors.rqs_generator import RqsGeneratorRuntime
+from asyncflow.config.constants import Distribution
+from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
 
 if TYPE_CHECKING:
 
     import pytest
     from numpy.random import Generator
 
-    from app.runtime.actors.edge import EdgeRuntime
-    from app.runtime.rqs_state import RequestState
-    from app.schemas.rqs_generator_input import RqsGeneratorInput
-    from app.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.runtime.actors.edge import EdgeRuntime
+    from asyncflow.runtime.rqs_state import RequestState
+    from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+    from asyncflow.schemas.simulation_settings_input import SimulationSettings
 
 import importlib
 
@@ -63,7 +63,7 @@ def _make_runtime(
 # --------------------------------------------------------------------------- #
 
 
-RGR_MODULE = importlib.import_module("app.runtime.actors.rqs_generator")
+RGR_MODULE = importlib.import_module("asyncflow.runtime.actors.rqs_generator")
 
 def test_dispatcher_selects_poisson_poisson(
     monkeypatch: pytest.MonkeyPatch,

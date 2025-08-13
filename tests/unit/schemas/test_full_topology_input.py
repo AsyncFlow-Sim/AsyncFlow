@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.config.constants import (
+from asyncflow.config.constants import (
     EndpointStepCPU,
     NetworkParameters,
     ServerResourcesDefaults,
@@ -13,9 +13,9 @@ from app.config.constants import (
     SystemEdges,
     SystemNodes,
 )
-from app.schemas.random_variables_config import RVConfig
-from app.schemas.system_topology.endpoint import Endpoint, Step
-from app.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.system_topology.endpoint import Endpoint, Step
+from asyncflow.schemas.system_topology.full_system_topology import (
     Client,
     Edge,
     LoadBalancer,

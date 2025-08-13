@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run a FastSim scenario from a YAML file and print diagnostics.
+Run a AsyncFlow scenario from a YAML file and print diagnostics.
 
 What it does:
 - Loads the simulation payload from YAML via `SimulationRunner.from_yaml`.
@@ -23,15 +23,15 @@ from typing import Dict, Iterable, List, Mapping, Tuple
 import matplotlib.pyplot as plt  
 import numpy as np  
 import simpy  
-from app.config.constants import (  
+from asyncflow.config.constants import (  
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
     LatencyKey,
     StepOperation,
 )
-from app.metrics.analyzer import ResultsAnalyzer  
-from app.runtime.simulation_runner import SimulationRunner  
+from asyncflow.metrics.analyzer import ResultsAnalyzer  
+from asyncflow.runtime.simulation_runner import SimulationRunner  
 
 
 # ─────────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ def run_sanity_checks(runner: SimulationRunner, res: ResultsAnalyzer) -> None:
 # ─────────────────────────────────────────────────────────────
 def main() -> None:
     """Entry-point: parse args, run simulation, print/plot, sanity-check."""
-    parser = ArgumentParser(description="Run FastSim from YAML and print outputs + sanity checks.")
+    parser = ArgumentParser(description="Run AsyncFlow from YAML and print outputs + sanity checks.")
     parser.add_argument(
         "--yaml",
         type=Path,

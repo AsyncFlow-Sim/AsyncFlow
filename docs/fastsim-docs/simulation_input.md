@@ -1,6 +1,6 @@
-# FastSim — Simulation Input Schema (v2)
+# AsyncFlow — Simulation Input Schema (v2)
 
-This document describes the **complete input contract** used by FastSim to run a simulation, the **design rationale** behind it, and the **guarantees** provided by the validation layer. It closes with an **end-to-end example** (YAML) you can drop into the project and run as-is.
+This document describes the **complete input contract** used by AsyncFlow to run a simulation, the **design rationale** behind it, and the **guarantees** provided by the validation layer. It closes with an **end-to-end example** (YAML) you can drop into the project and run as-is.
 
 The entry point is the Pydantic model:
 
@@ -266,7 +266,7 @@ This is a complete, valid payload you can load with `SimulationRunner.from_yaml(
 
 ```yaml
 # ───────────────────────────────────────────────────────────────
-# FastSim scenario: generator → client → server → client
+# AsyncFlow scenario: generator → client → server → client
 # ───────────────────────────────────────────────────────────────
 
 rqs_input:

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import simpy
 
-from app.config.constants import SystemEdges, SystemNodes
-from app.runtime.actors.client import ClientRuntime
-from app.runtime.rqs_state import RequestState
-from app.schemas.system_topology.full_system_topology import (
+from asyncflow.config.constants import SystemEdges, SystemNodes
+from asyncflow.runtime.actors.client import ClientRuntime
+from asyncflow.runtime.rqs_state import RequestState
+from asyncflow.schemas.system_topology.full_system_topology import (
     Client,
 )
 

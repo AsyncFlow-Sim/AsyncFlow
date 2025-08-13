@@ -1,8 +1,8 @@
-### **FastSim — Simulation Metrics**
+### **AsyncFlow — Simulation Metrics**
 
-Metrics are the lifeblood of any simulation, transforming a series of abstract events into concrete, actionable insights about system performance, resource utilization, and potential bottlenecks. FastSim provides a flexible and robust metrics collection system designed to give you a multi-faceted view of your system's behavior under load.
+Metrics are the lifeblood of any simulation, transforming a series of abstract events into concrete, actionable insights about system performance, resource utilization, and potential bottlenecks. AsyncFlow provides a flexible and robust metrics collection system designed to give you a multi-faceted view of your system's behavior under load.
 
-To achieve this, FastSim categorizes metrics into three distinct types:
+To achieve this, AsyncFlow categorizes metrics into three distinct types:
 
 1.  **Sampled Metrics (`SampledMetricName`):** These metrics provide a **time-series view** of the system's state. They are captured at fixed, regular intervals (e.g., every 5 milliseconds). This methodology is ideal for understanding trends and measuring the continuous utilization of finite resources. Think of them as periodic snapshots of your system's health.
 

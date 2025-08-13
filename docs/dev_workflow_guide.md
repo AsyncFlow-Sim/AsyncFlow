@@ -1,6 +1,6 @@
 # **Development Workflow & Architecture Guide**
 
-This document outlines the standardized development workflow, repository architecture, and branching strategy for the backend of the FastSim project. Adhering to these guidelines ensures consistency, maintainability, and a scalable development process.
+This document outlines the standardized development workflow, repository architecture, and branching strategy for the backend of the AsyncFlow project. Adhering to these guidelines ensures consistency, maintainability, and a scalable development process.
 
 ## 1. Technology Stack
 
@@ -13,19 +13,19 @@ The project is built upon the following core technologies:
 -   **Caching**: Redis
 -   **Containerization**: Docker
 
-### 2.1  Backend Service (`FastSim-backend`)
+### 2.1  Backend Service (`AsyncFlow-backend`)
 
-The repository hosts the entire FastAPI backend for FastSim.
+The repository hosts the entire FastAPI backend for AsyncFlow.
 Its job is to expose the REST API, run the discrete-event simulation, talk to the database, and provide metrics.
 
 ```
-fastsim-backend/
+AsyncFlow-backend/
 ├── example/                         # examples of working simulations
 │   ├── data
 ├── scripts/                         # helper bash scripts (lint, dev-startup, …)
 │   └── quality-check.sh
 ├── docs/                            # project vision & low-level docs
-│   └── fastsim-documentation/
+│   └── AsyncFlow-documentation/
 ├── tests/                           # unit & integration tests
 │   ├── unit/
 │   └── integration/
@@ -67,7 +67,7 @@ fastsim-backend/
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`example/`** | Ready-to-run simulation scenarios and example configurations. Includes `data/` with YAML definitions and scripts to demonstrate engine usage.     |
 | **`scripts/`** | Utility shell scripts for development workflow, linting, formatting, and local startup (`quality-check.sh`, etc.).                                |
-| **`docs/`**    | Project documentation. Contains both high-level vision documents and low-level technical references (`fastsim-documentation/`).                   |
+| **`docs/`**    | Project documentation. Contains both high-level vision documents and low-level technical references (`AsyncFlow-documentation/`).                   |
 | **`tests/`**   | Automated test suite, split into **unit** and **integration** tests to verify correctness of both individual components and end-to-end scenarios. |
 
 ---

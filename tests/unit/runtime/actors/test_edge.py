@@ -11,16 +11,16 @@ from typing import TYPE_CHECKING, cast
 
 import simpy
 
-from app.config.constants import SampledMetricName, SystemEdges, SystemNodes
-from app.runtime.actors.edge import EdgeRuntime
-from app.runtime.rqs_state import RequestState
-from app.schemas.random_variables_config import RVConfig
-from app.schemas.system_topology.full_system_topology import Edge
+from asyncflow.config.constants import SampledMetricName, SystemEdges, SystemNodes
+from asyncflow.runtime.actors.edge import EdgeRuntime
+from asyncflow.runtime.rqs_state import RequestState
+from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.system_topology.full_system_topology import Edge
 
 if TYPE_CHECKING:
     import numpy as np
 
-    from app.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.simulation_settings_input import SimulationSettings
 
 
 # --------------------------------------------------------------------------- #

@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from app.config.constants import LatencyKey, SampledMetricName
+from asyncflow.config.constants import LatencyKey, SampledMetricName
 
 if TYPE_CHECKING:  # only needed for type-checking
-    from app.metrics.analyzer import ResultsAnalyzer
-    from app.runtime.simulation_runner import SimulationRunner
+    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.runtime.simulation_runner import SimulationRunner
 
 
 # --------------------------------------------------------------------------- #

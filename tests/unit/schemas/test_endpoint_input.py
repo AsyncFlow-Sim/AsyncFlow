@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.config.constants import (
+from asyncflow.config.constants import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
     StepOperation,
 )
-from app.schemas.system_topology.endpoint import Endpoint, Step
+from asyncflow.schemas.system_topology.endpoint import Endpoint, Step
 
 
 # --------------------------------------------------------------------------- #

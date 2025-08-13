@@ -3,9 +3,9 @@ from pathlib import Path
 import simpy
 import matplotlib.pyplot as plt
 
-from app.config.constants import LatencyKey
-from app.runtime.simulation_runner import SimulationRunner
-from app.metrics.analyzer import ResultsAnalyzer
+from asyncflow.config.constants import LatencyKey
+from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.metrics.analyzer import ResultsAnalyzer
 
 def print_latency_stats(res: ResultsAnalyzer) -> None:
     """Print latency statistics returned by the analyzer."""

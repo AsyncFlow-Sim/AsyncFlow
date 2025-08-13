@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 import simpy
 
-from app.config.constants import ServerResourceName
-from app.resources.registry import ResourcesRuntime
-from app.schemas.system_topology.endpoint import Endpoint
-from app.schemas.system_topology.full_system_topology import (
+from asyncflow.config.constants import ServerResourceName
+from asyncflow.resources.registry import ResourcesRuntime
+from asyncflow.schemas.system_topology.endpoint import Endpoint
+from asyncflow.schemas.system_topology.full_system_topology import (
     Client,
     Server,
     ServerResources,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Didactic example: build and run a FastSim scenario **without** YAML,
+Didactic example: build and run a AsyncFlow scenario **without** YAML,
 using the 'pybuilder' (AsyncFlow) to assemble the SimulationPayload.
 
 Scenario reproduced (same as the previous YAML):
@@ -30,26 +30,26 @@ Run:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Tuple
+from typing import Iterable, List, Mapping
 
 import numpy as np
 import simpy
 
-# ── FastSim domain imports ───────────────────────────────────────────────────
-from app.pybuilder.input_builder import AsyncFlow
-from app.runtime.simulation_runner import SimulationRunner
-from app.metrics.analyzer import ResultsAnalyzer
-from app.schemas.full_simulation_input import SimulationPayload
-from app.schemas.rqs_generator_input import RqsGeneratorInput
-from app.schemas.simulation_settings_input import SimulationSettings
-from app.schemas.system_topology.endpoint import Endpoint
-from app.schemas.system_topology.full_system_topology import (
+# ── AsyncFlow domain imports ───────────────────────────────────────────────────
+from asyncflow.pybuilder.input_builder import AsyncFlow
+from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.metrics.analyzer import ResultsAnalyzer
+from asyncflow.schemas.full_simulation_input import SimulationPayload
+from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.schemas.system_topology.endpoint import Endpoint
+from asyncflow.schemas.system_topology.full_system_topology import (
     Client,
     Edge,
     Server,
 )
 
-from app.config.constants import LatencyKey, SampledMetricName
+from asyncflow.config.constants import LatencyKey, SampledMetricName
 
 
 # ─────────────────────────────────────────────────────────────

@@ -1,12 +1,12 @@
-# **FastSim – Event-Loop Aware Simulation for Backend Systems**
+# **AsyncFlow – Event-Loop Aware Simulation for Backend Systems**
 
 ## **1. Overview**
 
 Modern asynchronous Python stacks such as **FastAPI + Uvicorn** deliver impressive performance, yet capacity planning for production workloads often relies on guesswork, costly cloud-based load tests, or late-stage troubleshooting.
 
-**FastSim** addresses this challenge by providing a **digital twin** of your service that can be run entirely offline. It models event-loop behaviour, resource constraints, and request lifecycles, enabling you to forecast performance under different workloads and architectural choices **before deployment**.
+**AsyncFlow** addresses this challenge by providing a **digital twin** of your service that can be run entirely offline. It models event-loop behaviour, resource constraints, and request lifecycles, enabling you to forecast performance under different workloads and architectural choices **before deployment**.
 
-FastSim allows you to answer questions such as:
+AsyncFlow allows you to answer questions such as:
 
 * *What happens to p95 latency if traffic doubles during a peak event?*
 * *How many cores are required to maintain SLAs at scale?*
@@ -37,7 +37,7 @@ Until published, clone the repository and install in editable mode:
 - Python 3.11+ (recommended 3.12)
 - Poetry ≥ 1.6
 
-FastSim uses [Poetry](https://python-poetry.org/) for dependency management.
+AsyncFlow uses [Poetry](https://python-poetry.org/) for dependency management.
 If you do not have Poetry installed, follow these steps.
 
 ### 3.1 Install Poetry (official method)
@@ -64,8 +64,8 @@ curl -sSL https://install.python-poetry.org | python3 -
 
 ```bash
 # Clone the repository
-git clone https://github.com/GioeleB00/Fastsim-Backend.git
-cd Fastsim-Backend
+git clone https://github.com/GioeleB00/AsyncFlow-Backend.git
+cd AsyncFlow-Backend
 
 # Configure Poetry to always create a local `.venv` inside the project
 poetry config virtualenvs.in-project true
@@ -171,9 +171,9 @@ from pathlib import Path
 import simpy
 import matplotlib.pyplot as plt
 
-from app.config.constants import LatencyKey
-from app.runtime.simulation_runner import SimulationRunner
-from app.metrics.analyzer import ResultsAnalyzer
+from asyncflow.config.constants import LatencyKey
+from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.metrics.analyzer import ResultsAnalyzer
 
 def print_latency_stats(res: ResultsAnalyzer) -> None:
     """Print latency statistics returned by the analyzer."""
@@ -229,7 +229,7 @@ you will see the latency stats
 
 ## **5. Target Users and Use Cases**
 
-| Audience                 | Challenge                                         | FastSim Value                                                                    |
+| Audience                 | Challenge                                         | AsyncFlow Value                                                                    |
 | ------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Backend Engineers        | Sizing services for variable workloads            | Model endpoint workflows and resource bottlenecks before deployment              |
 | DevOps / SRE             | Balancing cost and SLA                            | Simulate scaling scenarios to choose optimal capacity                            |
@@ -244,7 +244,7 @@ you will see the latency stats
 The project follows a standard Python package layout, managed with Poetry.
 
 ```
-Fastsim-Backend/
+AsyncFlow-Backend/
 ├── examples/                # Examples payloads and datasets
 ├── scripts/                 # Utility scripts (linting, startup)
 ├── docs/                    # Project vision and technical documentation
@@ -265,7 +265,7 @@ Fastsim-Backend/
 
 ## **7. Development Workflow**
 
-FastSim uses **Poetry** for dependency management and enforces quality via **Ruff** and **MyPy**.
+AsyncFlow uses **Poetry** for dependency management and enforces quality via **Ruff** and **MyPy**.
 
 | Task          | Command                           | Description                            |
 | ------------- | --------------------------------- | -------------------------------------- |

@@ -3,7 +3,7 @@
 
 ## **Overview**
 
-The `SimulationRunner` is the **orchestrator** of the FastSim engine.
+The `SimulationRunner` is the **orchestrator** of the AsyncFlow engine.
 Its main responsibility is to:
 
 1. **Build** simulation actors from a structured input (`SimulationPayload`).

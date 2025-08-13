@@ -38,6 +38,7 @@ fastsim-backend/
 │       │   ├── rqs_state.py         # RequestState & Hop
 │       │   ├── simulation_runner.py # logic to initialize the whole simulation
         |   └── actors/              # SimPy “actors”: Edge, Server, Client, RqsGenerator
+        ├── pybuilder/               # Pythonic way to build the simulation payload
 │       ├── samplers/                # stochastic samplers (Gaussian-Poisson, etc.)
 │       ├── schemas/                 # Pydantic input/output models
 ├── poetry.lock

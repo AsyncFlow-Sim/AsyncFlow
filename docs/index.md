@@ -25,6 +25,7 @@ AsyncFlow is a discrete-event simulator for Python async backends (FastAPI/Uvico
 
 * **[Builder Guide](guides/builder.md)** — Programmatically assemble a `SimulationPayload` in Python with validation and examples.
 * **[YAML Input Guide](guides/yaml-builder.md)** — Author scenarios in YAML: exact schema, units, constraints, runnable samples.
+* **[Dev workflow Guide](guides/dev-workflow.md)** — Describes the development workflow, repository architecture, branching strategy and CI/CD for **AsyncFlow** 
 
 ---
 

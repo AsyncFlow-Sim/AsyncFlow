@@ -1,6 +1,6 @@
 # **Development Workflow & Architecture Guide**
 
-This document describes the development workflow, repository architecture, and branching strategy for **AsyncFlow** 
+This document describes the development workflow, repository architecture, branching strategy and CI/CD for **AsyncFlow** 
 ---
 
 ## 1) Repository Layout

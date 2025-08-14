@@ -7,7 +7,7 @@ The entry point is:
 ```python
 class SimulationPayload(BaseModel):
     """Full input structure to perform a simulation"""
-    rqs_input: RqsGeneratorInput
+    rqs_input: RqsGenerator
     topology_graph: TopologyGraph
     sim_settings: SimulationSettings
 ```
@@ -43,12 +43,12 @@ Everything the engine needs is captured by these three components:
 
 ---
 
-## 1) Workload: `RqsGeneratorInput`
+## 1) Workload: `RqsGenerator`
 
 **Purpose:** Defines the stochastic traffic generator that produces request arrivals.
 
 ```python
-class RqsGeneratorInput(BaseModel):
+class RqsGenerator(BaseModel):
     id: str
     type: SystemNodes = SystemNodes.GENERATOR
     avg_active_users: RVConfig
@@ -279,7 +279,7 @@ class SimulationSettings(BaseModel):
 
 ## 5) Validation Checklist (What is guaranteed if the payload parses)
 
-### Workload (`RqsGeneratorInput`, `RVConfig`)
+### Workload (`RqsGenerator`, `RVConfig`)
 
 * `mean` is numeric (`int|float`) and coerced to `float`.
 * If `distribution ∈ {NORMAL, LOG_NORMAL}` and `variance is None` → `variance := mean`.

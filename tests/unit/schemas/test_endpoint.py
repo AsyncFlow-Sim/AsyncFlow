@@ -11,7 +11,7 @@ from asyncflow.config.constants import (
     EndpointStepRAM,
     StepOperation,
 )
-from asyncflow.schemas.system_topology.endpoint import Endpoint, Step
+from asyncflow.schemas.topology.endpoint import Endpoint, Step
 
 
 # --------------------------------------------------------------------------- #

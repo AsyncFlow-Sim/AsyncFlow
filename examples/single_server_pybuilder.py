@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Didactic example: build and run a AsyncFlow scenario **without** YAML,
-using the 'pybuilder' (AsyncFlow) to assemble the SimulationPayload.
+using the 'builder' (AsyncFlow) to assemble the SimulationPayload.
 
 Scenario reproduced (same as the previous YAML):
     generator ──edge──> client ──edge──> server ──edge──> client
@@ -24,7 +24,7 @@ What this script does:
   5) (Optional) Visualize the topology with Matplotlib.
 
 Run:
-    python run_with_pybuilder.py
+    python run_with_builder.py
 """
 
 from __future__ import annotations
@@ -36,18 +36,18 @@ import numpy as np
 import simpy
 
 # ── AsyncFlow domain imports ───────────────────────────────────────────────────
-from asyncflow.pybuilder.input_builder import AsyncFlow
+from asyncflow.builder.asyncflow_builder import AsyncFlow
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.metrics.analyzer import ResultsAnalyzer
-from asyncflow.schemas.full_simulation_input import SimulationPayload
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.endpoint import Endpoint
-from asyncflow.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.endpoint import Endpoint
+from asyncflow.schemas.topology.nodes import (
     Client,
-    Edge,
     Server,
 )
+from asyncflow.schemas.topology.edges import Edge
 
 from asyncflow.config.constants import LatencyKey, SampledMetricName
 
@@ -160,9 +160,9 @@ def run_sanity_checks(
 
 
 # ─────────────────────────────────────────────────────────────
-# Build the same scenario via AsyncFlow (pybuilder)
+# Build the same scenario via AsyncFlow (builder)
 # ─────────────────────────────────────────────────────────────
-def build_payload_with_pybuilder() -> SimulationPayload:
+def build_payload_with_builder() -> SimulationPayload:
     """
     Construct the SimulationPayload programmatically using the builder.
 
@@ -174,7 +174,7 @@ def build_payload_with_pybuilder() -> SimulationPayload:
       - Simulation settings: 500s total, sample period 50ms
     """
     # 1) Request generator
-    generator = RqsGeneratorInput(
+    generator = RqsGenerator(
         id="rqs-1",
         avg_active_users={"mean": 100},
         avg_request_per_minute_per_user={"mean": 20},
@@ -255,11 +255,11 @@ def build_payload_with_pybuilder() -> SimulationPayload:
 def main() -> None:
     """
     Build → wire → run the simulation, then print diagnostics.
-    Mirrors run_from_yaml.py but uses the pybuilder to construct the input.
+    Mirrors run_from_yaml.py but uses the builder to construct the input.
     Also saves a 2x2 plot figure (latency, throughput, server queues, RAM).
     """
     env = simpy.Environment()
-    payload = build_payload_with_pybuilder()
+    payload = build_payload_with_builder()
 
     runner = SimulationRunner(env=env, simulation_input=payload)
     results: ResultsAnalyzer = runner.run()
@@ -283,7 +283,7 @@ def main() -> None:
         results.plot_ram_usage(axes[1, 1])
         fig.tight_layout()
 
-        out_path = Path(__file__).parent / "single_server_pybuilder.png"
+        out_path = Path(__file__).parent / "single_server_builder.png"
         fig.savefig(out_path)
         print(f"\n🖼️  Plots saved to: {out_path}")
     except Exception as exc:  # Matplotlib not installed or plotting failed

@@ -6,7 +6,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from asyncflow.schemas.full_simulation_input import SimulationPayload
+from asyncflow.schemas.payload import SimulationPayload
 
 DATA_DIR = Path(__file__).parent / "data" / "invalid"
 YMLS = sorted(DATA_DIR.glob("*.yml"))

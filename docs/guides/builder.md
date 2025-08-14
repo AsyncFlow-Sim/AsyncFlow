@@ -1,17 +1,16 @@
-# AsyncFlow – Programmatic Input Guide (pybuilder)
+# AsyncFlow – Programmatic Input Guide (builder)
 
 This guide shows how to **build the full simulation input in Python** using the
-`AsyncFlow` builder (the “pybuilder”), with the same precision and validation
-guarantees as the YAML flow. You’ll see **all components, valid values, units,
-constraints, and how validation is enforced**.
+`AsyncFlow` builder, with the same precision and validation guarantees as the YAML flow.
+You’ll see **all components, valid values, units, constraints, and how validation is enforced**.
 
 Under the hood, the builder assembles a single `SimulationPayload`:
 
 ```python
 SimulationPayload(
-    rqs_input=RqsGeneratorInput(...),      # traffic generator (workload)
-    topology_graph=TopologyGraph(...),     # system architecture as a graph
-    sim_settings=SimulationSettings(...),  # global settings and metrics
+    rqs_input=RqsGenerator(...),          # traffic generator (workload)
+    topology_graph=TopologyGraph(...),    # system architecture as a graph
+    sim_settings=SimulationSettings(...), # global settings and metrics
 )
 ```
 
@@ -28,18 +27,15 @@ from __future__ import annotations
 
 import simpy
 
-from asyncflow.pybuilder.input_builder import AsyncFlow
-from asyncflow.runtime.simulation_runner import SimulationRunner
-from asyncflow.schemas.full_simulation_input import SimulationPayload
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.endpoint import Endpoint
-from asyncflow.schemas.system_topology.full_system_topology import (
-    Client, Edge, Server,
+# Public, user-facing API
+from asyncflow import AsyncFlow, SimulationRunner
+from asyncflow.components import (
+    RqsGenerator, SimulationSettings, Endpoint, Client, Server, Edge
 )
+from asyncflow.schemas.payload import SimulationPayload  # optional, for typing
 
 # 1) Workload
-generator = RqsGeneratorInput(
+generator = RqsGenerator(
     id="rqs-1",
     avg_active_users={"mean": 50, "distribution": "poisson"},
     avg_request_per_minute_per_user={"mean": 30, "distribution": "poisson"},
@@ -50,11 +46,10 @@ generator = RqsGeneratorInput(
 client = Client(id="client-1")
 endpoint = Endpoint(
     endpoint_name="/hello",
-    probability=1.0,  # per-endpoint weight on this server
     steps=[
-        {"kind": "ram", "step_operation": {"necessary_ram": 32}},
-        {"kind": "initial_parsing", "step_operation": {"cpu_time": 0.002}},
-        {"kind": "io_wait", "step_operation": {"io_waiting_time": 0.010}},
+        {"kind": "ram",              "step_operation": {"necessary_ram": 32}},
+        {"kind": "initial_parsing",  "step_operation": {"cpu_time": 0.002}},
+        {"kind": "io_wait",          "step_operation": {"io_waiting_time": 0.010}},
     ],
 )
 server = Server(
@@ -103,8 +98,9 @@ payload: SimulationPayload = (
     AsyncFlow()
     .add_generator(generator)
     .add_client(client)
-    .add_servers(server)
-    .add_edges(*edges)
+    .add_servers(server)      # varargs; supports multiple
+    .add_edges(*edges)        # varargs; supports multiple
+    # .add_load_balancer(lb)  # optional
     .add_simulation_settings(settings)
     .build_payload()
 )
@@ -138,8 +134,7 @@ dictionary that Pydantic converts into an `RVConfig`:
 * `mean` is **required** and numeric; coerced to `float`.
 * If `distribution` is `"normal"` or `"log_normal"` and `variance` is absent,
   it defaults to **`variance = mean`**.
-* For **edge latency** (see §3.3): **`mean > 0`** and, if provided,
-  **`variance ≥ 0`**.
+* For **edge latency**: **`mean > 0`** and, if provided, **`variance ≥ 0`**.
 
 **Units**
 
@@ -148,30 +143,30 @@ dictionary that Pydantic converts into an `RVConfig`:
 
 ---
 
-## 2) Workload: `RqsGeneratorInput`
+## 2) Workload: `RqsGenerator`
 
 ```python
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.components import RqsGenerator
 
-generator = RqsGeneratorInput(
+generator = RqsGenerator(
     id="rqs-1",
     avg_active_users={
         "mean": 100,
-        "distribution": "poisson",   # or "normal"
+        "distribution": "poisson",  # or "normal"
         # "variance": <float>,       # optional; auto=mean if "normal"
     },
     avg_request_per_minute_per_user={
         "mean": 20,
-        "distribution": "poisson",   # must be poisson in current samplers
+        "distribution": "poisson",  # must be poisson in current samplers
     },
-    user_sampling_window=60,          # [1 .. 120] seconds
+    user_sampling_window=60,        # [1 .. 120] seconds
 )
 ```
 
 **Semantics**
 
-* `avg_active_users`: active users as a random variable (Poisson or Normal).
-* `avg_request_per_minute_per_user`: per-user RPM (Poisson).
+* `avg_active_users`: active users as a random variable (**Poisson** or **Normal**).
+* `avg_request_per_minute_per_user`: per-user RPM (**Poisson** only).
 * `user_sampling_window`: re-sample active users every N seconds.
 
 ---
@@ -184,7 +179,7 @@ LB) and edges (network links).
 ### 3.1 Client
 
 ```python
-from asyncflow.schemas.system_topology.full_system_topology import Client
+from asyncflow.components import Client
 
 client = Client(id="client-1")  # type is fixed to 'client'
 ```
@@ -192,25 +187,23 @@ client = Client(id="client-1")  # type is fixed to 'client'
 ### 3.2 Server & Endpoints
 
 ```python
-from asyncflow.schemas.system_topology.endpoint import Endpoint
-from asyncflow.schemas.system_topology.full_system_topology import Server
+from asyncflow.components import Endpoint, Server
 
 endpoint = Endpoint(
-    endpoint_name="/api",     # normalized to lowercase internally
-    probability=1.0,          # endpoint selection weight within the server
+    endpoint_name="/api",   # normalized to lowercase internally
     steps=[
-        {"kind": "ram", "step_operation": {"necessary_ram": 64}},
+        {"kind": "ram",                 "step_operation": {"necessary_ram": 64}},
         {"kind": "cpu_bound_operation", "step_operation": {"cpu_time": 0.004}},
-        {"kind": "io_db", "step_operation": {"io_waiting_time": 0.012}},
+        {"kind": "io_db",               "step_operation": {"io_waiting_time": 0.012}},
     ],
 )
 
 server = Server(
-    id="srv-1",               # type fixed to 'server'
+    id="srv-1",  # type fixed to 'server'
     server_resources={
         "cpu_cores": 2,       # int ≥ 1
         "ram_mb": 2048,       # int ≥ 256
-        "db_connection_pool": None,  # optional future-use
+        "db_connection_pool": None,  # optional
     },
     endpoints=[endpoint],
 )
@@ -237,13 +230,14 @@ server = Server(
 **Runtime semantics (high level)**
 
 * RAM is reserved before CPU, then released at the end.
-* CPU tokens acquired lazily for consecutive CPU steps; released on I/O.
+* CPU tokens are acquired for CPU-bound segments; released when switching to I/O.
 * I/O waits **do not** hold a CPU core.
 
 ### 3.3 Load Balancer (optional)
 
 ```python
-from asyncflow.schemas.system_topology.full_system_topology import LoadBalancer
+from asyncflow.schemas.topology.nodes import LoadBalancer  # internal type
+# (Use only if you build the graph manually. AsyncFlow builder hides the graph.)
 
 lb = LoadBalancer(
     id="lb-1",
@@ -260,16 +254,15 @@ lb = LoadBalancer(
 ### 3.4 Edges
 
 ```python
-from asyncflow.schemas.system_topology.full_system_topology import Edge
+from asyncflow.components import Edge
 
 edge = Edge(
     id="client-to-srv1",
     source="client-1",                      # may be external only for sources
     target="srv-1",                         # MUST be a declared node
     latency={"mean": 0.003, "distribution": "exponential"},
-    probability=1.0,                        # optional [0..1]
-    edge_type="network_connection",         # current default/only
-    dropout_rate=0.01,                      # optional [0..1]
+    # edge_type defaults to "network_connection"
+    # dropout_rate defaults to 0.01 (0.0 .. 1.0)
 )
 ```
 
@@ -278,17 +271,14 @@ edge = Edge(
 * `source`: can be an **external** ID for entry points (e.g., `"rqs-1"`).
 * `target`: **must** be a declared node (`client`, `server`, `load_balancer`).
 * `latency`: random variable; **`mean > 0`**, `variance ≥ 0` (if provided).
-* `probability`: used when a node has multiple outgoing edges (fan-out).
-  If your code enforces “no fan-out except LB”, do **not** create multiple
-  outgoing edges from nodes other than the LB.
-* `dropout_rate`: per-request/packet drop probability on this link.
+* **Fan-out rule**: the model enforces **“no fan-out except LB”**—i.e., only the load balancer may have multiple outgoing edges.
 
 ---
 
 ## 4) Global Settings: `SimulationSettings`
 
 ```python
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.components import SimulationSettings
 
 settings = SimulationSettings(
     total_simulation_time=600,  # seconds, default 3600, min 5
@@ -316,16 +306,16 @@ settings = SimulationSettings(
 ## 5) Building the Payload with `AsyncFlow`
 
 ```python
-from asyncflow.pybuilder.input_builder import AsyncFlow
-from asyncflow.schemas.full_simulation_input import SimulationPayload
+from asyncflow import AsyncFlow
+from asyncflow.schemas.payload import SimulationPayload  # optional typing
 
 flow = (
     AsyncFlow()
     .add_generator(generator)
     .add_client(client)
-    .add_servers(server)                      # varargs; supports multiple
-    .add_edges(*edges)                        # varargs; supports multiple
-    # .add_load_balancer(lb)                  # optional
+    .add_servers(server)   # varargs
+    .add_edges(*edges)     # varargs
+    # .add_load_balancer(lb)
     .add_simulation_settings(settings)
 )
 
@@ -337,10 +327,9 @@ payload: SimulationPayload = flow.build_payload()
 1. **Presence**: generator, client, ≥1 server, ≥1 edge, settings.
 2. **Unique IDs**: servers and edges have unique IDs.
 3. **Node types**: fixed enums: `client`, `server`, `load_balancer`.
-4. **Edge integrity**: every target is a declared node; external IDs allowed only as sources; no self-loops (`source != target`).
-5. **Load balancer sanity**: `server_covered ⊆ declared_servers` and there is an edge from the LB to **each** covered server.
-6. **(Optional in your codebase)** “No fan-out except LB” validator: multiple
-   outgoing edges only allowed for the LB.
+4. **Edge integrity**: every target is a declared node; external IDs allowed only as sources; no self-loops.
+5. **Load balancer sanity**: `server_covered ⊆ declared_servers` **and** there is an edge from the LB to **each** covered server.
+6. **No fan-out except LB**: only the LB may have multiple outgoing edges.
 
 If any rule is violated, a **descriptive `ValueError`** pinpoints the problem.
 
@@ -350,7 +339,7 @@ If any rule is violated, a **descriptive `ValueError`** pinpoints the problem.
 
 ```python
 import simpy
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow import SimulationRunner
 
 env = simpy.Environment()
 runner = SimulationRunner(env=env, simulation_input=payload)
@@ -372,64 +361,15 @@ results.plot_throughput(axes[0, 1])
 results.plot_server_queues(axes[1, 0])
 results.plot_ram_usage(axes[1, 1])
 fig.tight_layout()
-fig.savefig("single_server_pybuilder.png")
+fig.savefig("single_server_builder.png")
 ```
 
 ---
 
-## 7) Builder vs YAML: Field Mapping
+## 7) Enums, Units & Conventions (Cheat Sheet)
 
-| YAML path                                     | Builder (Python)                                                 |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| `rqs_input.id`                                | `RqsGeneratorInput(id=...)`                                      |
-| `rqs_input.avg_active_users.*`                | `RqsGeneratorInput(avg_active_users={...})`                      |
-| `rqs_input.avg_request_per_minute_per_user.*` | `RqsGeneratorInput(avg_request_per_minute_per_user={...})`       |
-| `rqs_input.user_sampling_window`              | `RqsGeneratorInput(user_sampling_window=...)`                    |
-| `topology_graph.nodes.client.id`              | `Client(id=...)`                                                 |
-| `topology_graph.nodes.servers[*]`             | `Server(id=..., server_resources={...}, endpoints=[...])`        |
-| `endpoint.endpoint_name`                      | `Endpoint(endpoint_name=...)`                                    |
-| `endpoint.steps[*]`                           | `Endpoint(steps=[{"kind": "...","step_operation": {...}}, ...])` |
-| `topology_graph.nodes.load_balancer.*`        | `LoadBalancer(id=..., algorithms=..., server_covered={...})`     |
-| `topology_graph.edges[*]`                     | `Edge(id=..., source=..., target=..., latency={...}, ...)`       |
-| `sim_settings.*`                              | `SimulationSettings(...)`                                        |
-
----
-
-## 8) Common Pitfalls & How to Avoid Them
-
-* **Mismatched step operations**
-  A CPU step must use `cpu_time`; an I/O step must use `io_waiting_time`; a RAM
-  step must use `necessary_ram`. Exactly **one** key per step.
-
-* **Edge target must be a declared node**
-  `source` can be external (e.g., `"rqs-1"`), but **no external ID** may ever
-  appear as a `target`.
-
-* **Load balancer coverage without edges**
-  If the LB covers `[srv-1, srv-2]`, you **must** add edges `lb→srv-1` and
-  `lb→srv-2`.
-
-* **Latency RV rules on edges**
-  `mean` must be **> 0**; if `variance` is present, it must be **≥ 0**.
-
-* **Fan-out rules**
-  If your codebase enforces “no fan-out except LB”, do not create multiple
-  outgoing edges from non-LB nodes. If you do allow it, set `probability`
-  weights so outgoing probabilities per source sum to \~1.0 (or ensure a single
-  edge per source).
-
-* **Sampling too coarse**
-  Large `sample_period_s` may miss short spikes. Lower it to capture bursts
-  (at the cost of larger time series).
-
----
-
-## 9) Enums, Units & Conventions (Cheat Sheet)
-
-* **Distributions**: `"poisson"`, `"normal"`, `"log_normal"`, `"exponential"`,
-  `"uniform"`
-* **Node types**: fixed internally to: `generator`, `server`, `client`,
-  `load_balancer`
+* **Distributions**: `"poisson"`, `"normal"`, `"log_normal"`, `"exponential"`, `"uniform"`
+* **Node types**: fixed internally to `generator`, `server`, `client`, `load_balancer`
 * **Edge type**: `network_connection`
 * **LB algorithms**: `"round_robin"`, `"least_connection"`
 * **Step kinds**
@@ -437,22 +377,14 @@ fig.savefig("single_server_pybuilder.png")
   RAM: `"ram"`
   I/O: `"io_task_spawn"`, `"io_llm"`, `"io_wait"`, `"io_db"`, `"io_cache"`
 * **Step operation keys**: `cpu_time`, `io_waiting_time`, `necessary_ram`
-* **Sampled metrics**: `ready_queue_len`, `event_loop_io_sleep`, `ram_in_use`,
-  `edge_concurrent_connection`
+* **Sampled metrics**: `ready_queue_len`, `event_loop_io_sleep`, `ram_in_use`, `edge_concurrent_connection`
 * **Event metrics**: `rqs_clock` (and `llm_cost` reserved for future use)
 
 **Units & ranges**
 
-* **Time**: seconds (`cpu_time`, `io_waiting_time`, edge latency means/variance,
-  `total_simulation_time`, `sample_period_s`, `user_sampling_window`)
+* **Time**: seconds (`cpu_time`, `io_waiting_time`, latencies, `total_simulation_time`, `sample_period_s`, `user_sampling_window`)
 * **RAM**: megabytes (`ram_mb`, `necessary_ram`)
 * **Rates**: requests/minute (`avg_request_per_minute_per_user.mean`)
-* **Probabilities**: `[0.0, 1.0]` (`probability`, `dropout_rate`)
-* **Bounds**: `total_simulation_time ≥ 5`, `sample_period_s ∈ [0.001, 0.1]`,
-  `cpu_cores ≥ 1`, `ram_mb ≥ 256`, numeric step values > 0
+* **Probabilities**: `[0.0, 1.0]` (`dropout_rate`)
+* **Bounds**: `total_simulation_time ≥ 5`, `sample_period_s ∈ [0.001, 0.1]`, `cpu_cores ≥ 1`, `ram_mb ≥ 256`, numeric step values > 0
 
----
-
-With these patterns, you can build any topology that the YAML supports—**fully
-programmatically**, with the same strong validation and clear errors on invalid
-configurations.

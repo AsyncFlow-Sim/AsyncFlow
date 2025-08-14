@@ -12,9 +12,7 @@ from typing import TypedDict
 import simpy
 
 from asyncflow.config.constants import ServerResourceName
-from asyncflow.schemas.system_topology.full_system_topology import (
-    ServerResources,
-)
+from asyncflow.schemas.topology.nodes import ServerResources
 
 # ==============================================================
 # DICT FOR THE REGISTRY TO INITIALIZE RESOURCES FOR EACH SERVER

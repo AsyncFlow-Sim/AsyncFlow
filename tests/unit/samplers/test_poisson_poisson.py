@@ -12,18 +12,18 @@ from numpy.random import Generator, default_rng
 
 from asyncflow.config.constants import TimeDefaults
 from asyncflow.samplers.poisson_poisson import poisson_poisson_sampling
-from asyncflow.schemas.random_variables_config import RVConfig
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 if TYPE_CHECKING:
 
-    from asyncflow.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.settings.simulation import SimulationSettings
 
 
 @pytest.fixture
-def rqs_cfg() -> RqsGeneratorInput:
-    """Return a minimal, valid RqsGeneratorInput for the sampler tests."""
-    return RqsGeneratorInput(
+def rqs_cfg() -> RqsGenerator:
+    """Return a minimal, valid RqsGenerator for the sampler tests."""
+    return RqsGenerator(
         id="gen-1",
         avg_active_users={"mean": 1.0, "distribution": "poisson"},
         avg_request_per_minute_per_user={"mean": 60.0, "distribution": "poisson"},
@@ -36,7 +36,7 @@ def rqs_cfg() -> RqsGeneratorInput:
 
 
 def test_sampler_returns_generator(
-    rqs_cfg: RqsGeneratorInput,
+    rqs_cfg: RqsGenerator,
     sim_settings: SimulationSettings,
     rng: Generator,
 ) -> None:
@@ -46,7 +46,7 @@ def test_sampler_returns_generator(
 
 
 def test_all_gaps_are_positive(
-    rqs_cfg: RqsGeneratorInput,
+    rqs_cfg: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """Every yielded gap must be strictly positive."""
@@ -65,7 +65,7 @@ def test_all_gaps_are_positive(
 
 
 def test_sampler_is_reproducible_with_fixed_seed(
-    rqs_cfg: RqsGeneratorInput,
+    rqs_cfg: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """Same RNG seed must produce identical first N gaps."""
@@ -96,7 +96,7 @@ def test_zero_users_produces_no_events(
     sim_settings: SimulationSettings,
 ) -> None:
     """If the mean user count is zero the generator must yield no events."""
-    cfg_zero = RqsGeneratorInput(
+    cfg_zero = RqsGenerator(
         id="gen-1",
         avg_active_users=RVConfig(mean=0.0, distribution="poisson"),
         avg_request_per_minute_per_user=RVConfig(mean=60.0, distribution="poisson"),
@@ -115,7 +115,7 @@ def test_zero_users_produces_no_events(
 
 
 def test_cumulative_time_never_exceeds_horizon(
-    rqs_cfg: RqsGeneratorInput,
+    rqs_cfg: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """Sum of gaps must stay below the simulation horizon."""

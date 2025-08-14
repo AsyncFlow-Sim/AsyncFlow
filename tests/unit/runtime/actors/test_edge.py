@@ -14,13 +14,13 @@ import simpy
 from asyncflow.config.constants import SampledMetricName, SystemEdges, SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.rqs_state import RequestState
-from asyncflow.schemas.random_variables_config import RVConfig
-from asyncflow.schemas.system_topology.full_system_topology import Edge
+from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.topology.edges import Edge
 
 if TYPE_CHECKING:
     import numpy as np
 
-    from asyncflow.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.settings.simulation import SimulationSettings
 
 
 # --------------------------------------------------------------------------- #

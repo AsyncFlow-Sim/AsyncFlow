@@ -10,7 +10,7 @@ Processes can later retrieve CPU and RAM containers by indexing this registry.
 import simpy
 
 from asyncflow.resources.server_containers import ServerContainers, build_containers
-from asyncflow.schemas.system_topology.full_system_topology import TopologyGraph
+from asyncflow.schemas.topology.graph import TopologyGraph
 
 
 class ResourcesRuntime:

@@ -17,7 +17,7 @@ from asyncflow.samplers.common_helpers import (
     truncated_gaussian_generator,
     uniform_variable_generator,
 )
-from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.common.random_variables import RVConfig
 
 # --------------------------------------------------------------------------- #
 # Dummy RNG                                                                   #

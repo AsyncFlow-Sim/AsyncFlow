@@ -64,14 +64,12 @@ rqs_input:
 ### Semantics
 
 * **`avg_active_users`**: expected concurrent users (a random variable).
-
-  * Allowed distributions: **Poisson** or **Normal**.
+  Allowed distributions: **Poisson** or **Normal**.
 * **`avg_request_per_minute_per_user`**: per-user request rate (RPM).
-
-  * Must be **Poisson**.\*
+  Must be **Poisson**.\*
 * **`user_sampling_window`**: every N seconds the generator re-samples the active user count.
 
-\* This reflects current sampler support (Poisson–Poisson and Gaussian–Poisson).
+\* Current joint-sampler support covers Poisson–Poisson and Gaussian–Poisson.
 
 ---
 
@@ -103,7 +101,6 @@ topology_graph:
       source: <node-id or external-id>
       target: <node-id>                    # must be a declared node
       latency: { mean: <float>, distribution: <enum>, variance: <float?> }
-      probability: <0..1>                  # default 1.0
       edge_type: network_connection        # (enum; current default/only)
       dropout_rate: <0..1>                 # default 0.01
 ```
@@ -137,7 +134,7 @@ client:
 
 * `cpu_cores`: number of worker “core tokens” available for CPU-bound step execution.
 * `ram_mb`: total available RAM (MB) tracked as a reservoir; steps reserve then release.
-* `db_connection_pool`: optional capacity bound for DB-like steps (future-use; declared here for forward compatibility).
+* `db_connection_pool`: optional capacity bound for DB-like steps (future-use).
 
 #### Load Balancer (optional)
 
@@ -171,11 +168,11 @@ Each step must declare **exactly one** operation (`step_operation`) whose key ma
 
 **I/O-bound** (all use `io_waiting_time` as the operation key)
 
-* `io_task_spawn`    (spawns a background task, returns immediately)
-* `io_llm`           (LLM inference call)
-* `io_wait`          (generic wait, non-blocking)
-* `io_db`            (DB roundtrip)
-* `io_cache`         (cache access)
+* `io_task_spawn` (spawns a background task, returns immediately)
+* `io_llm`        (LLM inference call)
+* `io_wait`       (generic wait, non-blocking)
+* `io_db`         (DB roundtrip)
+* `io_cache`      (cache access)
 
 #### Operation keys (enum `StepOperation`)
 
@@ -223,7 +220,6 @@ endpoints:
     mean: 0.003
     distribution: exponential
     # variance optional; if normal/log_normal and missing → set to mean
-  probability: 1.0           # optional [0..1]
   edge_type: network_connection
   dropout_rate: 0.01         # optional [0..1]
 ```
@@ -233,8 +229,7 @@ endpoints:
 * **`source`** can be an external entry point (e.g., `rqs-1`) for inbound edges.
 * **`target`** must always reference a declared node: client, server, or LB.
 * **`latency`** is a random variable; **`mean > 0`**, **`variance ≥ 0`** (if provided).
-* **`probability`** is used when multiple outgoing edges exist from a node.
-* **`dropout_rate`** models probabilistic packet/request loss on the link.
+* **Fan-out rule**: only the **load balancer** may have multiple outgoing edges.
 
 ---
 
@@ -270,20 +265,28 @@ AsyncFlow validates the entire payload. Key checks include:
 
    * All server IDs are unique.
    * Edge IDs are unique.
+
 2. **Node Types**
 
    * `type` fields on nodes are fixed to: `client`, `server`, `load_balancer`.
+
 3. **Edge referential integrity**
 
    * Every **target** is a declared node ID.
    * **External IDs** are allowed **only** as **sources**. If an ID appears as an external source, it must **never** appear as a target anywhere.
+
 4. **No self-loops**
 
    * `source != target` for every edge.
+
 5. **Load balancer sanity**
 
    * `server_covered` is a subset of declared servers.
    * There is an **edge from the LB to every covered server**.
+
+6. **No fan-out except LB**
+
+   * Only the load balancer may have multiple outgoing edges in the declared node set.
 
 If any rule is violated, the simulator raises a descriptive error.
 
@@ -384,9 +387,9 @@ topology_graph:
         latency: { mean: 0.002, distribution: exponential } }
 
     - { id: lb-srv1,      source: lb-1,     target: srv-1,
-        latency: { mean: 0.002, distribution: exponential }, probability: 0.5 }
+        latency: { mean: 0.002, distribution: exponential } }
     - { id: lb-srv2,      source: lb-1,     target: srv-2,
-        latency: { mean: 0.002, distribution: exponential }, probability: 0.5 }
+        latency: { mean: 0.002, distribution: exponential } }
 
     - { id: srv1-client,  source: srv-1,    target: client-1,
         latency: { mean: 0.003, distribution: exponential } }
@@ -400,26 +403,7 @@ sim_settings:
   enabled_event_metrics: [ rqs_clock ]
 ```
 
-## 7) Common Pitfalls & How to Avoid Them
-
-* **Mismatched step operations**
-  A CPU step must use `cpu_time`; an I/O step must use `io_waiting_time`; a RAM step must use `necessary_ram`. The validator enforces **exactly one** key.
-
-* **Edge targets must be declared nodes**
-  `source` can be external (e.g., `rqs-1`), but **no external ID** may ever appear as a **target**.
-
-* **Load balancer coverage without edges**
-  If the LB declares `server_covered: [srv-1, srv-2]`, you must also add edges `lb→srv-1` and `lb→srv-2`.
-
-* **Latency RV rules on edges**
-  For edge latency, `mean` must be **> 0**; if `variance` is present, it must be **≥ 0**.
-
-* **Sampling too coarse**
-  If `sample_period_s` is large, short spikes in queues may be missed. Lower it (e.g., `0.005`) to capture fine-grained bursts—at the cost of larger time-series.
-
----
-
-## 8) Quick Reference (Enums)
+## 7) Quick Reference (Enums)
 
 * **Distributions**: `poisson`, `normal`, `log_normal`, `exponential`, `uniform`
 * **Node types**: `generator`, `server`, `client`, `load_balancer` (fixed by model)
@@ -435,14 +419,13 @@ sim_settings:
 
 ---
 
-## 9) Units & Conventions
+## 8) Units & Conventions
 
 * **Time**: seconds (`cpu_time`, `io_waiting_time`, latencies, `total_simulation_time`, `sample_period_s`, `user_sampling_window`)
 * **RAM**: megabytes (`ram_mb`, `necessary_ram`)
 * **Rates**: requests/minute (`avg_request_per_minute_per_user.mean`)
-* **Probabilities**: `[0.0, 1.0]` (`probability`, `dropout_rate`)
+* **Probabilities**: `[0.0, 1.0]` (`dropout_rate`)
 * **IDs**: strings; must be **unique** per category (servers, edges, LB).
 
 ---
 
-If you stick to these rules and examples, your YAML will parse cleanly and the simulation will run with a self-consistent, strongly-validated model.

@@ -4,10 +4,10 @@
 from pydantic import BaseModel, Field, field_validator
 
 from asyncflow.config.constants import Distribution, SystemNodes, TimeDefaults
-from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.common.random_variables import RVConfig
 
 
-class RqsGeneratorInput(BaseModel):
+class RqsGenerator(BaseModel):
     """Define the expected variables for the simulation"""
 
     id: str

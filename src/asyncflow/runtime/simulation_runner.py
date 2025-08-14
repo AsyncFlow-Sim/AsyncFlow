@@ -16,18 +16,18 @@ from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
 from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
 from asyncflow.runtime.actors.server import ServerRuntime
-from asyncflow.schemas.full_simulation_input import SimulationPayload
+from asyncflow.schemas.payload import SimulationPayload
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-    from asyncflow.schemas.system_topology.full_system_topology import (
+    from asyncflow.schemas.topology.edges import Edge
+    from asyncflow.schemas.topology.nodes import (
         Client,
-        Edge,
         LoadBalancer,
         Server,
     )
+    from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 # --- PROTOCOL DEFINITION ---
 # This is the contract that all runtime actors must follow.
@@ -63,7 +63,7 @@ class SimulationRunner:
         # instantiation of object needed to build nodes for the runtime phase
         self.servers: list[Server] = simulation_input.topology_graph.nodes.servers
         self.client: Client = simulation_input.topology_graph.nodes.client
-        self.rqs_generator: RqsGeneratorInput = simulation_input.rqs_input
+        self.rqs_generator: RqsGenerator = simulation_input.rqs_input
         self.lb: LoadBalancer | None = None
         self.simulation_settings = simulation_input.sim_settings
         self.edges: list[Edge] = simulation_input.topology_graph.edges

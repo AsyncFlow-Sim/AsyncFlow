@@ -16,20 +16,20 @@ import simpy
 
 from asyncflow.config.constants import TimeDefaults
 from asyncflow.runtime.simulation_runner import SimulationRunner
-from asyncflow.schemas.random_variables_config import RVConfig
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 if TYPE_CHECKING:
-    from asyncflow.schemas.full_simulation_input import SimulationPayload
+    from asyncflow.schemas.payload import SimulationPayload
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 0-traffic generator (shadows the project-wide fixture)
 # ──────────────────────────────────────────────────────────────────────────────
 @pytest.fixture(scope="session")
-def rqs_input() -> RqsGeneratorInput:
+def rqs_input() -> RqsGenerator:
     """A generator that never emits any request."""
-    return RqsGeneratorInput(
+    return RqsGenerator(
         id="rqs-zero",
         avg_active_users=RVConfig(mean=0.0),
         avg_request_per_minute_per_user=RVConfig(mean=0.0),

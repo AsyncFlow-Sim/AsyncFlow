@@ -7,12 +7,12 @@ import simpy
 
 from asyncflow.config.constants import ServerResourceName
 from asyncflow.resources.registry import ResourcesRuntime
-from asyncflow.schemas.system_topology.endpoint import Endpoint
-from asyncflow.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.topology.endpoint import Endpoint
+from asyncflow.schemas.topology.graph import TopologyGraph
+from asyncflow.schemas.topology.nodes import (
     Client,
     Server,
     ServerResources,
-    TopologyGraph,
     TopologyNodes,
 )
 

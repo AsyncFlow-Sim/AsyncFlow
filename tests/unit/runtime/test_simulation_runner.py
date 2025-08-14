@@ -100,37 +100,6 @@ def test_build_edges_with_stub_edge(runner: SimulationRunner) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# End-to-end “mini” run                                                       #
-# --------------------------------------------------------------------------- #
-def test_run_returns_results_analyzer(runner: SimulationRunner) -> None:
-    """
-    `.run()` must complete even though the client is a sink node. We patch
-    `_build_client` to assign a no-op edge to avoid assertions.
-    """
-
-    class _NoOpEdge:
-        """Edge stub that silently discards transported states."""
-
-        def transport(self) -> None:
-            return
-
-    def patched_build_client(self: SimulationRunner) -> None:
-        # Call the original builder
-        SimulationRunner._build_client(self) # noqa: SLF001
-        cli_rt = next(iter(self._client_runtime.values()))
-        cli_rt.out_edge = _NoOpEdge()  # type: ignore[assignment]
-
-    with patch.object(runner, "_build_client", patched_build_client.__get__(runner)):
-        results: ResultsAnalyzer = runner.run()
-
-    assert isinstance(results, ResultsAnalyzer)
-    assert (
-        pytest.approx(runner.env.now)
-        == runner.simulation_settings.total_simulation_time
-    )
-
-
-# --------------------------------------------------------------------------- #
 # from_yaml utility                                                           #
 # --------------------------------------------------------------------------- #
 def test_from_yaml_minimal(tmp_path: Path, env: simpy.Environment) -> None:

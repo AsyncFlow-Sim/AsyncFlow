@@ -17,7 +17,7 @@ from asyncflow.samplers.common_helpers import (
     uniform_variable_generator,
 )
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.workload.generator import RqsGenerator
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 def gaussian_poisson_sampling(

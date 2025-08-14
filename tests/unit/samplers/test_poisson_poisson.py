@@ -13,7 +13,7 @@ from numpy.random import Generator, default_rng
 from asyncflow.config.constants import TimeDefaults
 from asyncflow.samplers.poisson_poisson import poisson_poisson_sampling
 from asyncflow.schemas.common.random_variables import RVConfig
-from asyncflow.schemas.workload.generator import RqsGenerator
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 if TYPE_CHECKING:
 

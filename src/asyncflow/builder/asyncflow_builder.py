@@ -14,7 +14,7 @@ from asyncflow.schemas.topology.nodes import (
     Server,
     TopologyNodes,
 )
-from asyncflow.schemas.workload.generator import RqsGenerator
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 class AsyncFlow:

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         LoadBalancer,
         Server,
     )
-    from asyncflow.schemas.workload.generator import RqsGenerator
+    from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 # --- PROTOCOL DEFINITION ---
 # This is the contract that all runtime actors must follow.

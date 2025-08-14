@@ -21,7 +21,7 @@ from asyncflow.schemas.topology.nodes import (
     Client,
     TopologyNodes,
 )
-from asyncflow.schemas.workload.generator import RqsGenerator
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 # ============================================================================
 # STANDARD CONFIGURATION FOR INPUT VARIABLES

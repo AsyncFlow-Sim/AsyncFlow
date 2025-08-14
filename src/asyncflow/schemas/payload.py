@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.graph import TopologyGraph
-from asyncflow.schemas.workload.generator import RqsGenerator
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 class SimulationPayload(BaseModel):

@@ -7,7 +7,7 @@ import simpy
 
 from asyncflow.config.constants import LbAlgorithmsName, SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
-from asyncflow.runtime.actors.helpers.lb_algorithms import (
+from asyncflow.runtime.actors.routing.lb_algorithms import (
     least_connections,
     round_robin,
 )

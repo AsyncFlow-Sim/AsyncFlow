@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import pytest
 
-from asyncflow.pybuilder.input_builder import AsyncFlow
+from asyncflow.builder.asyncflow_builder import AsyncFlow
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.edges import Edge
 from asyncflow.schemas.topology.endpoint import Endpoint
 from asyncflow.schemas.topology.nodes import Client, Server
-from asyncflow.schemas.workload.generator import RqsGenerator
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 # --------------------------------------------------------------------------- #

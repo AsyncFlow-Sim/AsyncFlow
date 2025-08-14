@@ -13,15 +13,15 @@ from asyncflow.config.constants import (
     SystemEdges,
     SystemNodes,
 )
-from asyncflow.schemas.random_variables_config import RVConfig
-from asyncflow.schemas.system_topology.endpoint import Endpoint, Step
-from asyncflow.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.endpoint import Endpoint, Step
+from asyncflow.schemas.topology.graph import TopologyGraph
+from asyncflow.schemas.topology.nodes import (
     Client,
-    Edge,
     LoadBalancer,
     Server,
     ServerResources,
-    TopologyGraph,
     TopologyNodes,
 )
 

@@ -39,15 +39,15 @@ import simpy
 from asyncflow.pybuilder.input_builder import AsyncFlow
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.metrics.analyzer import ResultsAnalyzer
-from asyncflow.schemas.full_simulation_input import SimulationPayload
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.endpoint import Endpoint
-from asyncflow.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.workload.generator import RqsGenerator
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.endpoint import Endpoint
+from asyncflow.schemas.topology.nodes import (
     Client,
-    Edge,
     Server,
 )
+from asyncflow.schemas.topology.edges import Edge
 
 from asyncflow.config.constants import LatencyKey, SampledMetricName
 
@@ -174,7 +174,7 @@ def build_payload_with_pybuilder() -> SimulationPayload:
       - Simulation settings: 500s total, sample period 50ms
     """
     # 1) Request generator
-    generator = RqsGeneratorInput(
+    generator = RqsGenerator(
         id="rqs-1",
         avg_active_users={"mean": 100},
         avg_request_per_minute_per_user={"mean": 20},

@@ -13,12 +13,12 @@ from asyncflow.config.constants import TimeDefaults
 from asyncflow.samplers.gaussian_poisson import (
     gaussian_poisson_sampling,
 )
-from asyncflow.schemas.random_variables_config import RVConfig
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.workload.generator import RqsGenerator
 
 if TYPE_CHECKING:
 
-    from asyncflow.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.settings.simulation import SimulationSettings
 
 # ---------------------------------------------------------------------------
 # FIXTURES
@@ -26,9 +26,9 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def rqs_cfg() -> RqsGeneratorInput:
-    """Minimal, valid RqsGeneratorInput for Gaussian-Poisson tests."""
-    return RqsGeneratorInput(
+def rqs_cfg() -> RqsGenerator:
+    """Minimal, valid RqsGenerator for Gaussian-Poisson tests."""
+    return RqsGenerator(
         id= "gen-1",
         avg_active_users=RVConfig(
             mean=10.0,
@@ -47,7 +47,7 @@ def rqs_cfg() -> RqsGeneratorInput:
 
 
 def test_returns_generator_type(
-    rqs_cfg: RqsGeneratorInput,
+    rqs_cfg: RqsGenerator,
     sim_settings: SimulationSettings,
     rng: Generator,
 ) -> None:
@@ -57,7 +57,7 @@ def test_returns_generator_type(
 
 
 def test_generates_positive_gaps(
-    rqs_cfg: RqsGeneratorInput,
+    rqs_cfg: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """
@@ -83,7 +83,7 @@ def test_generates_positive_gaps(
 
 def test_zero_users_produces_no_events(
     monkeypatch: pytest.MonkeyPatch,
-    rqs_cfg: RqsGeneratorInput,
+    rqs_cfg: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """

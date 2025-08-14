@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from asyncflow.runtime.actors.client import ClientRuntime
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.runtime.actors.server import ServerRuntime
-    from asyncflow.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.settings.simulation import SimulationSettings
 
 
 # ---------------------------------------------------------------------- #

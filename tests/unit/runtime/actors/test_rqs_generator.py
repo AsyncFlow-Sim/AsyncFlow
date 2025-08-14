@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.runtime.rqs_state import RequestState
-    from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-    from asyncflow.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.settings.simulation import SimulationSettings
+    from asyncflow.schemas.workload.generator import RqsGenerator
 
 import importlib
 
@@ -42,7 +42,7 @@ class DummyEdgeRuntime:
 def _make_runtime(
     env: simpy.Environment,
     edge: DummyEdgeRuntime,
-    rqs_input: RqsGeneratorInput,
+    rqs_input: RqsGenerator,
     sim_settings: SimulationSettings,
     *,
     seed: int = 0,
@@ -67,7 +67,7 @@ RGR_MODULE = importlib.import_module("asyncflow.runtime.actors.rqs_generator")
 
 def test_dispatcher_selects_poisson_poisson(
     monkeypatch: pytest.MonkeyPatch,
-    rqs_input: RqsGeneratorInput,
+    rqs_input: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """Default (Poisson) distribution must invoke *poisson_poisson_sampling*."""
@@ -93,7 +93,7 @@ def test_dispatcher_selects_poisson_poisson(
 
 def test_dispatcher_selects_gaussian_poisson(
     monkeypatch: pytest.MonkeyPatch,
-    rqs_input: RqsGeneratorInput,
+    rqs_input: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """Normal distribution must invoke *gaussian_poisson_sampling*."""
@@ -124,7 +124,7 @@ def test_dispatcher_selects_gaussian_poisson(
 
 def test_event_arrival_generates_expected_number_of_requests(
     monkeypatch: pytest.MonkeyPatch,
-    rqs_input: RqsGeneratorInput,
+    rqs_input: RqsGenerator,
     sim_settings: SimulationSettings,
 ) -> None:
     """Given a deterministic gap list, exactly that many requests are sent."""

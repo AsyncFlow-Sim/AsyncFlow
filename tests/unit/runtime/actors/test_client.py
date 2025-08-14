@@ -7,9 +7,7 @@ import simpy
 from asyncflow.config.constants import SystemEdges, SystemNodes
 from asyncflow.runtime.actors.client import ClientRuntime
 from asyncflow.runtime.rqs_state import RequestState
-from asyncflow.schemas.system_topology.full_system_topology import (
-    Client,
-)
+from asyncflow.schemas.topology.nodes import Client
 
 # --------------------------------------------------------------------------- #
 # Dummy edge (no real network)                                                #

@@ -8,7 +8,7 @@ import simpy
 from asyncflow.config.constants import SystemNodes
 from asyncflow.metrics.client import RqsClock
 from asyncflow.runtime.actors.edge import EdgeRuntime
-from asyncflow.schemas.system_topology.full_system_topology import Client
+from asyncflow.schemas.topology.nodes import Client
 
 if TYPE_CHECKING:
     from asyncflow.runtime.rqs_state import RequestState

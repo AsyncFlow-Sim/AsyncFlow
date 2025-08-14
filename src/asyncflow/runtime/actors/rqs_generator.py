@@ -21,8 +21,8 @@ if TYPE_CHECKING:
     import simpy
 
     from asyncflow.runtime.actors.edge import EdgeRuntime
-    from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-    from asyncflow.schemas.simulation_settings_input import SimulationSettings
+    from asyncflow.schemas.settings.simulation import SimulationSettings
+    from asyncflow.schemas.workload.generator import RqsGenerator
 
 
 class RqsGeneratorRuntime:
@@ -36,7 +36,7 @@ class RqsGeneratorRuntime:
         *,
         env: simpy.Environment,
         out_edge: EdgeRuntime | None,
-        rqs_generator_data: RqsGeneratorInput,
+        rqs_generator_data: RqsGenerator,
         sim_settings: SimulationSettings,
         rng: np.random.Generator | None = None,
         ) -> None:
@@ -46,7 +46,7 @@ class RqsGeneratorRuntime:
         Args:
             env (simpy.Environment): environment for the simulation
             out_edge (EdgeRuntime): edge connecting this node with the next one
-            rqs_generator_data (RqsGeneratorInput): data do define the sampler
+            rqs_generator_data (RqsGenerator): data do define the sampler
             sim_settings (SimulationSettings): settings to start the simulation
             rng (np.random.Generator | None, optional): random variable generator.
 

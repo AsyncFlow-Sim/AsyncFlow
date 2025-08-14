@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from asyncflow.runtime.actors.client import ClientRuntime
     from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
-    from asyncflow.schemas.full_simulation_input import SimulationPayload
+    from asyncflow.schemas.payload import SimulationPayload
 
 
 # --------------------------------------------------------------------------- #

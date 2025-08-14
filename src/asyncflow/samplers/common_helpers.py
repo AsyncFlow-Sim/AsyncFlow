@@ -4,7 +4,7 @@
 import numpy as np
 
 from asyncflow.config.constants import Distribution
-from asyncflow.schemas.random_variables_config import RVConfig
+from asyncflow.schemas.common.random_variables import RVConfig
 
 
 def uniform_variable_generator(rng: np.random.Generator) -> float:

@@ -12,16 +12,16 @@ from asyncflow.config.constants import (
     SamplePeriods,
     TimeDefaults,
 )
-from asyncflow.schemas.full_simulation_input import SimulationPayload
-from asyncflow.schemas.random_variables_config import RVConfig
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.graph import TopologyGraph
+from asyncflow.schemas.topology.nodes import (
     Client,
-    Edge,
-    TopologyGraph,
     TopologyNodes,
 )
+from asyncflow.schemas.workload.generator import RqsGenerator
 
 # ============================================================================
 # STANDARD CONFIGURATION FOR INPUT VARIABLES
@@ -90,12 +90,12 @@ def sim_settings(
 
 
 @pytest.fixture
-def rqs_input() -> RqsGeneratorInput:
+def rqs_input() -> RqsGenerator:
     """
     One active user issuing two requests per minute—sufficient to
     exercise the entire request-generator pipeline with minimal overhead.
     """
-    return RqsGeneratorInput(
+    return RqsGenerator(
         id="rqs-1",
         avg_active_users=RVConfig(mean=1.0),
         avg_request_per_minute_per_user=RVConfig(mean=2.0),
@@ -136,7 +136,7 @@ def topology_minimal() -> TopologyGraph:
 
 @pytest.fixture
 def payload_base(
-    rqs_input: RqsGeneratorInput,
+    rqs_input: RqsGenerator,
     sim_settings: SimulationSettings,
     topology_minimal: TopologyGraph,
 ) -> SimulationPayload:

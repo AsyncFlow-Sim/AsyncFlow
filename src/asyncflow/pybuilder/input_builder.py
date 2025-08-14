@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from typing import Self
 
-from asyncflow.schemas.full_simulation_input import SimulationPayload
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.graph import TopologyGraph
+from asyncflow.schemas.topology.nodes import (
     Client,
-    Edge,
     LoadBalancer,
     Server,
-    TopologyGraph,
     TopologyNodes,
 )
+from asyncflow.schemas.workload.generator import RqsGenerator
 
 
 class AsyncFlow:
@@ -22,17 +22,17 @@ class AsyncFlow:
 
     def __init__(self) -> None:
         """Instance attributes necessary to define the simulation payload"""
-        self._generator: RqsGeneratorInput | None = None
+        self._generator: RqsGenerator | None = None
         self._client: Client | None = None
         self._servers: list[Server] | None = None
         self._edges: list[Edge] | None = None
         self._sim_settings: SimulationSettings | None = None
         self._load_balancer: LoadBalancer | None = None
 
-    def add_generator(self, rqs_generator: RqsGeneratorInput) -> Self:
+    def add_generator(self, rqs_generator: RqsGenerator) -> Self:
         """Method to instantiate the generator"""
-        if not isinstance(rqs_generator, RqsGeneratorInput):
-            msg = "You must add a RqsGeneratorInput instance"
+        if not isinstance(rqs_generator, RqsGenerator):
+            msg = "You must add a RqsGenerator instance"
             raise TypeError(msg)
         self._generator = rqs_generator
         return self

@@ -14,19 +14,20 @@ from __future__ import annotations
 import pytest
 
 from asyncflow.pybuilder.input_builder import AsyncFlow
-from asyncflow.schemas.full_simulation_input import SimulationPayload
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.endpoint import Endpoint
-from asyncflow.schemas.system_topology.full_system_topology import Client, Edge, Server
+from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.endpoint import Endpoint
+from asyncflow.schemas.topology.nodes import Client, Server
+from asyncflow.schemas.workload.generator import RqsGenerator
 
 
 # --------------------------------------------------------------------------- #
 # Helpers: build minimal, valid components                                    #
 # --------------------------------------------------------------------------- #
-def make_generator() -> RqsGeneratorInput:
+def make_generator() -> RqsGenerator:
     """Return a minimal valid request generator."""
-    return RqsGeneratorInput(
+    return RqsGenerator(
         id="rqs-1",
         avg_active_users={"mean": 10},
         avg_request_per_minute_per_user={"mean": 30},
@@ -244,7 +245,7 @@ def test_build_without_settings_raises() -> None:
 # Negative cases: type enforcement in add_* methods                           #
 # --------------------------------------------------------------------------- #
 def test_add_generator_rejects_wrong_type() -> None:
-    """`add_generator` rejects non-RqsGeneratorInput instances."""
+    """`add_generator` rejects non-RqsGenerator instances."""
     flow = AsyncFlow()
     with pytest.raises(TypeError):
         flow.add_generator("not-a-generator") # type: ignore[arg-type]

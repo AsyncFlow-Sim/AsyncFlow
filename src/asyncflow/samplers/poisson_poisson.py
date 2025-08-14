@@ -13,12 +13,12 @@ from asyncflow.samplers.common_helpers import (
     poisson_variable_generator,
     uniform_variable_generator,
 )
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.workload.generator import RqsGenerator
 
 
 def poisson_poisson_sampling(
-    input_data: RqsGeneratorInput,
+    input_data: RqsGenerator,
     sim_settings: SimulationSettings,
     *,
     rng: np.random.Generator,

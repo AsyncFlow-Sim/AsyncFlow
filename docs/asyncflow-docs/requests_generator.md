@@ -104,7 +104,7 @@ class RVConfig(BaseModel):
         return model
 
 
-class RqsGeneratorInput(BaseModel):
+class RqsGenerator(BaseModel):
     """Define the expected variables for the simulation"""
 
     id: str

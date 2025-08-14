@@ -22,7 +22,7 @@ from asyncflow.metrics.analyzer import ResultsAnalyzer
 from asyncflow.runtime.simulation_runner import SimulationRunner
 
 if TYPE_CHECKING:
-    from asyncflow.schemas.full_simulation_input import SimulationPayload
+    from asyncflow.schemas.payload import SimulationPayload
 
 
 # --------------------------------------------------------------------------- #

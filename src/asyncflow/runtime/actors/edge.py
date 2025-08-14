@@ -16,11 +16,11 @@ from asyncflow.config.constants import SampledMetricName, SystemEdges
 from asyncflow.metrics.edge import build_edge_metrics
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.samplers.common_helpers import general_sampler
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.full_system_topology import Edge
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.edges import Edge
 
 if TYPE_CHECKING:
-    from asyncflow.schemas.random_variables_config import RVConfig
+    from asyncflow.schemas.common.random_variables import RVConfig
 
 
 

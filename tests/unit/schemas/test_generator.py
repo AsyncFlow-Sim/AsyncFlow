@@ -1,13 +1,13 @@
-"""Validation tests for RVConfig, RqsGeneratorInput and SimulationSettings."""
+"""Validation tests for RVConfig, RqsGenerator and SimulationSettings."""
 from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
 
 from asyncflow.config.constants import Distribution, TimeDefaults
-from asyncflow.schemas.random_variables_config import RVConfig
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.workload.generator import RqsGenerator
 
 # --------------------------------------------------------------------------- #
 # RVCONFIG                                                                    #
@@ -82,7 +82,7 @@ def test_invalid_distribution_literal_raises() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# RQSGENERATORINPUT - USER_SAMPLING_WINDOW & DISTRIBUTION CONSTRAINTS         #
+# RqsGenerator - USER_SAMPLING_WINDOW & DISTRIBUTION CONSTRAINTS         #
 # --------------------------------------------------------------------------- #
 
 
@@ -98,7 +98,7 @@ def _valid_normal_cfg(mean: float = 1.0) -> dict[str, float | str]:
 
 def test_default_user_sampling_window() -> None:
     """If user_sampling_window is missing it defaults to the constant."""
-    inp = RqsGeneratorInput(
+    inp = RqsGenerator(
         id="rqs-1",
         avg_active_users=_valid_poisson_cfg(),
         avg_request_per_minute_per_user=_valid_poisson_cfg(),
@@ -108,7 +108,7 @@ def test_default_user_sampling_window() -> None:
 
 def test_explicit_user_sampling_window_kept() -> None:
     """An explicit user_sampling_window is preserved."""
-    inp = RqsGeneratorInput(
+    inp = RqsGenerator(
         id="rqs-1",
         avg_active_users=_valid_poisson_cfg(),
         avg_request_per_minute_per_user=_valid_poisson_cfg(),
@@ -120,7 +120,7 @@ def test_explicit_user_sampling_window_kept() -> None:
 def test_user_sampling_window_not_int_raises() -> None:
     """A non-integer user_sampling_window raises ValidationError."""
     with pytest.raises(ValidationError):
-        RqsGeneratorInput(
+        RqsGenerator(
             id="rqs-1",
             avg_active_users=_valid_poisson_cfg(),
             avg_request_per_minute_per_user=_valid_poisson_cfg(),
@@ -132,7 +132,7 @@ def test_user_sampling_window_above_max_raises() -> None:
     """user_sampling_window above the max constant raises ValidationError."""
     too_large = TimeDefaults.MAX_USER_SAMPLING_WINDOW + 1
     with pytest.raises(ValidationError):
-        RqsGeneratorInput(
+        RqsGenerator(
             id="rqs-1",
             avg_active_users=_valid_poisson_cfg(),
             avg_request_per_minute_per_user=_valid_poisson_cfg(),
@@ -143,7 +143,7 @@ def test_user_sampling_window_above_max_raises() -> None:
 def test_avg_request_must_be_poisson() -> None:
     """avg_request_per_minute_per_user must be Poisson; Normal raises."""
     with pytest.raises(ValidationError):
-        RqsGeneratorInput(
+        RqsGenerator(
             id="rqs-1",
             avg_active_users=_valid_poisson_cfg(),
             avg_request_per_minute_per_user=_valid_normal_cfg(),
@@ -154,7 +154,7 @@ def test_avg_active_users_invalid_distribution_raises() -> None:
     """avg_active_users cannot be Exponential; only Poisson or Normal allowed."""
     bad_cfg = {"mean": 1.0, "distribution": Distribution.EXPONENTIAL}
     with pytest.raises(ValidationError):
-        RqsGeneratorInput(
+        RqsGenerator(
             id="rqs-1",
             avg_active_users=bad_cfg,
             avg_request_per_minute_per_user=_valid_poisson_cfg(),
@@ -163,7 +163,7 @@ def test_avg_active_users_invalid_distribution_raises() -> None:
 
 def test_valid_poisson_poisson_configuration() -> None:
     """Poisson-Poisson combo is accepted."""
-    cfg = RqsGeneratorInput(
+    cfg = RqsGenerator(
         id="rqs-1",
         avg_active_users=_valid_poisson_cfg(),
         avg_request_per_minute_per_user=_valid_poisson_cfg(),
@@ -177,7 +177,7 @@ def test_valid_poisson_poisson_configuration() -> None:
 
 def test_valid_normal_poisson_configuration() -> None:
     """Normal-Poisson combo is accepted."""
-    cfg = RqsGeneratorInput(
+    cfg = RqsGenerator(
         id="rqs-1",
         avg_active_users=_valid_normal_cfg(),
         avg_request_per_minute_per_user=_valid_poisson_cfg(),

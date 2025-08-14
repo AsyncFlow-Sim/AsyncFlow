@@ -7,7 +7,7 @@ import simpy
 from asyncflow.config.constants import SampledMetricName
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.server import ServerRuntime
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
+from asyncflow.schemas.settings.simulation import SimulationSettings
 
 # The idea for this class is to gather list of runtime objects that
 # are defined in the central class to build the simulation, in this

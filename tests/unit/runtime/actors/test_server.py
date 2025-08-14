@@ -32,9 +32,9 @@ from asyncflow.config.constants import (
 from asyncflow.resources.server_containers import build_containers
 from asyncflow.runtime.actors.server import ServerRuntime
 from asyncflow.runtime.rqs_state import RequestState
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.endpoint import Endpoint, Step
-from asyncflow.schemas.system_topology.full_system_topology import (
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.endpoint import Endpoint, Step
+from asyncflow.schemas.topology.nodes import (
     Server,
     ServerResources,
 )

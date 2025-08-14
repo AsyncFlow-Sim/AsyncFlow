@@ -9,7 +9,7 @@ Under the hood, the builder assembles a single `SimulationPayload`:
 
 ```python
 SimulationPayload(
-    rqs_input=RqsGeneratorInput(...),      # traffic generator (workload)
+    rqs_input=RqsGenerator(...),      # traffic generator (workload)
     topology_graph=TopologyGraph(...),     # system architecture as a graph
     sim_settings=SimulationSettings(...),  # global settings and metrics
 )
@@ -31,7 +31,7 @@ import simpy
 from asyncflow.pybuilder.input_builder import AsyncFlow
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.schemas.full_simulation_input import SimulationPayload
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.rqs_generator_input import RqsGenerator
 from asyncflow.schemas.simulation_settings_input import SimulationSettings
 from asyncflow.schemas.system_topology.endpoint import Endpoint
 from asyncflow.schemas.system_topology.full_system_topology import (
@@ -39,7 +39,7 @@ from asyncflow.schemas.system_topology.full_system_topology import (
 )
 
 # 1) Workload
-generator = RqsGeneratorInput(
+generator = RqsGenerator(
     id="rqs-1",
     avg_active_users={"mean": 50, "distribution": "poisson"},
     avg_request_per_minute_per_user={"mean": 30, "distribution": "poisson"},
@@ -148,12 +148,12 @@ dictionary that Pydantic converts into an `RVConfig`:
 
 ---
 
-## 2) Workload: `RqsGeneratorInput`
+## 2) Workload: `RqsGenerator`
 
 ```python
-from asyncflow.schemas.rqs_generator_input import RqsGeneratorInput
+from asyncflow.schemas.rqs_generator_input import RqsGenerator
 
-generator = RqsGeneratorInput(
+generator = RqsGenerator(
     id="rqs-1",
     avg_active_users={
         "mean": 100,
@@ -381,10 +381,10 @@ fig.savefig("single_server_pybuilder.png")
 
 | YAML path                                     | Builder (Python)                                                 |
 | --------------------------------------------- | ---------------------------------------------------------------- |
-| `rqs_input.id`                                | `RqsGeneratorInput(id=...)`                                      |
-| `rqs_input.avg_active_users.*`                | `RqsGeneratorInput(avg_active_users={...})`                      |
-| `rqs_input.avg_request_per_minute_per_user.*` | `RqsGeneratorInput(avg_request_per_minute_per_user={...})`       |
-| `rqs_input.user_sampling_window`              | `RqsGeneratorInput(user_sampling_window=...)`                    |
+| `rqs_input.id`                                | `RqsGenerator(id=...)`                                      |
+| `rqs_input.avg_active_users.*`                | `RqsGenerator(avg_active_users={...})`                      |
+| `rqs_input.avg_request_per_minute_per_user.*` | `RqsGenerator(avg_request_per_minute_per_user={...})`       |
+| `rqs_input.user_sampling_window`              | `RqsGenerator(user_sampling_window=...)`                    |
 | `topology_graph.nodes.client.id`              | `Client(id=...)`                                                 |
 | `topology_graph.nodes.servers[*]`             | `Server(id=..., server_resources={...}, endpoints=[...])`        |
 | `endpoint.endpoint_name`                      | `Endpoint(endpoint_name=...)`                                    |

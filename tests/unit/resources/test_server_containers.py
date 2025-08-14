@@ -4,7 +4,7 @@ import simpy
 
 from asyncflow.config.constants import ServerResourceName
 from asyncflow.resources.server_containers import build_containers
-from asyncflow.schemas.system_topology.full_system_topology import ServerResources
+from asyncflow.schemas.topology.nodes import ServerResources
 
 
 def test_containers_start_full() -> None:

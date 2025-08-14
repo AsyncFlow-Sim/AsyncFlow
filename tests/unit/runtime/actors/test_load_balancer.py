@@ -9,7 +9,7 @@ import simpy
 
 from asyncflow.config.constants import LbAlgorithmsName, SystemNodes
 from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
-from asyncflow.schemas.system_topology.full_system_topology import LoadBalancer
+from asyncflow.schemas.topology.nodes import LoadBalancer
 
 if TYPE_CHECKING:
     from asyncflow.runtime.actors.edge import EdgeRuntime

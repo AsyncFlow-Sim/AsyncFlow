@@ -22,8 +22,8 @@ from asyncflow.metrics.server import build_server_metrics
 from asyncflow.resources.server_containers import ServerContainers
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.rqs_state import RequestState
-from asyncflow.schemas.simulation_settings_input import SimulationSettings
-from asyncflow.schemas.system_topology.full_system_topology import Server
+from asyncflow.schemas.settings.simulation import SimulationSettings
+from asyncflow.schemas.topology.nodes import Server
 
 
 class ServerRuntime:

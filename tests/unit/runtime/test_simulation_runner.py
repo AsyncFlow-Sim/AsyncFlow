@@ -9,13 +9,11 @@ execution without relying on the full integration scenarios.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
 import pytest
 import simpy
 import yaml
 
-from asyncflow.metrics.analyzer import ResultsAnalyzer
 from asyncflow.runtime.simulation_runner import SimulationRunner
 
 if TYPE_CHECKING:

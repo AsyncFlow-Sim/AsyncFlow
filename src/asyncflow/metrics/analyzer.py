@@ -193,8 +193,8 @@ class ResultsAnalyzer:
     def plot_server_queues(self, ax: Axes) -> None:
         """Plot the server queues"""
         metrics = self.get_sampled_metrics()
-        ready = metrics.get(SampledMetricName.READY_QUEUE_LEN, {})
-        io_q = metrics.get(SampledMetricName.EVENT_LOOP_IO_SLEEP, {})
+        ready = metrics.get(SampledMetricName.READY_QUEUE_LEN.value, {})
+        io_q = metrics.get(SampledMetricName.EVENT_LOOP_IO_SLEEP.value, {})
 
         if not (ready or io_q):
             ax.text(0.5, 0.5, SERVER_QUEUES_PLOT.no_data, ha="center", va="center")
@@ -219,7 +219,7 @@ class ResultsAnalyzer:
     def plot_ram_usage(self, ax: Axes) -> None:
         """Plot the ram usage"""
         metrics = self.get_sampled_metrics()
-        ram = metrics.get(SampledMetricName.RAM_IN_USE, {})
+        ram = metrics.get(SampledMetricName.RAM_IN_USE.value, {})
 
         if not ram:
             ax.text(0.5, 0.5, RAM_PLOT.no_data, ha="center", va="center")

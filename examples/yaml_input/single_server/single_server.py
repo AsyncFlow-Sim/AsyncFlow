@@ -237,13 +237,13 @@ def main() -> None:
     parser.add_argument(
         "--yaml",
         type=Path,
-        default=Path(__file__).parent / "data" /"single_server.yml",
+        default=Path(__file__).parent.parent / "data" /"single_server.yml",
         help="Path to the simulation YAML file.",
     )
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path(__file__).parent / "single_server_yml.png",
+        default=Path(__file__).parent / "single_server.png",
         help="Path to the output image (plots).",
     )
     args = parser.parse_args()

@@ -283,7 +283,7 @@ def main() -> None:
         results.plot_ram_usage(axes[1, 1])
         fig.tight_layout()
 
-        out_path = Path(__file__).parent / "single_server_builder.png"
+        out_path = Path(__file__).parent / "single_server.png"
         fig.savefig(out_path)
         print(f"\n🖼️  Plots saved to: {out_path}")
     except Exception as exc:  # Matplotlib not installed or plotting failed

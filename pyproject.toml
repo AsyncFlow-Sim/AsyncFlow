@@ -1,12 +1,39 @@
 [tool.poetry]
-name = "AsyncFlow"
+name = "asyncflow-simulator"
 version = "0.1.0"
-description = "Simulate distributed system for what if analysis for the capacity planning"
+description = "Digital-twin simulator for distributed async systems. Build what-if scenarios and quantify capacity, latency and throughput offline—before you deploy."
 authors = ["Gioele Botta"]
 readme = "README.md"
-
+license = "MIT"
 packages = [
   { include = "asyncflow", from = "src" }
+]
+
+include = ["LICENSE", "src/asyncflow/py.typed"]
+exclude = ["tests", "docs", "scripts", ".github", "alembic"]
+
+# Better pypi discovery
+keywords = [
+  "simulation", "simpy", "asyncio", "capacity-planning", "performance",
+  "fastapi", "uvicorn", "distributed-systems", "queuing-theory"
+]
+
+homepage = "https://github.com/<org-o-user>/AsyncFlow-Simulator" # TO COMPLETE
+repository = "https://github.com/<org-o-user>/AsyncFlow-Simulator" # TO COMPLETE
+documentation = "https://github.com/<org-o-user>/AsyncFlow-Simulator/tree/main/docs" # TO COMPLETE
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Simulation",
+  "Topic :: System :: Distributed Computing",
+  "Topic :: Software Development :: Testing",
+  "Topic :: System :: Benchmark",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+  "Operating System :: OS Independent",
 ]
 
 [tool.poetry.dependencies]
@@ -96,4 +123,4 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 show_error_codes = true
 pretty = true
-exclude = ["^alembic/", "^.venv/"]
+exclude = ["^.venv/"]

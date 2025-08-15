@@ -9,7 +9,7 @@ Under the hood, the builder assembles a single `SimulationPayload`:
 ```python
 SimulationPayload(
     rqs_input=RqsGenerator(...),          # traffic generator (workload)
-    topology_graph=TopologyGraph(...),    # system architecture as a graph
+    topology_graph=TopologyGraph(...),    # system as a graph
     sim_settings=SimulationSettings(...), # global settings and metrics
 )
 ```

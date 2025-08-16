@@ -18,18 +18,14 @@ from __future__ import annotations
 
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Tuple
+from typing import Dict, List, Mapping
 
 import matplotlib.pyplot as plt
 import numpy as np
 import simpy
 
 from asyncflow.config.constants import (  # only for basic step-kind/ops inspection
-    EndpointStepCPU,
-    EndpointStepIO,
-    EndpointStepRAM,
     LatencyKey,
-    StepOperation,
 )
 from asyncflow.metrics.analyzer import ResultsAnalyzer
 from asyncflow.runtime.simulation_runner import SimulationRunner

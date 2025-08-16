@@ -1,6 +1,8 @@
 
 # AsyncFlow — Event-Loop Aware Simulator for Async Distributed Systems
 
+Created and maintained by @GioeleB00.
+
 [![PyPI](https://img.shields.io/pypi/v/asyncflow-sim)](https://pypi.org/project/asyncflow-sim/)
 [![Python](https://img.shields.io/pypi/pyversions/asyncflow-sim)](https://pypi.org/project/asyncflow-sim/)
 [![License](https://img.shields.io/github/license/AsyncFlow-Sim/AsyncFlow)](LICENSE)
@@ -110,43 +112,52 @@ Prefer building scenarios in Python? There’s a Python builder with the same se
 Save as `run_my_service.py`.
 
 ```python
+from __future__ import annotations
+
 from pathlib import Path
 import simpy
 import matplotlib.pyplot as plt
 
-from asyncflow.config.constants import LatencyKey
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.metrics.analyzer import ResultsAnalyzer
 
-def print_latency_stats(res: ResultsAnalyzer) -> None:
-    order = [LatencyKey.TOTAL_REQUESTS, LatencyKey.MEAN, LatencyKey.MEDIAN,
-             LatencyKey.STD_DEV, LatencyKey.P95, LatencyKey.P99, LatencyKey.MIN, LatencyKey.MAX]
-    stats = res.get_latency_stats()
-    print("\n=== LATENCY STATS ===")
-    for k in order:
-        if k in stats:
-            print(f"{k.name:<18} = {stats[k]:.6f}")
 
-def save_plots(res: ResultsAnalyzer, out: Path) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    res.plot_latency_distribution(axes[0, 0])
-    res.plot_throughput(axes[0, 1])
-    res.plot_server_queues(axes[1, 0])
-    res.plot_ram_usage(axes[1, 1])
-    fig.tight_layout()
-    fig.savefig(out)
-    print(f"Plots saved to: {out}")
-
-if __name__ == "__main__":
-    yaml_path = Path("my_service.yml")
-    out_path  = Path("my_service_plots.png")
+def main() -> None:
+    script_dir = Path(__file__).parent
+    yaml_path = script_dir / "my_service.yml"
+    out_path = script_dir / "my_service_plots.png"
 
     env = simpy.Environment()
     runner = SimulationRunner.from_yaml(env=env, yaml_path=yaml_path)
     res: ResultsAnalyzer = runner.run()
 
-    print_latency_stats(res)
-    save_plots(res, out_path)
+    # Print a concise latency summary
+    print(res.format_latency_stats())
+
+    # 2x2: Latency | Throughput | Ready (first server) | RAM (first server)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=160)
+
+    res.plot_latency_distribution(axes[0, 0])
+    res.plot_throughput(axes[0, 1])
+
+    sids = res.list_server_ids()
+    if sids:
+        sid = sids[0]
+        res.plot_single_server_ready_queue(axes[1, 0], sid)
+        res.plot_single_server_ram(axes[1, 1], sid)
+    else:
+        for ax in (axes[1, 0], axes[1, 1]):
+            ax.text(0.5, 0.5, "No servers", ha="center", va="center")
+            ax.axis("off")
+
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f"Plots saved to: {out_path}")
+
+
+if __name__ == "__main__":
+    main()
+
 ```
 
 Run the python script
@@ -164,7 +175,7 @@ If you want to contribute or run the full test suite locally, follow these steps
 ### Requirements
 * **Python 3.12+** (tested on 3.12, 3.13)
 * **OS:** Linux, macOS, or Windows
-* **Installed with the package (runtime deps):** SimPy, NumPy, **Matplotlib**, Pydantic, PyYAML
+* **Installed with the package (runtime deps):** SimPy, NumPy, Matplotlib, Pydantic, PyYAML, pydantic-settings
 
 ### Install Poetry
 

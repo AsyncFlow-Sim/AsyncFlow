@@ -1,179 +1,53 @@
 #!/usr/bin/env python3
 """
-Didactic example: build and run a AsyncFlow scenario **without** YAML,
-using the 'builder' (AsyncFlow) to assemble the SimulationPayload.
+AsyncFlow builder example — build, run, and visualize a single-server async system.
 
-Scenario reproduced (same as the previous YAML):
+Topology (single server)
     generator ──edge──> client ──edge──> server ──edge──> client
 
-Load:
-    ~100 active users, 20 req/min each.
+Load model
+    ~100 active users, 20 requests/min each (Poisson-like aggregate).
 
-Server:
-    1 CPU core, 2GB RAM, endpoint with steps:
-        CPU(1ms) → RAM(100MB) → IO(100ms)
+Server model
+    1 CPU core, 2 GB RAM
+    Endpoint pipeline: CPU(1 ms) → RAM(100 MB) → I/O wait (100 ms)
+    Semantics:
+      - CPU step blocks the event loop
+      - RAM step holds a working set until request completion
+      - I/O step is non-blocking (event-loop friendly)
 
-Network:
-    3ms mean (exponential) latency on each edge.
+Network model
+    Each edge has exponential latency with mean 3 ms.
 
-What this script does:
-  1) Build Pydantic models (generator, client, server, edges, settings).
-  2) Compose the final SimulationPayload via AsyncFlow (builder pattern).
-  3) Run the simulation with SimulationRunner.
-  4) Print latency stats, throughput timeline, and a sampled-metrics preview.
-  5) (Optional) Visualize the topology with Matplotlib.
-
-Run:
-    python run_with_builder.py
+Outputs
+    - Prints latency statistics to stdout
+    - Saves a 2×2 PNG in the same directory as this script:
+        [0,0] Latency histogram (with mean/P50/P95/P99)
+        [0,1] Throughput (with mean/P95/max overlays)
+        [1,0] Ready queue for the first server
+        [1,1] RAM usage for the first server
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List, Mapping
-
-import numpy as np
 import simpy
+import matplotlib.pyplot as plt
 
-# ── AsyncFlow domain imports ───────────────────────────────────────────────────
-from asyncflow.builder.asyncflow_builder import AsyncFlow
+# Public AsyncFlow API (builder)
+from asyncflow import AsyncFlow
+from asyncflow.components import Client, Server, Edge, Endpoint
+from asyncflow.settings import SimulationSettings
+from asyncflow.workload import RqsGenerator
+
+# Runner + Analyzer
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.metrics.analyzer import ResultsAnalyzer
-from asyncflow.schemas.payload import SimulationPayload
-from asyncflow.schemas.workload.rqs_generator import RqsGenerator
-from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.endpoint import Endpoint
-from asyncflow.schemas.topology.nodes import (
-    Client,
-    Server,
-)
-from asyncflow.schemas.topology.edges import Edge
-
-from asyncflow.config.constants import LatencyKey, SampledMetricName
 
 
-# ─────────────────────────────────────────────────────────────
-# Pretty printers (compact, readable output)
-# ─────────────────────────────────────────────────────────────
-def print_latency_stats(res: ResultsAnalyzer) -> None:
-    """Print latency statistics calculated by the analyzer."""
-    stats: Mapping[LatencyKey, float] = res.get_latency_stats()
-    print("\n════════ LATENCY STATS ════════")
-    if not stats:
-        print("(empty)")
-        return
-
-    order: List[LatencyKey] = [
-        LatencyKey.TOTAL_REQUESTS,
-        LatencyKey.MEAN,
-        LatencyKey.MEDIAN,
-        LatencyKey.STD_DEV,
-        LatencyKey.P95,
-        LatencyKey.P99,
-        LatencyKey.MIN,
-        LatencyKey.MAX,
-    ]
-    for key in order:
-        if key in stats:
-            print(f"{key.name:<20} = {stats[key]:.6f}")
-
-
-def print_throughput(res: ResultsAnalyzer) -> None:
-    """Print the 1-second throughput buckets."""
-    timestamps, rps = res.get_throughput_series()
-    print("\n════════ THROUGHPUT (req/sec) ════════")
-    if not timestamps:
-        print("(empty)")
-        return
-
-    for t, rate in zip(timestamps, rps):
-        print(f"t={t:4.1f}s → {rate:6.2f} rps")
-
-
-def print_sampled_preview(res: ResultsAnalyzer) -> None:
-    """
-    Print a small preview for each sampled metric series (first 5 values).
-    This helps verify that sampler pipelines are running.
-    """
-    sampled = res.get_sampled_metrics()
-    print("\n════════ SAMPLED METRICS (preview) ════════")
-    if not sampled:
-        print("(empty)")
-        return
-
-    for metric, series in sampled.items():
-        metric_name = (
-            metric.name if isinstance(metric, SampledMetricName) else str(metric)
-        )
-        print(f"\n📈 {metric_name}:")
-        for entity, vals in series.items():
-            head = list(vals[:5]) if vals else []
-            print(f"  - {entity}: len={len(vals)}, first={head}")
-
-
-# ─────────────────────────────────────────────────────────────
-# Tiny helpers for sanity checks (optional)
-# ─────────────────────────────────────────────────────────────
-def _mean(series: Iterable[float]) -> float:
-    """Numerically stable mean for a generic float iterable."""
-    arr = np.asarray(list(series), dtype=float)
-    return float(np.mean(arr)) if arr.size else 0.0
-
-
-def run_sanity_checks(
-    runner: SimulationRunner,
-    res: ResultsAnalyzer,
-) -> None:
-    """
-    Back-of-the-envelope checks to compare rough expectations vs observations.
-    These are intentionally simplistic approximations.
-    """
-    print("\n════════ SANITY CHECKS (rough) ════════")
-    w = runner.simulation_input.rqs_input
-    lam_rps = (
-        float(w.avg_active_users.mean)
-        * float(w.avg_request_per_minute_per_user.mean)
-        / 60.0
-    )
-
-    # Observed throughput
-    _, rps_series = res.get_throughput_series()
-    rps_observed = _mean(rps_series)
-    print(f"• Mean throughput (rps)  expected≈{lam_rps:.3f}  "
-          f"observed={rps_observed:.3f}")
-
-    # A few sampled signals (RAM, queues) just to show they are populated.
-    sampled = res.get_sampled_metrics()
-    ram_series = sampled.get(SampledMetricName.RAM_IN_USE, {})
-    ioq_series = sampled.get(SampledMetricName.EVENT_LOOP_IO_SLEEP, {})
-    ready_series = sampled.get(SampledMetricName.READY_QUEUE_LEN, {})
-
-    ram_mean = _mean([_mean(v) for v in ram_series.values()]) if ram_series else 0.0
-    ioq_mean = _mean([_mean(v) for v in ioq_series.values()]) if ioq_series else 0.0
-    ready_mean = (
-        _mean([_mean(v) for v in ready_series.values()]) if ready_series else 0.0
-    )
-
-    print(f"• Mean RAM in use (MB)    observed={ram_mean:.3f}")
-    print(f"• Mean I/O queue length   observed={ioq_mean:.3f}")
-    print(f"• Mean ready queue length observed={ready_mean:.3f}")
-
-
-# ─────────────────────────────────────────────────────────────
-# Build the same scenario via AsyncFlow (builder)
-# ─────────────────────────────────────────────────────────────
-def build_payload_with_builder() -> SimulationPayload:
-    """
-    Construct the SimulationPayload programmatically using the builder.
-
-    This mirrors the YAML:
-      - Generator (100 users, 20 rpm each)
-      - Client
-      - One server with a single endpoint (CPU → RAM → IO)
-      - Three edges with exponential latency (3ms mean)
-      - Simulation settings: 500s total, sample period 50ms
-    """
-    # 1) Request generator
+def build_and_run() -> ResultsAnalyzer:
+    """Build the scenario via the Pythonic builder and run the simulation."""
+    # Workload (generator)
     generator = RqsGenerator(
         id="rqs-1",
         avg_active_users={"mean": 100},
@@ -181,50 +55,48 @@ def build_payload_with_builder() -> SimulationPayload:
         user_sampling_window=60,
     )
 
-    # 2) Client
+    # Client
     client = Client(id="client-1")
 
-    # 3) Server (1 CPU core, 2GB RAM) with one endpoint and three steps
-    #    We let Pydantic coerce nested dicts for the endpoint steps.
+    # Server + endpoint (CPU → RAM → I/O)
     endpoint = Endpoint(
-        endpoint_name="ep-1",
+        endpoint_name="/api",
         probability=1.0,
         steps=[
-            {"kind": "initial_parsing", "step_operation": {"cpu_time": 0.001}},
-            {"kind": "ram", "step_operation": {"necessary_ram": 100}},
-            {"kind": "io_wait", "step_operation": {"io_waiting_time": 0.1}},
+            {"kind": "initial_parsing", "step_operation": {"cpu_time": 0.001}},  # 1 ms
+            {"kind": "ram", "step_operation": {"necessary_ram": 100}},           # 100 MB
+            {"kind": "io_wait", "step_operation": {"io_waiting_time": 0.100}},   # 100 ms
         ],
     )
-
     server = Server(
-        id="srv-1",
+        id="app-1",
         server_resources={"cpu_cores": 1, "ram_mb": 2048},
         endpoints=[endpoint],
     )
 
-    # 4) Edges: exponential latency with 3ms mean (same as YAML)
+    # Network edges (3 ms mean, exponential)
     e_gen_client = Edge(
-        id="gen-to-client",
+        id="gen-client",
         source="rqs-1",
         target="client-1",
         latency={"mean": 0.003, "distribution": "exponential"},
     )
-    e_client_server = Edge(
-        id="client-to-server",
+    e_client_app = Edge(
+        id="client-app",
         source="client-1",
-        target="srv-1",
+        target="app-1",
         latency={"mean": 0.003, "distribution": "exponential"},
     )
-    e_server_client = Edge(
-        id="server-to-client",
-        source="srv-1",
+    e_app_client = Edge(
+        id="app-client",
+        source="app-1",
         target="client-1",
         latency={"mean": 0.003, "distribution": "exponential"},
     )
 
-    # 5) Simulation settings
+    # Simulation settings
     settings = SimulationSettings(
-        total_simulation_time=500,
+        total_simulation_time=300,
         sample_period_s=0.05,
         enabled_sample_metrics=[
             "ready_queue_len",
@@ -235,59 +107,56 @@ def build_payload_with_builder() -> SimulationPayload:
         enabled_event_metrics=["rqs_clock"],
     )
 
-    # 6) Assemble the payload via the builder (AsyncFlow).
-    #    The builder will validate the final structure on build.
-    flow = (
+    # Assemble payload with the builder
+    payload = (
         AsyncFlow()
         .add_generator(generator)
         .add_client(client)
         .add_servers(server)
-        .add_edges(e_gen_client, e_client_server, e_server_client)
+        .add_edges(e_gen_client, e_client_app, e_app_client)
         .add_simulation_settings(settings)
-    )
+    ).build_payload()
 
-    return flow.build_payload()
-
-
-# ─────────────────────────────────────────────────────────────
-# Main entry-point
-# ─────────────────────────────────────────────────────────────
-def main() -> None:
-    """
-    Build → wire → run the simulation, then print diagnostics.
-    Mirrors run_from_yaml.py but uses the builder to construct the input.
-    Also saves a 2x2 plot figure (latency, throughput, server queues, RAM).
-    """
+    # Run
     env = simpy.Environment()
-    payload = build_payload_with_builder()
-
     runner = SimulationRunner(env=env, simulation_input=payload)
     results: ResultsAnalyzer = runner.run()
+    return results
 
-    # Human-friendly diagnostics
-    print_latency_stats(results)
-    print_throughput(results)
-    print_sampled_preview(results)
 
-    # Optional sanity checks (very rough)
-    run_sanity_checks(runner, results)
+def main() -> None:
+    # Build & run
+    res = build_and_run()
 
-    # Save plots (2x2 figure), same layout as in the YAML-based example
-    try:
-        from matplotlib import pyplot as plt  # noqa: PLC0415
+    # Print concise latency summary
+    print(res.format_latency_stats())
 
-        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-        results.plot_latency_distribution(axes[0, 0])
-        results.plot_throughput(axes[0, 1])
-        results.plot_server_queues(axes[1, 0])
-        results.plot_ram_usage(axes[1, 1])
-        fig.tight_layout()
+    # Prepare figure in the same folder as this script
+    script_dir = Path(__file__).parent
+    out_path = script_dir / "builder_service_plots.png"
 
-        out_path = Path(__file__).parent / "single_server.png"
-        fig.savefig(out_path)
-        print(f"\n🖼️  Plots saved to: {out_path}")
-    except Exception as exc:  # Matplotlib not installed or plotting failed
-        print(f"\n[plotting skipped] {exc!r}")
-        
+    # 2×2: Latency | Throughput | Ready (first server) | RAM (first server)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=160)
+
+    # Top row
+    res.plot_latency_distribution(axes[0, 0])
+    res.plot_throughput(axes[0, 1])
+
+    # Bottom row — first server, if present
+    sids = res.list_server_ids()
+    if sids:
+        sid = sids[0]
+        res.plot_single_server_ready_queue(axes[1, 0], sid)
+        res.plot_single_server_ram(axes[1, 1], sid)
+    else:
+        for ax in (axes[1, 0], axes[1, 1]):
+            ax.text(0.5, 0.5, "No servers", ha="center", va="center")
+            ax.axis("off")
+
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f"Plots saved to: {out_path}")
+
+
 if __name__ == "__main__":
     main()

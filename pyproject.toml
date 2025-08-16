@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "asyncflow-simulator"
-version = "0.1.0"
+name = "AsyncFlow-Sim"
+version = "0.1.0a1"
 description = "Digital-twin simulator for distributed async systems. Build what-if scenarios and quantify capacity, latency and throughput offline—before you deploy."
 authors = ["Gioele Botta"]
 readme = "README.md"
@@ -18,9 +18,9 @@ keywords = [
   "fastapi", "uvicorn", "distributed-systems", "queuing-theory"
 ]
 
-homepage = "https://github.com/<org-o-user>/AsyncFlow-Simulator" # TO COMPLETE
-repository = "https://github.com/<org-o-user>/AsyncFlow-Simulator" # TO COMPLETE
-documentation = "https://github.com/<org-o-user>/AsyncFlow-Simulator/tree/main/docs" # TO COMPLETE
+homepage = "https://github.com/AsyncFlow-Sim" 
+repository = "https://github.com/AsyncFlow-Sim/AsyncFlow" 
+documentation = "https://github.com/AsyncFlow-Sim/AsyncFlow-Sim/tree/v0.1.0/docs" 
 
 classifiers = [
   "Development Status :: 3 - Alpha",

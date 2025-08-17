@@ -1,149 +1,98 @@
-# **AsyncFlow – Event-Loop Aware Simulation for Backend Systems**
 
-## **1. Overview**
+# AsyncFlow — Event-Loop Aware Simulator for Async Distributed Systems
 
-Modern asynchronous Python stacks such as **FastAPI + Uvicorn** deliver impressive performance, yet capacity planning for production workloads often relies on guesswork, costly cloud-based load tests, or late-stage troubleshooting.
+Created and maintained by @GioeleB00.
 
-**AsyncFlow** addresses this challenge by providing a **digital twin** of your service that can be run entirely offline. It models event-loop behaviour, resource constraints, and request lifecycles, enabling you to forecast performance under different workloads and architectural choices **before deployment**.
+[![PyPI](https://img.shields.io/pypi/v/asyncflow-sim)](https://pypi.org/project/asyncflow-sim/)
+[![Python](https://img.shields.io/pypi/pyversions/asyncflow-sim)](https://pypi.org/project/asyncflow-sim/)
+[![License](https://img.shields.io/github/license/AsyncFlow-Sim/AsyncFlow)](LICENSE)
+[![Status](https://img.shields.io/badge/status-v0.1.0alpha-orange)](#)
+[![Ruff](https://img.shields.io/badge/lint-ruff-informational)](https://github.com/astral-sh/ruff)
+[![Typing](https://img.shields.io/badge/typing-mypy-blueviolet)](https://mypy-lang.org/)
+[![Tests](https://img.shields.io/badge/tests-pytest-6DA55F)](https://docs.pytest.org/)
+[![SimPy](https://img.shields.io/badge/built%20with-SimPy-1f425f)](https://simpy.readthedocs.io/)
 
-AsyncFlow allows you to answer questions such as:
+-----
 
-* *What happens to p95 latency if traffic doubles during a peak event?*
-* *How many cores are required to maintain SLAs at scale?*
-* *What is the cost-per-request of adding a large language model (LLM) inference step?*
+AsyncFlow is a discrete-event simulator for modeling and analyzing the performance of asynchronous, distributed backend systems built with SimPy. You describe your system's topology—its servers, network links, and load balancers—and AsyncFlow simulates the entire lifecycle of requests as they move through it.
 
-The simulation outputs metrics identical in form to those collected in production—such as p50/p95/p99 latency, concurrency, resource utilisation, and throughput—making results directly actionable.
+It provides a **digital twin** of your service, modeling not just the high-level architecture but also the low-level behavior of each server's **event loop**, including explicit **CPU work**, **RAM residency**, and **I/O waits**. This allows you to run realistic "what-if" scenarios that behave like production systems rather than toy benchmarks.
 
-**Outcome:** Data-driven capacity planning, early performance tuning, and reduced operational surprises.
+### What Problem Does It Solve?
 
+Modern async stacks like FastAPI are incredibly performant, but predicting their behavior under real-world load is difficult. Capacity planning often relies on guesswork, expensive cloud-based load tests, or discovering bottlenecks only after a production failure. AsyncFlow is designed to replace that uncertainty with **data-driven forecasting**, allowing you to understand how your system will perform before you deploy a single line of code.
+
+### How Does It Work? An Example Topology
+
+AsyncFlow models your system as a directed graph of interconnected components. A typical setup might look like this:
+
+![Topology at a glance](readme_img/topology.png)
+
+### What Questions Can It Answer?
+
+By running simulations on your defined topology, you can get quantitative answers to critical engineering questions, such as:
+
+  * How does **p95 latency** change if active users increase from 100 to 200?
+  * What is the impact on the system if the **client-to-server network latency** increases by 3ms?
+  * Will a specific API endpoint—with a pipeline of parsing, RAM allocation, and database I/O—hold its **SLA at a load of 40 requests per second**?
 ---
 
-## **2. Key Features**
+## Installation
 
-* **Event-loop accuracy** – Models a single-threaded asynchronous runtime, including CPU-bound work, I/O waits, and parsing.
-* **Resource modelling** – Simulates CPU cores, memory, connection pools, and rate limiters as discrete resources.
-* **Network simulation** – Models transport latency per edge in the system topology.
-* **Workload flexibility** – Supports stochastic arrival processes (e.g., Poisson, Normal) for user traffic generation.
-* **Metrics parity with production** – Produces time-series and event-level metrics aligned with observability tools.
-* **Offline and repeatable** – No need for costly cloud infrastructure to conduct performance tests.
+Install from PyPI: `pip install asyncflow-sim`
 
+
+## Requirements
+
+* **Python 3.12+** (tested on 3.12, 3.13)
+* **OS:** Linux, macOS, or Windows
+* **Installed automatically (runtime deps):**
+  **SimPy** (DES engine), **NumPy**, **Matplotlib**, **Pydantic** + **pydantic-settings**, **PyYAML**.
 ---
 
-## **3. Installation**
+## Quick Start
 
-Until published, clone the repository and install in editable mode:
+### 1) Define a realistic YAML
 
-### Requirements
-- Python 3.11+ (recommended 3.12)
-- Poetry ≥ 1.6
+Save as `my_service.yml`.
 
-AsyncFlow uses [Poetry](https://python-poetry.org/) for dependency management.
-If you do not have Poetry installed, follow these steps.
-
-### 3.1 Install Poetry (official method)
-
-**Linux / macOS**
-
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
-
-**Windows (PowerShell)**
-
-```powershell
-(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
-```
-
-> **Note:** Ensure that Poetry’s binary directory is in your `PATH`.
-> On Linux/macOS this is typically `~/.local/bin`;
-> on Windows it is `%APPDATA%\Python\Scripts` or the path printed at the end of installation.
-
----
-
-### 3.2 Clone the repository and set up a local virtual environment
-
-```bash
-# Clone the repository
-git clone https://github.com/GioeleB00/AsyncFlow-Backend.git
-cd AsyncFlow-Backend
-
-# Configure Poetry to always create a local `.venv` inside the project
-poetry config virtualenvs.in-project true
-
-# Install all dependencies (main + dev) inside the local venv
-poetry install --with dev
-```
-
-After this step, you will see a `.venv/` directory inside the project root.
-To activate the environment manually:
-
-```bash
-source .venv/bin/activate   # Linux / macOS
-.venv\Scripts\activate      # Windows
-```
-
-Or simply run commands via Poetry without manual activation, for example:
-
-```bash
-poetry run pytest
-poetry run python examples/single_server.py
-```
-
----
-
-## **4. Quick Start**
-
-### 1. Define your simulation payload
-
-Go to the folder `/examples` open the file `single_server.py`
-and run it from the terminal, you will see the output of the system
-described in `/examples/data/single_server.yml` and you will see a 
-`.png` file with different plots.
-
-If you want to build your own configuration, read the guide in the `/docs` folder on how to craft a `.yml` input correctly.
+The full YAML schema is explained in `docs/guides/yaml-input-builder.md` and validated by Pydantic models (see `docs/internals/simulation-input.md`).
 
 ```yaml
 rqs_input:
   id: generator-1
-  avg_active_users:
-    mean: 100
-    distribution: poisson
-  avg_request_per_minute_per_user:
-    mean: 20
-    distribution: poisson
+  avg_active_users: { mean: 100, distribution: poisson }
+  avg_request_per_minute_per_user: { mean: 20, distribution: poisson }
   user_sampling_window: 60
 
 topology_graph:
   nodes:
-    client:
-      id: client-1
-      type: client
+    client: { id: client-1 }
+
     servers:
-      - id: app-server-1
-        type: server
-        server_resources:
-          cpu_cores: 2
-          ram_mb: 2048
+      - id: app-1
+        server_resources: { cpu_cores: 1, ram_mb: 2048 }
         endpoints:
-          - endpoint_name: /predict
+          - endpoint_name: /api
+            # Realistic pipeline on one async server:
+            # - 2 ms CPU parsing (blocks the event loop)
+            # - 120 MB RAM working set (held until the request leaves the server)
+            # - 12 ms DB-like I/O (non-blocking wait)
             steps:
+              - kind: initial_parsing
+                step_operation: { cpu_time: 0.002 }
               - kind: ram
-                step_operation: { necessary_ram: 100 }
-              - kind: cpu
-                step_operation: { cpu_time: 0.005 }
+                step_operation: { necessary_ram: 120 }
+              - kind: io_db
+                step_operation: { io_waiting_time: 0.012 }
+
   edges:
-    - id: gen-to-client
-      source: generator-1
-      target: client-1
-      latency: { mean: 0.003, distribution: exponential }
-    - id: client-to-server
-      source: client-1
-      target: app-server-1
-      latency: { mean: 0.003, distribution: exponential }
-    - id: server-to-client
-      source: app-server-1
-      target: client-1
-      latency: { mean: 0.003, distribution: exponential }
+    - { id: gen-client,   source: generator-1, target: client-1,
+        latency: { mean: 0.003, distribution: exponential } }
+    - { id: client-app,   source: client-1,   target: app-1,
+        latency: { mean: 0.003, distribution: exponential } }
+    - { id: app-client,   source: app-1,      target: client-1,
+        latency: { mean: 0.003, distribution: exponential } }
 
 sim_settings:
   total_simulation_time: 300
@@ -151,183 +100,275 @@ sim_settings:
   enabled_sample_metrics:
     - ready_queue_len
     - ram_in_use
+    - edge_concurrent_connection
   enabled_event_metrics:
     - rqs_clock
 ```
 
-and add it to the `/examples/data` folder
+Prefer building scenarios in Python? There’s a Python builder with the same semantics (create nodes, edges, endpoints programmatically). See **`docs/guides/python-builder.md`**.
 
-### 2. Run the simulation
+### 2) Run and export charts
 
-build a python file in the `/examples` folder and copy the 
-following script replacing `<your_file_name>` with the 
-real name
-
+Save as `run_my_service.py`.
 
 ```python
+from __future__ import annotations
 
 from pathlib import Path
-
 import simpy
 import matplotlib.pyplot as plt
 
-from asyncflow.config.constants import LatencyKey
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.metrics.analyzer import ResultsAnalyzer
 
-def print_latency_stats(res: ResultsAnalyzer) -> None:
-    """Print latency statistics returned by the analyzer."""
-    stats = res.get_latency_stats()
-    print("\n=== LATENCY STATS ===")
-    if not stats:
-        print("(empty)")
-        return
 
-    order: list[LatencyKey] = [
-        LatencyKey.TOTAL_REQUESTS,
-        LatencyKey.MEAN,
-        LatencyKey.MEDIAN,
-        LatencyKey.STD_DEV,
-        LatencyKey.P95,
-        LatencyKey.P99,
-        LatencyKey.MIN,
-        LatencyKey.MAX,
-    ]
-    for key in order:
-        if key in stats:
-            print(f"{key.name:<20} = {stats[key]:.6f}")
+def main() -> None:
+    script_dir = Path(__file__).parent
+    yaml_path = script_dir / "my_service.yml"
+    out_path = script_dir / "my_service_plots.png"
 
-def save_all_plots(res: ResultsAnalyzer, out_path: Path) -> None:
-    """Generate the 2x2 plot figure and save it to `out_path`."""
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    env = simpy.Environment()
+    runner = SimulationRunner.from_yaml(env=env, yaml_path=yaml_path)
+    res: ResultsAnalyzer = runner.run()
+
+    # Print a concise latency summary
+    print(res.format_latency_stats())
+
+    # 2x2: Latency | Throughput | Ready (first server) | RAM (first server)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=160)
+
     res.plot_latency_distribution(axes[0, 0])
     res.plot_throughput(axes[0, 1])
-    res.plot_server_queues(axes[1, 0])
-    res.plot_ram_usage(axes[1, 1])
+
+    sids = res.list_server_ids()
+    if sids:
+        sid = sids[0]
+        res.plot_single_server_ready_queue(axes[1, 0], sid)
+        res.plot_single_server_ram(axes[1, 1], sid)
+    else:
+        for ax in (axes[1, 0], axes[1, 1]):
+            ax.text(0.5, 0.5, "No servers", ha="center", va="center")
+            ax.axis("off")
+
     fig.tight_layout()
     fig.savefig(out_path)
     print(f"Plots saved to: {out_path}")
 
-# Paths
-yaml_path = Path(__file__).parent / "data" /"<your_file_name>.yml"
-out_path = Path(__file__).parent / "<your_file_name>_plots.png"
 
-# Simulation
-env = simpy.Environment()
-runner = SimulationRunner.from_yaml(env=env, yaml_path=yaml_path)
-results: ResultsAnalyzer = runner.run()
-
-# Output
-print_latency_stats(results)
-save_all_plots(results, out_path)
+if __name__ == "__main__":
+    main()
 
 ```
-run the script and you will see the different plots and on your terminal
-you will see the latency stats
+
+Run the python script
+
+You’ll get latency stats in the terminal and a PNG with four charts (latency distribution, throughput, server queues, RAM usage).
+
+**Want more?** 
+
+For ready-to-run scenarios—including examples using the Pythonic builder and multi-server topologies—check out the `examples/` directory in the repository.
+
+## Development
+
+If you want to contribute or run the full test suite locally, follow these steps.
+
+### Requirements
+
+* **Python 3.12+** (tested on 3.12, 3.13)
+* **OS:** Linux, macOS, or Windows
+* **Runtime deps installed by the package:** SimPy, NumPy, Matplotlib, Pydantic, PyYAML, pydantic-settings
+
+**Prerequisites:** Git, Python 3.12+ in `PATH`, `curl` (Linux/macOS/WSL), PowerShell 7+ (Windows)
 
 ---
 
-## **5. Target Users and Use Cases**
+## Project setup
 
-| Audience                 | Challenge                                         | AsyncFlow Value                                                                    |
-| ------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Backend Engineers        | Sizing services for variable workloads            | Model endpoint workflows and resource bottlenecks before deployment              |
-| DevOps / SRE             | Balancing cost and SLA                            | Simulate scaling scenarios to choose optimal capacity                            |
-| ML / LLM Teams           | Unclear latency/cost impact of inference steps    | Integrate stochastic inference times and cost models into the service simulation |
-| Educators                | Explaining async runtime internals                | Demonstrate queueing, blocking effects, and CPU vs. I/O trade-offs               |
-| System Design Candidates | Quantifying architecture trade-offs in interviews | Prototype a simulated design to visualise scalability and bottlenecks            |
-
----
-
-## **6. Project Structure**
-
-The project follows a standard Python package layout, managed with Poetry.
-
-```
-AsyncFlow-Backend/
-├── examples/                # Examples payloads and datasets
-├── scripts/                 # Utility scripts (linting, startup)
-├── docs/                    # Project vision and technical documentation
-├── tests/                   # Unit and integration tests
-├── src/
-│   └── app/
-│       ├── config/          # Settings and constants
-│       ├── metrics/         # KPI computation and aggregation
-│       ├── resources/       # SimPy resource registry
-│       ├── runtime/         # Simulation core and actors
-│       ├── samplers/        # Random variable generators
-│       └── schemas/         # Pydantic models for validation
-├── pyproject.toml
-└── README.md
+```bash
+git clone https://github.com/AsyncFlow-Sim/AsyncFlow.git
+cd AsyncFlow
 ```
 
----
+From the repo root, run the **one-shot post-clone setup**:
 
-## **7. Development Workflow**
+**Linux / macOS / WSL**
 
-AsyncFlow uses **Poetry** for dependency management and enforces quality via **Ruff** and **MyPy**.
+```bash
+bash scripts/dev_setup.sh
+```
 
-| Task          | Command                           | Description                            |
-| ------------- | --------------------------------- | -------------------------------------- |
-| Install deps  | `poetry install --with dev`       | Main and development dependencies      |
-| Lint & format | `poetry run ruff check src tests` | Style and best-practice checks         |
-| Type checking | `poetry run mypy src tests`       | Static type enforcement                |
-| Run tests     | `poetry run pytest`               | Execute all unit and integration tests |
+**Windows (PowerShell)**
 
----
+```powershell
+# If scripts are blocked by policy, run this in the same PowerShell session:
+# Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\dev_setup.ps1
+```
 
-## **8. Continuous Integration**
+**What this does (concise):**
 
-The GitHub Actions pipeline enforces:
+* Ensures **Poetry** is available (installs if missing).
+* Uses a **project-local `.venv`**.
+* Removes `poetry.lock` for a **clean dependency resolve** (dev policy).
+* Installs the project **with dev extras**.
+* Runs **ruff**, **mypy**, and **pytest (with coverage)**.
 
-* **Pull Requests:** Ruff, MyPy, and unit tests for rapid feedback.
-* **Develop branch:** Full suite including integration tests and coverage reporting.
+**Quick sanity check after setup:**
 
-No code is merged without passing all checks, ensuring maintainability and reliability.
+```bash
+poetry --version
+poetry run python -V
+```
 
----
+> **Note (lock policy):** `dev_setup` intentionally removes `poetry.lock` to avoid cross-platform conflicts during development.
 
-## **9. Current Limitations (v0.1)**
+**Scripts (for quick access):**
 
-1. **Network delay model** – Bandwidth effects and payload size are not yet considered.
-2. **Concurrency model** – Single-threaded async event-loop; no native multi-thread or multi-process simulation.
-3. **CPU allocation** – One process per server instance; multi-core within a process is not yet modelled.
-
-In addition to the items already listed (simplified network delay, single-threaded async model, and one process per server), keep in mind:
-
-* **Stationary, independent workload.** Traffic is sampled from stationary distributions; there is no diurnal seasonality, burst shaping, or feedback coupling (e.g., servers slowing down arrivals). Average users and per-user RPM are sampled independently.
-* **Simplified request flow.** Endpoints execute a linear sequence of steps; there is no conditional branching/fan-out within an endpoint (e.g., cache hit/miss paths, error paths) and no per-request control flow.
-* **Network realism is limited.** Beyond base latency and optional drops, the model does not account for payload size, bandwidth constraints, TCP behavior (slow start, congestion), retries/timeouts, or jitter.
-* **No backpressure or autoscaling.** The generator does not adapt to server state (queues, errors), and there is no policy loop for rate limiting or scaling during the run.
-* **Telemetry granularity.** Sampled metrics are collected at a fixed `sample_period_s` and may miss very short-lived spikes unless you lower the period (at a runtime cost). Event resolution itself is not affected by the sampling period.
-* **Reproducibility.** Unless you fix a random seed (not yet exposed in all entry points), repeated runs will vary within the chosen distributions.
+* [`scripts/dev_setup.sh`](scripts/dev_setup.sh) / [`scripts/dev_setup.ps1`](scripts/dev_setup.ps1)
+* [`scripts/quality_check.sh`](scripts/quality_check.sh) / [`scripts/quality_check.ps1`](scripts/quality_check.ps1)
+* [`scripts/run_tests.sh`](scripts/run_tests.sh) / [`scripts/run_tests.ps1`](scripts/run_tests.ps1)
 
 ---
 
-## Mini Roadmap
+### Handy scripts (after setup)
 
-Short, high-impact items we plan to add next:
+#### 1) Lint + type check
 
-1. **Cache modeling.** First-class cache layers (per-endpoint hit/miss with TTL and warm-up), configurable hit-ratio profiles, and their effect on latency, CPU, and RAM.
-2. **LLM inference as a step + cost accounting.** Treat inference as a dedicated endpoint step with its own latency distribution, concurrency limits/batching, and per-request cost model (tokens, provider pricing).
-3. **Fault and event injection.** Time-based events (node down/up, degraded edge, error-rate spikes) with deterministic timelines to test resilience and recovery.
-4. **Network bandwidth & payload size.** Throughput-aware links, request/response sizes, retries/timeouts, and simple congestion effects.
-5. **Branching/control-flow within endpoints.** Conditional steps (e.g., cache hit vs. miss), probabilistic routing, and fan-out/fan-in to external services.
-6. **Backpressure and autoscaling loops.** Rate limiting tied to queue depth/latency SLOs and simple scale-up/down policies during a run.
+**Linux / macOS / WSL**
+
+```bash
+bash scripts/quality_check.sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.\scripts\quality_check.ps1
+```
+
+Runs **ruff** (lint/format check) and **mypy** on `src` and `tests`.
+
+#### 2) Run tests with coverage (unit + integration)
+
+**Linux / macOS / WSL**
+
+```bash
+bash scripts/run_tests.sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.\scripts\run_tests.ps1
+```
+
+#### 3) Run system tests
+
+**Linux / macOS / WSL**
+
+```bash
+bash scripts/run_sys_tests.sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.\scripts\run_sys_tests.ps1
+```
+
+Executes **pytest** with a terminal coverage summary (no XML, no slowest list).
 
 
-Future milestones will extend these capabilities.
 
----
+## What AsyncFlow Models (v0.1)
 
-## **10. Documentation**
+AsyncFlow provides a detailed simulation of your backend system. Here is a high-level overview of the core components it models. For a deeper technical dive into the implementation and design rationale, follow the links to the internal documentation.
 
-Comprehensive documentation is available in the `/docs` directory, covering:
+* **Async Event Loop:** Simulates a single-threaded, non-blocking event loop per server. **CPU steps** block the loop, while **I/O steps** are non-blocking, accurately modeling `asyncio` behavior.
+    * *(Deep Dive: `docs/internals/runtime-and-resources.md`)*
 
-* Simulation model and architecture
-* Schema definitions
-* Example scenarios
-* Extension guidelines
-* Guide to build valid .yaml as valid simulation input
+* **System Resources:** Models finite server resources, including **CPU cores** and **RAM (MB)**. Requests must acquire these resources, creating natural back-pressure and contention when the system is under load.
+    * *(Deep Dive: `docs/internals/runtime-and-resources.md`)*
 
----
+* **Endpoints & Request Lifecycles:** Models server endpoints as a linear sequence of **steps**. Each step is a distinct operation, such as `cpu_bound_operation`, `io_wait`, or `ram` allocation.
+    * *(Schema Definition: `docs/internals/simulation-input.md`)*
+
+* **Network Edges:** Simulates the connections between system components. Each edge has a configurable **latency** (drawn from a probability distribution) and an optional **dropout rate** to model packet loss.
+    * *(Schema Definition: `docs/internals/simulation-input.md` | Runtime Behavior: `docs/internals/runtime-and-resources.md`)*
+
+* **Stochastic Workload:** Generates user traffic based on a two-stage sampling model, combining the number of active users and their request rate per minute to produce a realistic, fluctuating load (RPS) on the system.
+    * *(Modeling Details with mathematical explanation and clear assumptions: `docs/internals/requests-generator.md`)*
+
+* **Metrics & Outputs:** Collects two types of data: **time-series metrics** (e.g., `ready_queue_len`, `ram_in_use`) and **event-based data** (`RqsClock`). This raw data is used to calculate final KPIs like **p95/p99 latency** and **throughput**.
+    * *(Metric Reference: `docs/internals/metrics`)*
+
+## Current Limitations (v0.1)
+
+* Network realism: base latency + optional drops (no bandwidth/payload/TCP yet).
+* Single event loop per server: no multi-process/multi-node servers yet.
+* Linear endpoint flows: no branching/fan-out within an endpoint.
+* No thread-level concurrency; modeling OS threads and scheduler/context switching is out of scope.”
+* Stationary workload: no diurnal patterns or feedback/backpressure.
+* Sampling cadence: very short spikes can be missed if `sample_period_s` is large.
+
+
+## Roadmap (Order is not indicative of priority)
+
+This roadmap outlines the key development areas to transform AsyncFlow into a comprehensive framework for statistical analysis and resilience modeling of distributed systems.
+
+### 1. Monte Carlo Simulation Engine
+
+**Why:** To overcome the limitations of a single simulation run and obtain statistically robust results. This transforms the simulator from an "intuition" tool into an engineering tool for data-driven decisions with confidence intervals.
+
+* **Independent Replications:** Run the same simulation N times with different random seeds to sample the space of possible outcomes.
+* **Warm-up Period Management:** Introduce a "warm-up" period to be discarded from the analysis, ensuring that metrics are calculated only on the steady-state portion of the simulation.
+* **Ensemble Aggregation:** Calculate means, standard deviations, and confidence intervals for aggregated metrics (latency, throughput) across all replications.
+* **Confidence Bands:** Visualize time-series data (e.g., queue lengths) with confidence bands to show variability over time.
+
+### 2. Realistic Service Times (Stochastic Service Times)
+
+**Why:** Constant service times underestimate tail latencies (p95/p99), which are almost always driven by "slow" requests. Modeling this variability is crucial for a realistic analysis of bottlenecks.
+
+* **Distributions for Steps:** Allow parameters like `cpu_time` and `io_waiting_time` in an `EndpointStep` to be sampled from statistical distributions (e.g., Lognormal, Gamma, Weibull) instead of being fixed values.
+* **Per-Request Sampling:** Each request will sample its own service times independently, simulating the natural variability of a real-world system.
+
+### 3. Component Library Expansion
+
+**Why:** To increase the variety and realism of the architectures that can be modeled.
+
+* **New System Nodes:**
+    * `CacheRuntime`: To model caching layers (e.g., Redis) with hit/miss logic, TTL, and warm-up behavior.
+    * `APIGatewayRuntime`: To simulate API Gateways with features like rate-limiting and authentication caching.
+    * `DBRuntime`: A more advanced model for databases featuring connection pool contention and row-level locking.
+* **New Load Balancer Algorithms:** Add more advanced routing strategies (e.g., Weighted Round Robin, Least Response Time).
+
+### 4. Fault and Event Injection
+
+**Why:** To test the resilience and behavior of the system under non-ideal conditions, a fundamental use case for Site Reliability Engineering (SRE).
+
+* **API for Scheduled Events:** Introduce a system to schedule events at specific simulation times, such as:
+    * **Node Down/Up:** Turn a server off and on to test the load balancer's failover logic.
+    * **Degraded Edge:** Drastically increase the latency or drop rate of a network link.
+    * **Error Bursts:** Simulate a temporary increase in the rate of application errors.
+
+### 5. Advanced Network Modeling
+
+**Why:** To more faithfully model network-related bottlenecks that are not solely dependent on latency.
+
+* **Bandwidth and Payload Size:** Introduce the concepts of link bandwidth and request/response size to simulate delays caused by data transfer.
+* **Retries and Timeouts:** Model retry and timeout logic at the client or internal service level.
+
+### 6. Complex Endpoint Flows
+
+**Why:** To model more realistic business logic that does not follow a linear path.
+
+* **Conditional Branching:** Introduce the ability to have conditional steps within an endpoint (e.g., a different path for a cache hit vs. a cache miss).
+* **Fan-out / Fan-in:** Model scenarios where a service calls multiple downstream services in parallel and waits for their responses.
+
+### 7. Backpressure and Autoscaling
+
+**Why:** To simulate the behavior of modern, adaptive systems that react to load.
+
+* **Dynamic Rate Limiting:** Introduce backpressure mechanisms where services slow down the acceptance of new requests if their internal queues exceed a certain threshold.
+* **Autoscaling Policies:** Model simple Horizontal Pod Autoscaler (HPA) policies where the number of server replicas increases or decreases based on metrics like CPU utilization or queue length.
+

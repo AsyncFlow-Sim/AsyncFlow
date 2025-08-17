@@ -1,4 +1,4 @@
-"""Public components: re-exports Pydantic leaf schemas (topology)."""
+"""Public components: re-exports Pydantic schemas (topology)."""
 from __future__ import annotations
 
 from asyncflow.schemas.topology.edges import Edge

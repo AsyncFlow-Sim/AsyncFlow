@@ -1,96 +1,71 @@
-# AsyncFlow SimulationPayload (LB + 2 servers, realistic steps)
+# AsyncFlow SimulationPayload — Load Balancer + 2 identical app servers
+#
+# Topology:
+#   generator → client → LB → srv-1
+#                              └→ srv-2
+#   srv-1 → client
+#   srv-2 → client
+#
+# Each server runs: CPU(2 ms) → RAM(128 MB) → IO wait(12 ms)
+# All network links use exponential latency with small means (2–3 ms).
+#
+# Workload targets ~40 rps (120 users × 20 req/min ÷ 60).
 
 rqs_input:
-  id: "rqs-1"
-  avg_active_users:
-    mean: 120
-  avg_request_per_minute_per_user:
-    mean: 20
+  id: rqs-1
+  avg_active_users: { mean: 120 }
+  avg_request_per_minute_per_user: { mean: 20 }
   user_sampling_window: 60
 
 topology_graph:
   nodes:
-    client:
-      id: "client-1"
-
-    servers:
-      - id: "srv-1"
-        server_resources:
-          cpu_cores: 1
-          ram_mb: 1024
-        endpoints:
-          - endpoint_name: "/api"
-            steps:
-              - kind: "initial_parsing"
-                step_operation:
-                  cpu_time: 0.002
-              - kind: "ram"
-                step_operation:
-                  necessary_ram: 64
-              - kind: "io_wait"
-                step_operation:
-                  io_waiting_time: 0.012
-
-      - id: "srv-2"
-        server_resources:
-          cpu_cores: 2
-          ram_mb: 2048
-        endpoints:
-          - endpoint_name: "/api"
-            steps:
-              - kind: "ram"
-                step_operation:
-                  necessary_ram: 96
-              - kind: "io_db"
-                step_operation:
-                  io_waiting_time: 0.020
-              - kind: "cpu_bound_operation"   # <-- was 'final_processing' (invalid)
-                step_operation:
-                  cpu_time: 0.001
+    client: { id: client-1 }
 
     load_balancer:
-      id: "lb-1"
-      algorithms: "round_robin"
-      server_covered: ["srv-1", "srv-2"]
+      id: lb-1
+      algorithms: round_robin
+      server_covered: [srv-1, srv-2]
+
+    servers:
+      - id: srv-1
+        server_resources: { cpu_cores: 1, ram_mb: 2048 }
+        endpoints:
+          - endpoint_name: /api
+            steps:
+              - kind: initial_parsing
+                step_operation: { cpu_time: 0.002 }         # 2 ms CPU (blocks event loop)
+              - kind: ram
+                step_operation: { necessary_ram: 128 }      # 128 MB working set
+              - kind: io_wait
+                step_operation: { io_waiting_time: 0.012 }  # 12 ms non-blocking I/O
+
+      - id: srv-2
+        server_resources: { cpu_cores: 1, ram_mb: 2048 }
+        endpoints:
+          - endpoint_name: /api
+            steps:
+              - kind: initial_parsing
+                step_operation: { cpu_time: 0.002 }
+              - kind: ram
+                step_operation: { necessary_ram: 128 }
+              - kind: io_wait
+                step_operation: { io_waiting_time: 0.012 }
 
   edges:
-    - id: "gen-client"
-      source: "rqs-1"
-      target: "client-1"
-      latency: { mean: 0.003, distribution: "exponential" }
-
-    - id: "client-lb"
-      source: "client-1"
-      target: "lb-1"
-      latency: { mean: 0.002, distribution: "exponential" }
-
-    - id: "lb-srv1"
-      source: "lb-1"
-      target: "srv-1"
-      latency: { mean: 0.002, distribution: "exponential" }
-
-    - id: "lb-srv2"
-      source: "lb-1"
-      target: "srv-2"
-      latency: { mean: 0.002, distribution: "exponential" }
-
-    - id: "srv1-client"
-      source: "srv-1"
-      target: "client-1"
-      latency: { mean: 0.003, distribution: "exponential" }
-
-    - id: "srv2-client"
-      source: "srv-2"
-      target: "client-1"
-      latency: { mean: 0.003, distribution: "exponential" }
+    - { id: gen-client,  source: rqs-1,   target: client-1, latency: { mean: 0.003, distribution: exponential } }
+    - { id: client-lb,   source: client-1, target: lb-1,    latency: { mean: 0.002, distribution: exponential } }
+    - { id: lb-srv1,     source: lb-1,    target: srv-1,    latency: { mean: 0.002, distribution: exponential } }
+    - { id: lb-srv2,     source: lb-1,    target: srv-2,    latency: { mean: 0.002, distribution: exponential } }
+    - { id: srv1-client, source: srv-1,   target: client-1, latency: { mean: 0.003, distribution: exponential } }
+    - { id: srv2-client, source: srv-2,   target: client-1, latency: { mean: 0.003, distribution: exponential } }
 
 sim_settings:
   total_simulation_time: 600
-  sample_period_s: 0.02
+  sample_period_s: 0.05
   enabled_sample_metrics:
-    - "ready_queue_len"
-    - "event_loop_io_sleep"
-    - "ram_in_use"
-    - "edge_concurrent_connection"
+    - ready_queue_len
+    - event_loop_io_sleep
+    - ram_in_use
+    - edge_concurrent_connection
   enabled_event_metrics:
-    - "rqs_clock"
+    - rqs_clock

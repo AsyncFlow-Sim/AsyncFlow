@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # Lint & format with ruff, automatic corrections applied (--fix)

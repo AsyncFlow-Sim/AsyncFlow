@@ -62,7 +62,7 @@ The full YAML schema is explained in `docs/guides/yaml-input-builder.md` and val
 rqs_input:
   id: generator-1
   avg_active_users: { mean: 100, distribution: poisson }
-  avg_request_per_minute_per_user: { mean: 20, distribution: poisson }
+  avg_request_per_minute_per_user: { mean: 100, distribution: poisson }
   user_sampling_window: 60
 
 topology_graph:
@@ -99,6 +99,7 @@ sim_settings:
   sample_period_s: 0.05
   enabled_sample_metrics:
     - ready_queue_len
+    - event_loop_io_sleep
     - ram_in_use
     - edge_concurrent_connection
   enabled_event_metrics:

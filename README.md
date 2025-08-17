@@ -248,7 +248,7 @@ bash scripts/quality_check.sh
 
 Runs **ruff** (lint/format check) and **mypy** on `src` and `tests`.
 
-#### 2) Run tests with coverage
+#### 2) Run tests with coverage (unit + integration)
 
 **Linux / macOS / WSL**
 
@@ -260,6 +260,20 @@ bash scripts/run_tests.sh
 
 ```powershell
 .\scripts\run_tests.ps1
+```
+
+#### 3) Run system tests
+
+**Linux / macOS / WSL**
+
+```bash
+bash scripts/run_sys_tests.sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.\scripts\run_sys_tests.ps1
 ```
 
 Executes **pytest** with a terminal coverage summary (no XML, no slowest list).

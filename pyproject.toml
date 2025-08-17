@@ -18,9 +18,9 @@ keywords = [
   "fastapi", "uvicorn", "distributed-systems", "queuing-theory"
 ]
 
-homepage = "https://github.com/AsyncFlow-Sim" 
+homepage = "https://github.com/AsyncFlow-Sim/AsyncFlow" 
 repository = "https://github.com/AsyncFlow-Sim/AsyncFlow" 
-documentation = "https://github.com/AsyncFlow-Sim/AsyncFlow-Sim/tree/v0.1.0/docs" 
+documentation = "https://github.com/AsyncFlow-Sim/AsyncFlow/tree/main/docs"
 
 classifiers = [
   "Development Status :: 3 - Alpha",

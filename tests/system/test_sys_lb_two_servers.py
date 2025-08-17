@@ -8,7 +8,7 @@ Topology:
     srv-2 → client
 
 Each server endpoint: CPU(2 ms) → RAM(128 MB) → IO(12 ms)
-Edges: exponential latency ~2–3 ms.
+Edges: exponential latency ~2-3 ms.
 We check:
 - latency stats / throughput sanity vs nominal λ (~40 rps);
 - balanced traffic across srv-1 / srv-2 via edge concurrency and RAM means.
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 import random
-from typing import Dict, List
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -26,11 +26,15 @@ import simpy
 
 from asyncflow import AsyncFlow
 from asyncflow.components import Client, Edge, Endpoint, LoadBalancer, Server
-from asyncflow.metrics.analyzer import ResultsAnalyzer
+from asyncflow.config.constants import LatencyKey
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator
-from asyncflow.config.constants import LatencyKey
+
+if TYPE_CHECKING:
+    # Imported only for type checking (ruff: TC001)
+    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.schemas.payload import SimulationPayload
 
 pytestmark = [
     pytest.mark.system,
@@ -41,17 +45,17 @@ pytestmark = [
 ]
 
 SEED = 4242
-REL_TOL = 0.30   # 30% for λ/latency
-BAL_TOL = 0.25   # 25% imbalance tolerated between the two backends
+REL_TOL = 0.30  # 30% for λ/latency
+BAL_TOL = 0.25  # 25% imbalance tolerated between the two backends
 
 
 def _seed_all(seed: int = SEED) -> None:
     random.seed(seed)
-    np.random.seed(seed)
+    np.random.seed(seed)  # noqa: NPY002
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-def _build_payload():
+def _build_payload() -> SimulationPayload:
     gen = RqsGenerator(
         id="rqs-1",
         avg_active_users={"mean": 120},
@@ -68,10 +72,22 @@ def _build_payload():
             {"kind": "io_wait", "step_operation": {"io_waiting_time": 0.012}},
         ],
     )
-    srv1 = Server(id="srv-1", server_resources={"cpu_cores": 1, "ram_mb": 2048}, endpoints=[endpoint])
-    srv2 = Server(id="srv-2", server_resources={"cpu_cores": 1, "ram_mb": 2048}, endpoints=[endpoint])
+    srv1 = Server(
+        id="srv-1",
+        server_resources={"cpu_cores": 1, "ram_mb": 2048},
+        endpoints=[endpoint],
+    )
+    srv2 = Server(
+        id="srv-2",
+        server_resources={"cpu_cores": 1, "ram_mb": 2048},
+        endpoints=[endpoint],
+    )
 
-    lb = LoadBalancer(id="lb-1", algorithms="round_robin", server_covered={"srv-1", "srv-2"})
+    lb = LoadBalancer(
+        id="lb-1",
+        algorithms="round_robin",
+        server_covered={"srv-1", "srv-2"},
+    )
 
     edges = [
         Edge(
@@ -151,7 +167,8 @@ def test_system_lb_two_servers_balanced_and_sane() -> None:
 
     # Latency sanity
     stats = res.get_latency_stats()
-    assert stats and LatencyKey.TOTAL_REQUESTS in stats
+    assert stats, "Expected non-empty stats."
+    assert LatencyKey.TOTAL_REQUESTS in stats
     mean_lat = float(stats.get(LatencyKey.MEAN, 0.0))
     assert 0.020 <= mean_lat <= 0.060
 
@@ -164,15 +181,22 @@ def test_system_lb_two_servers_balanced_and_sane() -> None:
 
     # Load balance check: edge concurrency lb→srv1 vs lb→srv2 close
     sampled = res.get_sampled_metrics()
-    edge_cc: Dict[str, List[float]] = sampled.get("edge_concurrent_connection", {})
-    assert "lb-srv1" in edge_cc and "lb-srv2" in edge_cc
-    m1, m2 = float(np.mean(edge_cc["lb-srv1"])), float(np.mean(edge_cc["lb-srv2"]))
+    edge_cc: dict[str, list[float]] = sampled.get(
+        "edge_concurrent_connection",
+        {},
+    )
+    assert "lb-srv1" in edge_cc
+    assert "lb-srv2" in edge_cc
+    m1 = float(np.mean(edge_cc["lb-srv1"]))
+    m2 = float(np.mean(edge_cc["lb-srv2"]))
     assert _rel_diff(m1, m2) <= BAL_TOL
 
     # Server metrics present and broadly similar (RAM means close-ish)
-    ram_map: Dict[str, List[float]] = sampled.get("ram_in_use", {})
-    assert "srv-1" in ram_map and "srv-2" in ram_map
-    ram1, ram2 = float(np.mean(ram_map["srv-1"])), float(np.mean(ram_map["srv-2"]))
+    ram_map: dict[str, list[float]] = sampled.get("ram_in_use", {})
+    assert "srv-1" in ram_map
+    assert "srv-2" in ram_map
+    ram1 = float(np.mean(ram_map["srv-1"]))
+    ram2 = float(np.mean(ram_map["srv-2"]))
     assert _rel_diff(ram1, ram2) <= BAL_TOL
 
     # IDs reported by analyzer

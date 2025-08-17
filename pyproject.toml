@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "AsyncFlow-Sim"
-version = "0.1.0a1"
+version = "0.1.0"
 description = "Digital-twin simulator for distributed async systems. Build what-if scenarios and quantify capacity, latency and throughput offline—before you deploy."
 authors = ["Gioele Botta"]
 readme = "README.md"

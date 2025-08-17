@@ -26,7 +26,6 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
-  "Topic :: Scientific/Engineering :: Simulation",
   "Topic :: System :: Distributed Computing",
   "Topic :: Software Development :: Testing",
   "Topic :: System :: Benchmark",

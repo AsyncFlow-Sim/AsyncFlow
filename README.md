@@ -173,53 +173,98 @@ For ready-to-run scenarios—including examples using the Pythonic builder and m
 If you want to contribute or run the full test suite locally, follow these steps.
 
 ### Requirements
+
 * **Python 3.12+** (tested on 3.12, 3.13)
 * **OS:** Linux, macOS, or Windows
-* **Installed with the package (runtime deps):** SimPy, NumPy, Matplotlib, Pydantic, PyYAML, pydantic-settings
+* **Runtime deps installed by the package:** SimPy, NumPy, Matplotlib, Pydantic, PyYAML, pydantic-settings
 
-### Install Poetry
+**Prerequisites:** Git, Python 3.12+ in `PATH`, `curl` (Linux/macOS/WSL), PowerShell 7+ (Windows)
 
-#### Linux / macOS (official installer)
+---
 
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-# then make sure Poetry is on PATH (the installer prints the exact line)
-# common path:
-export PATH="$HOME/.local/bin:$PATH"
-poetry --version
-```
-
-#### Windows (PowerShell)
-
-Open **PowerShell** *as your user* (no admin needed) and run:
-
-```powershell
-(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
-# Close & reopen PowerShell so PATH updates take effect
-poetry --version
-```
-
-### Project setup
+## Project setup
 
 ```bash
 git clone https://github.com/AsyncFlow-Sim/AsyncFlow.git
 cd AsyncFlow
 ```
 
-Create a project-local virtualenv and install dependencies (including dev tools):
+From the repo root, run the **one-shot post-clone setup**:
+
+**Linux / macOS / WSL**
 
 ```bash
-poetry config virtualenvs.in-project true
-poetry install --with dev
+bash scripts/dev_setup.sh
 ```
 
-You can either run commands through Poetry **without activating** the venv:
+**Windows (PowerShell)**
+
+```powershell
+# If scripts are blocked by policy, run this in the same PowerShell session:
+# Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\dev_setup.ps1
+```
+
+**What this does (concise):**
+
+* Ensures **Poetry** is available (installs if missing).
+* Uses a **project-local `.venv`**.
+* Removes `poetry.lock` for a **clean dependency resolve** (dev policy).
+* Installs the project **with dev extras**.
+* Runs **ruff**, **mypy**, and **pytest (with coverage)**.
+
+**Quick sanity check after setup:**
 
 ```bash
-poetry run ruff check src tests
-poetry run mypy src tests
-poetry run pytest
+poetry --version
+poetry run python -V
 ```
+
+> **Note (lock policy):** `dev_setup` intentionally removes `poetry.lock` to avoid cross-platform conflicts during development.
+
+**Scripts (for quick access):**
+
+* [`scripts/dev_setup.sh`](scripts/dev_setup.sh) / [`scripts/dev_setup.ps1`](scripts/dev_setup.ps1)
+* [`scripts/quality_check.sh`](scripts/quality_check.sh) / [`scripts/quality_check.ps1`](scripts/quality_check.ps1)
+* [`scripts/run_tests.sh`](scripts/run_tests.sh) / [`scripts/run_tests.ps1`](scripts/run_tests.ps1)
+
+---
+
+### Handy scripts (after setup)
+
+#### 1) Lint + type check
+
+**Linux / macOS / WSL**
+
+```bash
+bash scripts/quality_check.sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.\scripts\quality_check.ps1
+```
+
+Runs **ruff** (lint/format check) and **mypy** on `src` and `tests`.
+
+#### 2) Run tests with coverage
+
+**Linux / macOS / WSL**
+
+```bash
+bash scripts/run_tests.sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.\scripts\run_tests.ps1
+```
+
+Executes **pytest** with a terminal coverage summary (no XML, no slowest list).
+
+
 
 ## What AsyncFlow Models (v0.1)
 

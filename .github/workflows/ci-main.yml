@@ -1,0 +1,51 @@
+name: CI – Main Branch 
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-main-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  MPLBACKEND: Agg
+  ASYNCFLOW_RUN_SYSTEM_TESTS: "1"
+
+jobs:
+  all-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install Poetry & deps
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry config virtualenvs.create false
+          poetry install --with dev --no-interaction
+
+      - name: Ruff (lint)
+        run: poetry run ruff check src tests
+
+      - name: MyPy (type-check)
+        run: poetry run mypy src tests
+
+      - name: All tests (unit + integration + system)
+        run: |
+          poetry run pytest \
+            --disable-warnings

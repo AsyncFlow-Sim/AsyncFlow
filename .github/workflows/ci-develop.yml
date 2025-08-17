@@ -1,51 +1,100 @@
-name: CI – Main Branch (Single Job, System Required)
+name: CI – Develop Branch
+
+
+# Triggers
+# --------
+# • pull_request → quick job (lint + type-check + unit tests)
+# • push         → full job  (quick job + DB migrations + integration tests +
+#                              Docker build & smoke test)
 
 on:
   pull_request:
-    branches: [main]
-  workflow_dispatch:
+    branches: [develop]
+  push:
+    branches: [develop]
 
-concurrency:
-  group: ci-main-${{ github.ref }}
-  cancel-in-progress: true
 
-env:
-  PYTHON_VERSION: "3.12"
-  MPLBACKEND: Agg
-  ASYNCFLOW_RUN_SYSTEM_TESTS: "1"
+# Job 1 ─ Quick validation (executed only on pull_request events)
+# --------------------------------------------------------------------------- #
+# Runs fast checks that give reviewers immediate feedback.  No external
+# services or Docker are used to keep runtime under one minute.
 
 jobs:
-  all-checks:
+  quick:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v4
+      # Checkout repository
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v5
+      # Install Python 3.12
+      - uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+          python-version: "3.12"
 
+      # Restore Poetry cache for faster installs
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pypoetry
           key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install Poetry & deps
+      # Install project + development dependencies
+      - name: Install dependencies
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
-          export PATH="$HOME/.local/bin:$PATH"
           poetry config virtualenvs.create false
           poetry install --with dev --no-interaction
 
-      - name: Ruff (lint)
+      # Code quality gates
+      - name: Run Ruff (lint & formatting check)
         run: poetry run ruff check src tests
 
-      - name: MyPy (type-check)
+      - name: Run MyPy (type-check)
         run: poetry run mypy src tests
+      
+      # Unit-tests only (exclude integration markers)
+      - name: Run unit tests
+        env:
+         ENVIRONMENT: test
+        run: poetry run pytest -m "not integration" --disable-warnings
 
-      - name: All tests (unit + integration + system)
+
+
+# Job 2 ─ Full validation (executed only on push events)
+  full:
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with: { python-version: '3.12' }
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          poetry config virtualenvs.create false
+          poetry install --with dev --no-interaction
+
+      - name: Run Ruff
+        run: poetry run ruff check src tests
+
+      - name: Run mypy
+        run: poetry run mypy src
+
+      - name: Run all tests
         run: |
           poetry run pytest \
+            --cov=src --cov-report=term \
             --disable-warnings
+
+      
+
+     

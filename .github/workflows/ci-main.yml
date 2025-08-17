@@ -3,7 +3,10 @@ name: CI – Main Branch
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
+
 
 concurrency:
   group: ci-main-${{ github.ref }}

@@ -1,36 +1,57 @@
 [tool.poetry]
-name = "project-backend"
-version = "0.1.0"
-description = "solo professional project"
+name = "AsyncFlow-Sim"
+version = "0.1.0a1"
+description = "Digital-twin simulator for distributed async systems. Build what-if scenarios and quantify capacity, latency and throughput offline—before you deploy."
 authors = ["Gioele Botta"]
 readme = "README.md"
-
+license = "MIT"
 packages = [
-  { include = "app", from = "src" }
+  { include = "asyncflow", from = "src" }
+]
+
+include = ["LICENSE", "src/asyncflow/py.typed"]
+exclude = ["tests", "docs", "scripts", ".github", "alembic"]
+
+# Better pypi discovery
+keywords = [
+  "simulation", "simpy", "asyncio", "capacity-planning", "performance",
+  "fastapi", "uvicorn", "distributed-systems", "queuing-theory"
+]
+
+homepage = "https://github.com/AsyncFlow-Sim" 
+repository = "https://github.com/AsyncFlow-Sim/AsyncFlow" 
+documentation = "https://github.com/AsyncFlow-Sim/AsyncFlow-Sim/tree/v0.1.0/docs" 
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Simulation",
+  "Topic :: System :: Distributed Computing",
+  "Topic :: Software Development :: Testing",
+  "Topic :: System :: Benchmark",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+  "Operating System :: OS Independent",
 ]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = "^0.115.14"
-sqlalchemy = "^2.0.41"
-psycopg = {extras = ["binary"], version = "^3.2.9"}
-uvicorn = {extras = ["standard"], version = "^0.34.3"}
-gunicorn = "^23.0.0"
 pydantic-settings = "^2.10.1"
 pydantic = {extras = ["email"], version = "^2.11.7"}
-asyncpg = "^0.30.0"
-passlib = {extras = ["argon2"], version = "^1.7.4"}
-argon2-cffi = "^25.1.0"
-sqlalchemy-utils = "^0.41.2"
+numpy = "^2.3.1"
+simpy = "^4.1.1"
+matplotlib = "^3.10.3"
+pyyaml = "^6.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
 pytest-asyncio = "^1.0.0"
-httpx = "^0.28.1"
 pytest-cov = "^6.2.1"
 mypy = "^1.16.1"
-alembic = "^1.16.2"
 ruff = "^0.12.1"
+types-pyyaml = "^6.0.12.20250516"
 
 [build-system]
 requires = ["poetry-core"]
@@ -102,4 +123,4 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 show_error_codes = true
 pretty = true
-exclude = ["^alembic/", "^.venv/"]
+exclude = ["^.venv/"]

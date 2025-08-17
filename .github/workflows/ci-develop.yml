@@ -55,37 +55,18 @@ jobs:
       
       # Unit-tests only (exclude integration markers)
       - name: Run unit tests
+        env:
+         ENVIRONMENT: test
         run: poetry run pytest -m "not integration" --disable-warnings
 
 
 
 # Job 2 ─ Full validation (executed only on push events)
-# --------------------------------------------------------------------------- #
-# Includes everything from the quick job plus:
-# • PostgreSQL service container
-# • Alembic migrations
-# • Integration tests
-# • Multi-stage Docker build and health-check
-
   full:
     if: |
       github.event_name == 'push' &&
       github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: ${{ secrets.DB_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.DB_NAME }}
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v3
@@ -108,41 +89,12 @@ jobs:
       - name: Run mypy
         run: poetry run mypy src
 
-      - name: Apply Alembic migrations
-        env:
-          ENVIRONMENT: test
-          DB_URL: postgresql+psycopg://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@localhost:5432/${{ secrets.DB_NAME }}
-        run: poetry run alembic upgrade head
-
       - name: Run all tests
-        env:
-          ENVIRONMENT: test
-          DB_URL: postgresql+asyncpg://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@localhost:5432/${{ secrets.DB_NAME }}
         run: |
           poetry run pytest \
             --cov=src --cov-report=term \
             --disable-warnings
 
-      - name: Build Docker image
-        run: docker build --progress=plain -t backend:ci .
+      
 
-      - name: Smoke test container
-        run: |
-          # partiamo con --network host così il container condivide la rete del runner
-          docker run -d \
-            --name backend_ci \
-            --network host \
-            -e ENVIRONMENT=test \
-            -e DB_URL=postgresql+asyncpg://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@localhost:5432/${{ secrets.DB_NAME }} \
-            backend:ci \
-            uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-          for i in {1..10}; do
-            if curl --silent --fail http://localhost:8000/health; then
-              echo "✔ Health OK"; break
-            else
-              echo "Waiting…"; sleep 3
-            fi
-          done
-
-          docker stop backend_ci
+     

@@ -78,13 +78,13 @@ class EventInjection(BaseModel):
 
         expected = start_to_end[model.start.kind]
         if model.end.kind != expected:
-            msg = (f"The event {model.event_id} must have"
+            msg = (f"The event {model.event_id} must have "
                    f"as value of kind in end {expected}")
             raise ValueError(msg)
 
         # Ensure the time sequence is well defined
         if model.start.t_start >= model.end.t_end:
-            msg=(f"The starting time for the event {model.event_id}"
+            msg=(f"The starting time for the event {model.event_id} "
                  "must be smaller than the ending time")
             raise ValueError(msg)
 

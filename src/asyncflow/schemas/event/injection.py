@@ -53,7 +53,7 @@ class End(BaseModel):
     ]
     t_end: PositiveFloat  # strictly > 0
 
-class Event(BaseModel):
+class EventInjection(BaseModel):
     """Definition of the input structure to define an event in the simulation"""
 
     event_id: str
@@ -64,8 +64,8 @@ class Event(BaseModel):
     @model_validator(mode="after") # type: ignore[arg-type]
     def ensure_start_end_compatibility(
         cls, # noqa: N805
-        model: "Event",
-        ) -> "Event":
+        model: "EventInjection",
+        ) -> "EventInjection":
         """
         Check the compatibility between Start and End both at level
         of time interval and kind
@@ -78,7 +78,7 @@ class Event(BaseModel):
 
         expected = start_to_end[model.start.kind]
         if model.end.kind != expected:
-            msg = (f"The event {model.event_id} must have" 
+            msg = (f"The event {model.event_id} must have"
                    f"as value of kind in end {expected}")
             raise ValueError(msg)
 
@@ -87,5 +87,7 @@ class Event(BaseModel):
             msg=(f"The starting time for the event {model.event_id}"
                  "must be smaller than the ending time")
             raise ValueError(msg)
+
+        return model
 
 

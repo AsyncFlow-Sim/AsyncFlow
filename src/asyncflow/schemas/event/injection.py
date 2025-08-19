@@ -22,12 +22,6 @@ from asyncflow.config.constants import EventDescription
 #   extra="forbid" rejects unknown fields (e.g., catches t_strat vs t_start);
 #   frozen=True makes instances immutable at runtime for stability.
 
-# Yaml example:
-# event_id: ev-1
-# target_id: srv-1
-# start: { kind: SERVER_DOWN, t_start: 120.0 }
-# end:   { kind: SERVER_UP, t_end: 240.0 }
-
 class Start(BaseModel):
     """Start marker for an event window."""
 
@@ -39,6 +33,8 @@ class Start(BaseModel):
         EventDescription.NETWORK_SPIKE_START,
     ]
     t_start: NonNegativeFloat  # seconds from simulation start
+    spike_s: None | PositiveFloat = None
+
 
 
 class End(BaseModel):
@@ -60,6 +56,12 @@ class EventInjection(BaseModel):
     target_id: str
     start: Start
     end: End
+
+    # Yaml example:
+    # event_id: ev-1
+    # target_id: srv-1
+    # start: { kind: SERVER_DOWN, t_start: 120.0 }
+    # end:   { kind: SERVER_UP, t_end: 240.0 }
 
     @model_validator(mode="after") # type: ignore[arg-type]
     def ensure_start_end_compatibility(
@@ -91,3 +93,27 @@ class EventInjection(BaseModel):
         return model
 
 
+    @model_validator(mode="after") # type: ignore[arg-type]
+    def ensure_spike_exist_on_network_event(
+        cls, # noqa: N805
+        model: "EventInjection",
+        ) -> "EventInjection":
+        """
+        When a network event is selected the spike must be
+        indicated
+        """
+        if (model.start.kind == EventDescription.NETWORK_SPIKE_START
+            and model.start.spike_s is None):
+            msg = (
+                  f"The field spike_s for the event {model.event_id} "
+                  "must be defined as a positive float"
+                )
+            raise ValueError(msg)
+
+        if  (model.start.kind != EventDescription.NETWORK_SPIKE_START
+             and model.start.spike_s is not None):
+            msg = f"Event {model.event_id}: spike_s must be omitted"
+            raise ValueError(msg)
+
+
+        return model

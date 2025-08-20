@@ -18,7 +18,7 @@ import pytest
 from pydantic import ValidationError
 
 from asyncflow.config.constants import EventDescription
-from asyncflow.schemas.event.injection import End, EventInjection, Start
+from asyncflow.schemas.events.injection import End, EventInjection, Start
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -20,7 +20,7 @@ import pytest
 
 from asyncflow.config.constants import Distribution, EventDescription
 from asyncflow.schemas.common.random_variables import RVConfig
-from asyncflow.schemas.event.injection import End, EventInjection, Start
+from asyncflow.schemas.events.injection import End, EventInjection, Start
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.topology.edges import Edge
 from asyncflow.schemas.topology.graph import TopologyGraph

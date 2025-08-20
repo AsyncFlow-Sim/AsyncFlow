@@ -3,7 +3,7 @@
 from pydantic import BaseModel, field_validator, model_validator
 
 from asyncflow.config.constants import EventDescription
-from asyncflow.schemas.event.injection import EventInjection
+from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator

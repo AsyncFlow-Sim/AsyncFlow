@@ -1,16 +1,17 @@
 """Definition of the node represented by the LB in the simulation"""
 
+
+from collections import OrderedDict
 from collections.abc import Generator
-from typing import TYPE_CHECKING
+from typing import (
+    TYPE_CHECKING,
+)
 
 import simpy
 
-from asyncflow.config.constants import LbAlgorithmsName, SystemNodes
+from asyncflow.config.constants import SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
-from asyncflow.runtime.actors.routing.lb_algorithms import (
-    least_connections,
-    round_robin,
-)
+from asyncflow.runtime.actors.routing.lb_algorithms import LB_TABLE
 from asyncflow.schemas.topology.nodes import LoadBalancer
 
 if TYPE_CHECKING:
@@ -26,29 +27,38 @@ class LoadBalancerRuntime:
         *,
         env: simpy.Environment,
         lb_config: LoadBalancer,
-        out_edges: list[EdgeRuntime] | None,
+
+        # We use an OrderedDict because, for the RR algorithm,
+        # we rotate elements in O(1) by moving the selected key to the end.
+        # An OrderedDict also lets us remove an element by key in O(1)
+        # without implementing a custom doubly linked list + hashmap.
+        # Keys are the unique edge IDs that connect the LB to the servers.
+        # If multiple LBs are present, the SimulationRunner assigns
+        # the correct dict to each LB. Removals/insertions are performed
+        # by the EventInjectionRuntime.
+
+        lb_out_edges: OrderedDict[str, EdgeRuntime],
         lb_box: simpy.Store,
     ) -> None:
         """
         Descriprion of the instance attributes for the class
         Args:
-            env (simpy.Environment): env of the simulation
-            lb_config (LoadBalancer): input to define the lb in the runtime
-            rqs_state (RequestState): state of the simulation
-            out_edges (list[EdgeRuntime]): list of edges that connects lb with servers
-            lb_box (simpy.Store): store to add the state
-
+            env (simpy.Environment): Simulation environment.
+            lb_config (LoadBalancer): LB configuration for the runtime.
+            out_edges (OrderedDict[str, EdgeRuntime]): Edges connecting
+            the LB to servers.
+            lb_box (simpy.Store): Queue (mailbox) from which the LB
+            consumes request states.
         """
         self.env = env
         self.lb_config = lb_config
-        self.out_edges = out_edges
+        self.lb_out_edges = lb_out_edges
         self.lb_box = lb_box
-        self._round_robin_index: int = 0
+
 
 
     def _forwarder(self) -> Generator[simpy.Event, None, None]:
         """Updtate the state before passing it to another node"""
-        assert self.out_edges is not None
         while True:
             state: RequestState = yield self.lb_box.get()  # type: ignore[assignment]
 
@@ -58,14 +68,7 @@ class LoadBalancerRuntime:
                     self.env.now,
                 )
 
-            if self.lb_config.algorithms == LbAlgorithmsName.ROUND_ROBIN:
-                out_edge, self._round_robin_index = round_robin(
-                    self.out_edges,
-                    self._round_robin_index,
-                )
-            else:
-                out_edge = least_connections(self.out_edges)
-
+            out_edge = LB_TABLE[self.lb_config.algorithms](self.lb_out_edges)
             out_edge.transport(state)
 
     def start(self) -> simpy.Process:

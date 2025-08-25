@@ -3,11 +3,13 @@ Centralized runtime object to inject events into the simulation.
 This covers, for example, deterministic network latency spikes on edges and
 scheduled server outages over a defined time window.
 """
+from collections import OrderedDict
 from collections.abc import Generator
 from typing import cast
 
 import simpy
 
+from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.topology.edges import Edge
 from asyncflow.schemas.topology.nodes import Server
@@ -37,6 +39,9 @@ class EventInjectionRuntime:
         edges: list[Edge],
         env: simpy.Environment,
         servers: list[Server],
+        # This is initiated in the simulation runner to understand
+        # the process there are extensive comments in that file
+        lb_out_edges: OrderedDict[str, EdgeRuntime],
     ) -> None:
         """
         Definition of the attributes of the instance for
@@ -47,12 +52,15 @@ class EventInjectionRuntime:
             edges (list[Edge]): input data for the edges
             env (simpy.Environment): simpy env for the simulation
             servers (list[Server]): input data of the server
+            lb_out_edges: OrderedDict[str, EdgeRuntime]:
+            ordered dict to handle server events
 
         """
         self.events = events
         self.edges = edges
         self.env = env
         self.servers = servers
+        self.lb_out_edges = lb_out_edges
 
         # Nested mapping for edge spikes:
         # edges_events: Dict[event_id, Dict[edge_id, float]]
@@ -142,6 +150,19 @@ class EventInjectionRuntime:
             ),
         )
 
+        # This function is useful to assign to connect the server id
+        # that will be down to the edge runtime that we have to remove
+        # from the ordered dict
+
+        # Build reverse index: server_id -> (edge_id, EdgeRuntime)
+        self._edge_by_server: dict[str, tuple[str, EdgeRuntime]] = {}
+
+        for edge_id, edge_runtime in lb_out_edges.items():
+            # Each EdgeRuntime has an associated Edge config.
+            # The .edge_config.target corresponds to the server_id.
+            server_id = edge_runtime.edge_config.target
+            self._edge_by_server[server_id] = (edge_id, edge_runtime)
+
 
     def _assign_edges_spike(self) -> Generator[simpy.Event, None, None]:
         """
@@ -164,9 +185,7 @@ class EventInjectionRuntime:
             dt: float = t - last_t
             if dt > 0.0:
                 yield self.env.timeout(dt)
-                last_t = t
-            elif t > last_t:
-                last_t = t
+            last_t = t
 
             # Apply the effect at the instant when the event start
             if mark == START_MARK:
@@ -179,11 +198,42 @@ class EventInjectionRuntime:
                 self._edges_spike[edge_id] = current - delta
 
 
+    def _assign_server_state(self) -> Generator[simpy.Event, None, None]:
+        last_t: float = float(self.env.now)
+        for ev in self._servers_timeline:
+            t = cast("float", ev[TIME])
+            server_id = cast("str", ev[TARGET_ID])
+            mark = cast("str", ev[START_END])
+
+            dt = t - last_t
+            if dt > 0.0:
+                yield self.env.timeout(dt)
+            last_t = t
+
+            edge_info = self._edge_by_server.get(server_id)
+            if not edge_info:
+                continue
+            edge_id, edge_runtime = edge_info
+
+            if mark == START_MARK:
+                # server DOWN: remove edge from the ordered dict
+                self.lb_out_edges.pop(edge_id, None)
+            else:
+                # server UP: put the edge server lb
+                # back in the ordered dict with the
+                # policy to move it at the end
+                self.lb_out_edges[edge_id] = edge_runtime
+                self.lb_out_edges.move_to_end(edge_id)
 
 
-    def start(self) -> simpy.Process:
-        """Initialization of the process"""
-        return self.env.process(self._assign_edges_spike())
+
+
+
+    def start(self) -> tuple[simpy.Process, simpy.Process]:
+        """Start both edge-spike and server-outage timelines."""
+        p1 = self.env.process(self._assign_edges_spike())
+        p2 = self.env.process(self._assign_server_state())
+        return p1, p2
 
     @property
     def edges_spike(self) -> dict[str, float]:
@@ -197,7 +247,7 @@ class EventInjectionRuntime:
     @property
     def edges_affected(self) -> set[str]:
         """
-        Expose the value of the private dict, this will be
+        Expose the value of the private set, this will be
         used in the edge runtime to determine the current,
         if exist, network spike
         """

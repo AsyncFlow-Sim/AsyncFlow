@@ -56,7 +56,7 @@ class EdgeRuntime:
         self.edges_affected = edges_affected
         self.target_box = target_box
         self.rng = rng or np.random.default_rng()
-        self.setting = settings
+        self.settings = settings
         self._edge_enabled_metrics = build_edge_metrics(
             settings.enabled_sample_metrics,
         )
@@ -93,8 +93,8 @@ class EdgeRuntime:
         # Logic to add if exists the event injection for the given edge
         spike = 0.0
         if (
-            self.edges_affected
-            and self.edges_spike
+            self.edges_spike
+            and self.edges_affected
             and self.edge_config.id in self.edges_affected
         ):
             spike = self.edges_spike.get(self.edge_config.id, 0.0)

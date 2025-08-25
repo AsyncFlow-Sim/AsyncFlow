@@ -77,10 +77,9 @@ def test_build_servers_keeps_empty_with_minimal_topology(
 def test_build_load_balancer_noop_when_absent(
     runner: SimulationRunner,
 ) -> None:
-    """No LB in the payload → builder leaves dict empty."""
+    """No LB in the payload → builder leaves runtime as None."""
     runner._build_load_balancer()  # noqa: SLF001
-    assert runner._lb_runtime == {}  # noqa: SLF001
-
+    assert runner._lb_runtime is None  # noqa: SLF001
 
 # --------------------------------------------------------------------------- #
 # Edges builder                                                               #

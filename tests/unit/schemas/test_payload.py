@@ -331,3 +331,44 @@ def test_accept_when_never_all_down(
     )
     assert payload.events is not None
     assert len(payload.events) == 2
+
+
+def test_server_outage_back_to_back_is_valid(
+    rqs_input: RqsGenerator, sim_settings: SimulationSettings,
+) -> None:
+    """Back-to-back outages on the same server (END==START) must be accepted."""
+    topo = _topology_with_two_servers_and_edge()
+    sim_settings.total_simulation_time = 30  # ensure timestamps are within horizon
+
+    # srv-1: [10, 15] followed immediately by [15, 20] → no overlap
+    ev_a = _mk_server_window("ev-a", "srv-1", start_t=10.0, end_t=15.0)
+    ev_b = _mk_server_window("ev-b", "srv-1", start_t=15.0, end_t=20.0)
+
+    payload = SimulationPayload(
+        rqs_input=rqs_input,
+        topology_graph=topo,
+        sim_settings=sim_settings,
+        events=[ev_a, ev_b],
+    )
+    assert payload.events is not None
+    assert len(payload.events) == 2
+
+
+def test_server_outage_overlap_same_server_is_rejected(
+    rqs_input: RqsGenerator, sim_settings: SimulationSettings,
+) -> None:
+    """Overlapping outages on the same server must be rejected by validation."""
+    topo = _topology_with_two_servers_and_edge()
+    sim_settings.total_simulation_time = 30  # ensure timestamps are within horizon
+
+    # srv-1: [10, 15] and [14, 20] → overlap in [14, 15]
+    ev_a = _mk_server_window("ev-a", "srv-1", start_t=10.0, end_t=15.0)
+    ev_b = _mk_server_window("ev-b", "srv-1", start_t=14.0, end_t=20.0)
+
+    with pytest.raises(ValueError, match=r"Overlapping events for"):
+        SimulationPayload(
+            rqs_input=rqs_input,
+            topology_graph=topo,
+            sim_settings=sim_settings,
+            events=[ev_a, ev_b],
+        )

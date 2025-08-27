@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
 """
-AsyncFlow builder example — build, run, and visualize a single-server async system.
+AsyncFlow builder example — build, run, and visualize a single-server async system
+with event injections (latency spike on edge + server outage).
 
 Topology (single server)
     generator ──edge──> client ──edge──> server ──edge──> client
@@ -18,13 +20,16 @@ Server model
 Network model
     Each edge has exponential latency with mean 3 ms.
 
+Events
+    - ev-spike-1: deterministic latency spike (+20 ms) on client→server edge,
+      active from t=120s to t=240s
+    - ev-outage-1: server outage for srv-1 from t=300s to t=360s
+
 Outputs
     - Prints latency statistics to stdout
-    - Saves a 2×2 PNG in the same directory as this script:
-        [0,0] Latency histogram (with mean/P50/P95/P99)
-        [0,1] Throughput (with mean/P95/max overlays)
-        [1,0] Ready queue for the first server
-        [1,1] RAM usage for the first server
+    - Saves PNGs in `single_server_plot/` next to this script:
+        * dashboard (latency + throughput)
+        * per-server plots (ready queue, I/O queue, RAM)
 """
 
 from __future__ import annotations
@@ -59,7 +64,7 @@ def build_and_run() -> ResultsAnalyzer:
 
     # Server + endpoint (CPU → RAM → I/O)
     endpoint = Endpoint(
-        endpoint_name="/api",
+        endpoint_name="ep-1",
         probability=1.0,
         steps=[
             {"kind": "initial_parsing", "step_operation": {"cpu_time": 0.001}},  # 1 ms
@@ -68,7 +73,7 @@ def build_and_run() -> ResultsAnalyzer:
         ],
     )
     server = Server(
-        id="app-1",
+        id="srv-1",
         server_resources={"cpu_cores": 1, "ram_mb": 2048},
         endpoints=[endpoint],
     )
@@ -80,22 +85,22 @@ def build_and_run() -> ResultsAnalyzer:
         target="client-1",
         latency={"mean": 0.003, "distribution": "exponential"},
     )
-    e_client_app = Edge(
-        id="client-app",
+    e_client_srv = Edge(
+        id="client-srv",
         source="client-1",
-        target="app-1",
+        target="srv-1",
         latency={"mean": 0.003, "distribution": "exponential"},
     )
-    e_app_client = Edge(
-        id="app-client",
-        source="app-1",
+    e_srv_client = Edge(
+        id="srv-client",
+        source="srv-1",
         target="client-1",
         latency={"mean": 0.003, "distribution": "exponential"},
     )
 
     # Simulation settings
     settings = SimulationSettings(
-        total_simulation_time=300,
+        total_simulation_time=500,
         sample_period_s=0.05,
         enabled_sample_metrics=[
             "ready_queue_len",
@@ -106,14 +111,22 @@ def build_and_run() -> ResultsAnalyzer:
         enabled_event_metrics=["rqs_clock"],
     )
 
-    # Assemble payload with the builder
+    # Assemble payload with events
     payload = (
         AsyncFlow()
         .add_generator(generator)
         .add_client(client)
         .add_servers(server)
-        .add_edges(e_gen_client, e_client_app, e_app_client)
+        .add_edges(e_gen_client, e_client_srv, e_srv_client)
         .add_simulation_settings(settings)
+        # Events
+        .add_network_spike(
+            event_id="ev-spike-1",
+            edge_id="client-srv",
+            t_start=120.0,
+            t_end=240.0,
+            spike_s=0.020,  # 20 ms spike
+        )
     ).build_payload()
 
     # Run
@@ -130,31 +143,44 @@ def main() -> None:
     # Print concise latency summary
     print(res.format_latency_stats())
 
-    # Prepare figure in the same folder as this script
+    # Prepare output dir
     script_dir = Path(__file__).parent
-    out_path = script_dir / "builder_service_plots.png"
+    out_dir = script_dir / "single_server_plot"
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 2×2: Latency | Throughput | Ready (first server) | RAM (first server)
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=160)
-
-    # Top row
-    res.plot_latency_distribution(axes[0, 0])
-    res.plot_throughput(axes[0, 1])
-
-    # Bottom row — first server, if present
-    sids = res.list_server_ids()
-    if sids:
-        sid = sids[0]
-        res.plot_single_server_ready_queue(axes[1, 0], sid)
-        res.plot_single_server_ram(axes[1, 1], sid)
-    else:
-        for ax in (axes[1, 0], axes[1, 1]):
-            ax.text(0.5, 0.5, "No servers", ha="center", va="center")
-            ax.axis("off")
-
+    # Dashboard (latency + throughput)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    res.plot_base_dashboard(axes[0], axes[1])
     fig.tight_layout()
-    fig.savefig(out_path)
-    print(f"Plots saved to: {out_path}")
+    dash_path = out_dir / "event_inj_single_server_dashboard.png"
+    fig.savefig(dash_path)
+    print(f"Saved: {dash_path}")
+
+    # Per-server plots
+    for sid in res.list_server_ids():
+        # Ready queue
+        f1, a1 = plt.subplots(figsize=(10, 5))
+        res.plot_single_server_ready_queue(a1, sid)
+        f1.tight_layout()
+        p1 = out_dir / f"event_inj_single_server_ready_queue_{sid}.png"
+        f1.savefig(p1)
+        print(f"Saved: {p1}")
+
+        # I/O queue
+        f2, a2 = plt.subplots(figsize=(10, 5))
+        res.plot_single_server_io_queue(a2, sid)
+        f2.tight_layout()
+        p2 = out_dir / f"event_inj_single_server_io_queue_{sid}.png"
+        f2.savefig(p2)
+        print(f"Saved: {p2}")
+
+        # RAM usage
+        f3, a3 = plt.subplots(figsize=(10, 5))
+        res.plot_single_server_ram(a3, sid)
+        f3.tight_layout()
+        p3 = out_dir / f"event_inj_single_server_ram_{sid}.png"
+        f3.savefig(p3)
+        print(f"Saved: {p3}")
 
 
 if __name__ == "__main__":

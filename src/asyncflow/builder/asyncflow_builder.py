@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Self
 
+from asyncflow.config.constants import EventDescription
+from asyncflow.schemas.events.injection import End, EventInjection, Start
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.edges import Edge
@@ -28,6 +30,7 @@ class AsyncFlow:
         self._edges: list[Edge] | None = None
         self._sim_settings: SimulationSettings | None = None
         self._load_balancer: LoadBalancer | None = None
+        self._events: list[EventInjection] = []
 
     def add_generator(self, rqs_generator: RqsGenerator) -> Self:
         """Method to instantiate the generator"""
@@ -88,6 +91,55 @@ class AsyncFlow:
         self._load_balancer = load_balancer
         return self
 
+    # --------------------------------------------------------------------- #
+    # Events                                                                #
+    # --------------------------------------------------------------------- #
+
+    def add_network_spike(
+        self,
+        *,
+        event_id: str,
+        edge_id: str,
+        t_start: float,
+        t_end: float,
+        spike_s: float,
+    ) -> Self:
+        """Convenience: add a NETWORK_SPIKE on a given edge."""
+        event = EventInjection(
+            event_id=event_id,
+            target_id=edge_id,
+            start=Start(
+                kind=EventDescription.NETWORK_SPIKE_START,
+                t_start=t_start,
+                spike_s=spike_s,
+            ),
+            end=End(
+                kind=EventDescription.NETWORK_SPIKE_END,
+                t_end=t_end,
+            ),
+        )
+
+        self._events.append(event)
+        return self
+
+    def add_server_outage(
+        self,
+        *,
+        event_id: str,
+        server_id: str,
+        t_start: float,
+        t_end: float,
+    ) -> Self:
+        """Convenience: add a SERVER_DOWN → SERVER_UP window for a server."""
+        event = EventInjection(
+            event_id=event_id,
+            target_id=server_id,
+            start=Start(kind=EventDescription.SERVER_DOWN, t_start=t_start),
+            end=End(kind=EventDescription.SERVER_UP, t_end=t_end),
+        )
+        self._events.append(event)
+        return self
+
     def build_payload(self) -> SimulationPayload:
         """Method to build the payload for the simulation"""
         if self._generator is None:
@@ -121,6 +173,7 @@ class AsyncFlow:
             "rqs_input": self._generator,
             "topology_graph": graph,
             "sim_settings": self._sim_settings,
+            "events": self._events or None,
         })
 
 

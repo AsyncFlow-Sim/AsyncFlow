@@ -1,0 +1,77 @@
+# ───────────────────────────────────────────────────────────────
+# AsyncFlow scenario: generator ➜ client ➜ server ➜ client
+# with event injection (edge spike + server outage)
+# ───────────────────────────────────────────────────────────────
+
+# 1) Traffic generator (light load)
+rqs_input:
+  id: rqs-1
+  avg_active_users: { mean: 100 }
+  avg_request_per_minute_per_user: { mean: 20 }
+  user_sampling_window: 60
+
+# 2) Topology
+topology_graph:
+  nodes:
+    client: { id: client-1 }
+    servers:
+      - id: srv-1
+        server_resources: { cpu_cores: 1, ram_mb: 2048 }
+        endpoints:
+          - endpoint_name: ep-1
+            probability: 1.0
+            steps:
+              # CPU-bound parse (~1ms)
+              - kind: initial_parsing
+                step_operation: { cpu_time: 0.001 }
+              # Hold 100 MB while processing
+              - kind: ram
+                step_operation: { necessary_ram: 100 }
+              # Non-blocking I/O wait (~100ms)
+              - kind: io_wait
+                step_operation: { io_waiting_time: 0.1 }
+
+  edges:
+    - id: gen-to-client
+      source: rqs-1
+      target: client-1
+      latency: { mean: 0.003, distribution: exponential }
+
+    - id: client-to-server
+      source: client-1
+      target: srv-1
+      latency: { mean: 0.003, distribution: exponential }
+
+    - id: server-to-client
+      source: srv-1
+      target: client-1
+      latency: { mean: 0.003, distribution: exponential }
+
+# 3) Simulation settings
+sim_settings:
+  total_simulation_time: 500
+  sample_period_s: 0.05
+  enabled_sample_metrics:
+    - ready_queue_len
+    - event_loop_io_sleep
+    - ram_in_use
+    - edge_concurrent_connection
+  enabled_event_metrics:
+    - rqs_clock
+
+# 4) Events (validated by Pydantic)
+# - ev-spike-1: deterministic latency spike (+20ms) on the client→server edge
+#   from t=120s to t=240s
+# - ev-outage-1: server outage for srv-1 from t=300s to t=360s
+events:
+  - event_id: ev-spike-1
+    target_id: client-to-server
+    start:
+      kind: network_spike_start
+      t_start: 120.0
+      spike_s: 2.00
+    end:
+      kind: network_spike_end
+      t_end: 240.0
+
+  

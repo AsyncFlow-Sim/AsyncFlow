@@ -17,13 +17,22 @@ from typing import TYPE_CHECKING
 
 import simpy
 
-from asyncflow.config.constants import Distribution, LatencyKey, SampledMetricName
+from asyncflow.config.constants import (
+    Distribution,
+    EndpointStepCPU,
+    LatencyKey,
+    SampledMetricName,
+    StepOperation,
+)
 from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.edges import Edge
-from asyncflow.schemas.topology.endpoint import Endpoint  # noqa: F401
+from asyncflow.schemas.topology.endpoint import (
+    Endpoint,
+    Step,
+)
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
@@ -33,9 +42,6 @@ from asyncflow.schemas.topology.nodes import (
     TopologyNodes,
 )
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator
-from asyncflow.config.constants import EndpointStepCPU, StepOperation
-from asyncflow.schemas.topology.endpoint import Endpoint, Step
-from asyncflow.schemas.topology.nodes import Server, ServerResources
 
 if TYPE_CHECKING:
     from asyncflow.metrics.analyzer import ResultsAnalyzer
@@ -49,7 +55,7 @@ def _server(server_id: str) -> Server:
             Step(
                 kind=EndpointStepCPU.CPU_BOUND_OPERATION,
                 step_operation={StepOperation.CPU_TIME: 0.001},
-            )
+            ),
         ],
     )
     return Server(

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Didactic example: AsyncFlow with a Load Balancer and two **identical** servers.
 

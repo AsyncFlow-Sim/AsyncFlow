@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 AsyncFlow builder example — build, run, and visualize a single-server async system.
 

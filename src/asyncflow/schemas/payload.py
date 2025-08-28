@@ -3,7 +3,7 @@
 from pydantic import BaseModel, field_validator, model_validator
 
 from asyncflow.config.constants import EventDescription
-from asyncflow.schemas.event.injection import EventInjection
+from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator
@@ -196,6 +196,58 @@ class SimulationPayload(BaseModel):
                        f"At time {time:.6f} all servers are down; keep at least one up"
                     )
                     raise ValueError(msg)
+
+        return model
+
+
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def forbid_overlapping_server_outages(
+        cls,  # noqa: N805
+        model: "SimulationPayload",
+    ) -> "SimulationPayload":
+        """
+        Forbid overlapping SERVER_DOWN intervals targeting the same server.
+
+        Rationale:
+        - Keeps runtime simple (no reference counting).
+        - Allows back-to-back windows (END at t and START at t) thanks to sorting
+        END before START at the same timestamp.
+        """
+        events = model.events
+        if not events:
+            return model
+
+        servers_ids = {s.id for s in model.topology_graph.nodes.servers}
+
+        # Build per-server timelines with (time, kind) marks only for server outages
+        per_server: dict[str, list[tuple[float, str]]] = {}
+        for ev in events:
+            if (
+                ev.target_id in servers_ids
+                and ev.start.kind == EventDescription.SERVER_DOWN
+            ):
+                per_server.setdefault(
+                    ev.target_id, []).append((ev.start.t_start, "start"),
+                )
+                per_server[ev.target_id].append((ev.end.t_end, "end"))
+
+        # Sweep-line per server: sort by (time, END first), ensure active<=1
+        for srv_id, timeline in per_server.items():
+            if not timeline:
+                continue
+            # END before START at same t
+            timeline.sort(key=lambda x: (x[0], x[1] == "start"))
+            active = 0
+            for t, mark in timeline:
+                if mark == "end":
+                    if active > 0:
+                        active -= 1
+                else:  # START
+                    if active >= 1:
+                        msg = (f"Overlapping events for server '{srv_id}' at t={t:.6f};"
+                              " server outage windows must not overlap.")
+                        raise ValueError(msg)
+                    active += 1
 
         return model
 

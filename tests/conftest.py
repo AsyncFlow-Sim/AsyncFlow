@@ -1,7 +1,7 @@
 """Pytest configuration file for setting up test fixtures and plugins."""
 
-
 import pytest
+import simpy
 from numpy.random import Generator as NpGenerator
 from numpy.random import default_rng
 
@@ -152,3 +152,11 @@ def payload_base(
         sim_settings=sim_settings,
 
     )
+
+# --------------------------------------------------------------------------- #
+# Simpy env                                              #
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def env() -> simpy.Environment:
+    """Return a fresh SimPy environment per test."""
+    return simpy.Environment()

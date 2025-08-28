@@ -141,6 +141,8 @@ class TopologyNodes(BaseModel):
 
     servers: list[Server]
     client: Client
+    # Right now we accept just one LB, in the future we
+    # will change this
     load_balancer: LoadBalancer | None = None
 
     @model_validator(mode="after") # type: ignore[arg-type]

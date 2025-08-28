@@ -7,7 +7,7 @@ Endpoint on both servers:
     CPU(1 ms) → RAM(64 MB) → IO(10 ms)
 
 Edges (baseline):
-    exponential latency ~ 2–3 ms per hop.
+    exponential latency ~ 2-3 ms per hop.
 
 Events injected:
   - NETWORK_SPIKE on edge 'lb-srv-1': +50 ms, t ∈ [2.0, 12.0] s
@@ -54,7 +54,7 @@ pytestmark = [
 
 SEED = 7778
 # LB re-routing and stochasticity can raise throughput
-REL_TOL_TPUT_UPPER = 0.15  # allow up to +15% increase; 
+REL_TOL_TPUT_UPPER = 0.15  # allow up to +15% increase;
 REL_TOL_TPUT_LOWER = 0.30   # must keep at least 30% throughput
 
 
@@ -65,7 +65,7 @@ def _seed_all(seed: int = SEED) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-def _build_payload(*, with_events: bool) -> "SimulationPayload":
+def _build_payload(*, with_events: bool) -> SimulationPayload:
     """Build payload for client + LB + two servers; optionally add events."""
     # Workload: ~26.7 rps (80 users * 20 rpm / 60).
     gen = RqsGenerator(
@@ -180,7 +180,7 @@ def _build_payload(*, with_events: bool) -> "SimulationPayload":
     return flow.build_payload()
 
 
-def _run(payload: "SimulationPayload") -> "ResultsAnalyzer":
+def _run(payload: SimulationPayload) -> ResultsAnalyzer:
     """Run one simulation and return the analyzer."""
     env = simpy.Environment()
     runner = SimulationRunner(env=env, simulation_input=payload)

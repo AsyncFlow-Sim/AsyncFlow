@@ -57,7 +57,7 @@ pytestmark = [
 
 SEED = 4240
 REL_TOL_TPUT = 0.20  # throughput should be within ±20%
-                     
+
 
 def _seed_all(seed: int = SEED) -> None:
     """Seed Python, NumPy, and hashing for reproducibility."""

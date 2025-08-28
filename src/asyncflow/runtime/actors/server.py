@@ -113,27 +113,34 @@ class ServerRuntime:
         # CPU & RAM SCHEDULING
         #
         #  RAM FIRST, CPU LATER
-        #   - The request reserves its full working set (total_ram) before
-        #     acquiring any CPU core. If memory isn't available, it stays
-        #     queued and leaves cores free for other requests.
+        #   - The request reserves its full working set (total_ram) BEFORE
+        #     trying to acquire a CPU core. If memory is not available, the
+        #     request blocks on RAM and never enters the CPU/ready flow.
         #
-        #  LAZY-CPU LOCK
-        #   - A core token is acquired only at the FIRST CPU step
-        #     (`if not core_locked`) and held for all consecutive CPU steps.
-        #   - As soon as an I/O step is encountered, the core is released
-        #     (`CPU.put(1)`) and remains free until the next CPU step,
-        #     which will re-acquire it.
+        #  LAZY CPU-LOCK (CPU bursts)
+        #   - A CPU token is acquired only at the FIRST CPU step of a burst
+        #     (`if not core_locked`). Consecutive CPU steps reuse the same token.
+        #   - As soon as an I/O step is encountered, the token is released
+        #     (`CPU.put(1)`) and remains free until the next CPU step.
+        #
+        #  READY QUEUE (new definition)
+        #   - The ready queue tracks ONLY requests waiting for a core.
+        #   - Increment ready when `CPU.get(1)` is NOT immediately satisfied
+        #     (`event.triggered == False`).
+        #   - Decrement ready right after the `yield cpu_req` succeeds,
+        #     i.e. when the core is actually granted.
+        #   - A request currently executing on a core (`core_locked=True`)
+        #     is NOT counted in ready.
         #
         #  WHY THIS IS REALISTIC
-        #    Prevents “core-hogging” during long I/O awaits.
-        #    Avoids redundant get/put calls for consecutive CPU steps
-        #      (one token for the entire sequence).
-        #    Mirrors a real Python async server: the GIL/worker thread is
-        #      held only during CPU-bound code and released on each await.
+        #   - Prevents “core-hogging” during long I/O waits (the core is released).
+        #   - Avoids redundant get/put calls on consecutive CPU steps.
+        #   - Mirrors a real async server: a worker thread/GIL is held only
+        #     during CPU-bound code and released on each `await` (I/O).
         #
         #  END OF HANDLER
-        #   - If we still hold the core at the end (`core_locked == True`),
-        #     we put it back, then release the reserved RAM.
+        #   - If the request still holds a core at the end, release it.
+        #   - Then release the reserved RAM.
         # ------------------------------------------------------------------
 
         # Ask the necessary ram to the server
@@ -142,36 +149,49 @@ class ServerRuntime:
             self._ram_in_use += total_ram
 
 
-        # Initial conditions of the server a rqs a priori is not in any queue
+        # Initial conditions of the server: a rqs a priori is not in any queue
         # and it does not occupy a core until it started to be elaborated
+        # these are local variable so they are created for every request.
         core_locked = False
         is_in_io_queue = False
-        is_in_ready_queue = False
+        waiting_cpu = False
 
 
-        # --- Step Execution: Process CPU and IO operations ---
-        #  EDGE CASE
-        #  First-step I/O
-        #     A request could (in theory) start with an I/O step. In that case
-        #     it doesn't hold any core; we enter the
-        #     `not core_locked and not is_in_io_queue` branch and add +1
-        #     to the I/O queue without touching the ready queue.
+        # --- Step Execution: CPU & I/O dynamics ---
+        #
+        #  EDGE CASE: First-step I/O
+        #   - An endpoint can start with an I/O step: in that case the request
+        #     holds no core (`core_locked=False`) and enters the I/O queue.
+        #     Ready queue is unaffected. This is not realistic since the first
+        #     step is usually related to the parsing of the requests however
+        #     we prevent this case, since right now we dont have a pydantic
+        #     validation to ensure the first step is CPU bounderd
         #
         #  Consecutive I/O steps
-        #     The second I/O sees `is_in_io_queue == True`, so it does NOT
-        #     increment again—no double counting.
+        #   - The second (and later) I/O step sees is_in_io_queue=True, so it
+        #     does NOT increment again → no double-counting in I/O.
         #
-        #  Transition CPU → I/O → CPU
-        #     - CPU step: `core_locked` becomes True, +1 ready queue
-        #     - I/O step: core is put back, -1 ready queue, +1 I/O queue
-        #     - Next CPU step: core is acquired, -1 I/O queue, +1 ready queue
+        #  Transition CPU → I/O → CPU (with new ready semantics)
+        #   - CPU step:
+        #       * If no core is held, create cpu_req = CPU.get(1).
+        #       * If cpu_req.triggered == False → the request is waiting → ready += 1.
+        #       * After yield cpu_req (core granted) → ready -= 1, set core_locked=True.
+        #       * A request currently executing on a core is NOT in ready.
+        #   - I/O step:
+        #       * If holding a core, release it (`CPU.put(1)`) and enter I/O queue (+1).
+        #       * If already in I/O (consecutive step), do nothing (no double-counting).
+        #       * Ready queue is never touched here.
+        #   - Next CPU step:
+        #       * Leave I/O queue (if counted) and repeat CPU acquisition logic.
+        #       * If acquisition is not immediate, enter ready until the event resolves.
         #
         #  Endpoint completion
-        #     If `core_locked == True`  we were in the ready queue (-1)
-        #     Otherwise  we were in the I/O queue (-1)
-        #     In both cases we clear the local flags so no “ghost” entries
-        #     remain in the global counters.
-        # ------------------------------------------------------------------
+        #   - If core_locked=True → release the core.
+        #   - If is_in_io_queue=True → leave the I/O queue.
+        #   - waiting_cpu should be False by now; if not, remove from ready defensively.
+        #   - Invariant: the request must not remain counted in any queue once finished.
+        # -------------------------------------------------------------------
+
 
 
         for step in selected_endpoint.steps:
@@ -183,19 +203,28 @@ class ServerRuntime:
                 # in this configuration we are asking the cpu just in the
                 # first one
 
+                if is_in_io_queue:
+                    is_in_io_queue = False
+                    self._el_io_queue_len -= 1
+
                 if not core_locked:
-                    core_locked = True
+                    # simpy create an event and if it can be satisfied is triggered
+                    cpu_req = self.server_resources[ServerResourceName.CPU.value].get(1)
 
-                    if is_in_io_queue:
-                        is_in_io_queue = False
-                        self._el_io_queue_len -= 1
-
-                    if not is_in_ready_queue:
-                        is_in_ready_queue = True
+                    # no trigger ready queue without execution
+                    if not cpu_req.triggered:
+                        waiting_cpu = True
                         self._el_ready_queue_len += 1
 
+                    # at this point wait for the cpu
+                    yield cpu_req
 
-                    yield self.server_resources[ServerResourceName.CPU.value].get(1)
+                    # here the cpu is free
+                    if waiting_cpu:
+                        waiting_cpu = False
+                        self._el_ready_queue_len -= 1
+
+                    core_locked = True
 
                 cpu_time = step.step_operation[StepOperation.CPU_TIME]
                 # Execute the step giving back the control to the simpy env
@@ -204,41 +233,35 @@ class ServerRuntime:
             # since the object is of an Enum class we check if the step.kind
             # is one member of enum
             elif step.kind in EndpointStepIO:
+                # define the io time
                 io_time = step.step_operation[StepOperation.IO_WAITING_TIME]
-                # Same here with the boolean if we have multiple I/O steps
-                # we release the core just the first time if the previous step
-                # was a cpu bound step
-
-                if not core_locked and not is_in_io_queue:
-                    is_in_io_queue = True
-                    self._el_io_queue_len += 1
-
 
                 if core_locked:
-                    # if the core is locked in the function it means that for sure
-                    # we had a cpu bound step so the if statement will be always
-                    # satisfy and we have to remove one element from the ready queue
-
-                    if is_in_ready_queue:
-                        is_in_ready_queue = False
-                        self._el_ready_queue_len -= 1
+                    # release the core coming from a cpu step
+                    yield self.server_resources[ServerResourceName.CPU.value].put(1)
+                    core_locked = False
 
                     if not is_in_io_queue:
                         is_in_io_queue = True
                         self._el_io_queue_len += 1
+                elif not is_in_io_queue:
+                    is_in_io_queue = True
+                    self._el_io_queue_len += 1
 
-                    yield self.server_resources[ServerResourceName.CPU.value].put(1)
-                    core_locked = False
-                yield self.env.timeout(io_time)  # Wait without holding a CPU core
-
+                yield self.env.timeout(io_time)
 
         if core_locked:
-            is_in_ready_queue = False
-            self._el_ready_queue_len -= 1
             yield self.server_resources[ServerResourceName.CPU.value].put(1)
-        else:
+            core_locked = False
+
+        if is_in_io_queue:
             is_in_io_queue = False
             self._el_io_queue_len -= 1
+
+        if waiting_cpu:
+            waiting_cpu = False
+            self._el_ready_queue_len -= 1
+
 
         if total_ram:
 

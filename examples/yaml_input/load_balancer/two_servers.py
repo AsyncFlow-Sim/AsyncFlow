@@ -29,8 +29,11 @@ from asyncflow.metrics.analyzer import ResultsAnalyzer
 
 def main() -> None:
     # Paths (same directory as this script)
-    script_dir = Path(__file__).parent.parent
-    yaml_path = script_dir / "data" / "two_servers_lb.yml"
+    script_dir = Path(__file__).parent
+    out_dir = script_dir / "two_servers_plot"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    yaml_path = script_dir.parent / "data" / "two_servers_lb.yml"
     if not yaml_path.exists():
         raise FileNotFoundError(f"YAML configuration not found: {yaml_path}")
 
@@ -49,8 +52,8 @@ def main() -> None:
     results.plot_latency_distribution(axes_dash[0])
     results.plot_throughput(axes_dash[1])
     fig_dash.tight_layout()
-    out_dashboard = script_dir / "lb_dashboard.png"
-    fig_dash.savefig(out_dashboard)
+    out_dashboard = out_dir / "lb_dashboard.png"
+    fig_dash.savefig(out_dashboard, bbox_inches="tight")
     print(f"🖼️  Dashboard saved to: {out_dashboard}")
 
     # ---- Per-server metrics: one figure per server (Ready | I/O | RAM) ----
@@ -61,7 +64,7 @@ def main() -> None:
         results.plot_single_server_ram(axes[2], sid)
         fig_row.suptitle(f"Server metrics — {sid}", y=1.04, fontsize=14)
         fig_row.tight_layout()
-        out_path = script_dir / f"lb_server_{sid}_metrics.png"
+        out_path = out_dir / f"lb_server_{sid}_metrics.png"
         fig_row.savefig(out_path, bbox_inches="tight")
         print(f"🖼️  Server metrics for '{sid}' saved to: {out_path}")
 

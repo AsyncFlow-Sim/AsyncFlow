@@ -49,12 +49,7 @@ jobs:
         run: poetry run mypy src tests
 
       - name: All tests (unit + integration + system)
-        run: |
-          poetry run pytest \
-            --disable-warnings
-            --cov=asyncflow \
-            --cov-report=term-missing \
-            --cov-report=xml
+        run: poetry run pytest --disable-warnings --cov=asyncflow --cov-report=xml
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

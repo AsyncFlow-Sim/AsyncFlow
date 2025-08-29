@@ -1,12 +1,12 @@
 
-# AsyncFlow — Event-Loop Aware Simulator for Async Distributed Systems
+# AsyncFlow: Scenario-Driven Simulator for Async Systems
 
 Created and maintained by @GioeleB00.
 
 [![PyPI](https://img.shields.io/pypi/v/asyncflow-sim)](https://pypi.org/project/asyncflow-sim/)
 [![Python](https://img.shields.io/pypi/pyversions/asyncflow-sim)](https://pypi.org/project/asyncflow-sim/)
 [![License](https://img.shields.io/github/license/AsyncFlow-Sim/AsyncFlow)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1.0alpha-orange)](#)
+[![codecov](https://codecov.io/gh/AsyncFlow-Sim/AsyncFlow/branch/main/graph/badge.svg)](https://codecov.io/gh/AsyncFlow-Sim/AsyncFlow)
 [![Ruff](https://img.shields.io/badge/lint-ruff-informational)](https://github.com/astral-sh/ruff)
 [![Typing](https://img.shields.io/badge/typing-mypy-blueviolet)](https://mypy-lang.org/)
 [![Tests](https://img.shields.io/badge/tests-pytest-6DA55F)](https://docs.pytest.org/)
@@ -14,27 +14,64 @@ Created and maintained by @GioeleB00.
 
 -----
 
-AsyncFlow is a discrete-event simulator for modeling and analyzing the performance of asynchronous, distributed backend systems built with SimPy. You describe your system's topology—its servers, network links, and load balancers—and AsyncFlow simulates the entire lifecycle of requests as they move through it.
+**AsyncFlow** is a scenario-driven simulator for **asynchronous distributed backends**.
+You don’t “predict the Internet” — you **declare scenarios** (network RTT + jitter, resource caps, failure events) and AsyncFlow shows the operational impact: concurrency, queue growth, socket/RAM pressure, latency distributions. This means you can evaluate architectures before implementation: test scaling strategies, network assumptions, or failure modes without writing production code.
 
-It provides a **digital twin** of your service, modeling not just the high-level architecture but also the low-level behavior of each server's **event loop**, including explicit **CPU work**, **RAM residency**, and **I/O waits**. This allows you to run realistic "what-if" scenarios that behave like production systems rather than toy benchmarks.
+At its core, AsyncFlow is **event-loop aware**:
+
+* **CPU work** blocks the loop,
+* **RAM residency** ties up memory until release,
+* **I/O waits** free the loop just like in real async frameworks.
+
+With the new **event injection engine**, you can explore *what-if* dynamics: network spikes, server outages, degraded links, all under your control.
+
+---
 
 ### What Problem Does It Solve?
 
-Modern async stacks like FastAPI are incredibly performant, but predicting their behavior under real-world load is difficult. Capacity planning often relies on guesswork, expensive cloud-based load tests, or discovering bottlenecks only after a production failure. AsyncFlow is designed to replace that uncertainty with **data-driven forecasting**, allowing you to understand how your system will perform before you deploy a single line of code.
+Predicting how an async system will behave under real-world load is notoriously hard. Teams often rely on rough guesses, over-provisioning, or painful production incidents. **AsyncFlow replaces guesswork with scenario-driven simulations**: you declare the conditions (network RTT, jitter, resource limits, injected failures) and observe the consequences on latency, throughput, and resource pressure.
 
-### How Does It Work? An Example Topology
+---
 
-AsyncFlow models your system as a directed graph of interconnected components. A typical setup might look like this:
+### How Does It Work?
 
-![Topology at a glance](readme_img/topology.png)
+AsyncFlow represents your system as a **directed graph of components**—clients, load balancers, servers—connected by network edges with configurable latency models. Each server is **event-loop aware**: CPU work blocks, RAM stays allocated, and I/O yields the loop, just like real async frameworks. You can define topologies via **YAML** or a **Pythonic builder**.
+
+![Topology](https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/topology.png)
+
+Run the simulation and inspect the outputs:
+
+<p>
+  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_dashboard.png">
+    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_dashboard.png" alt="Latency + Throughput Dashboard" width="300">
+  </a>
+  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-1_metrics.png">
+    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-1_metrics.png" alt="Server 1 Metrics" width="300">
+  </a>
+  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-2_metrics.png">
+    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-2_metrics.png" alt="Server 2 Metrics" width="300">
+  </a>
+</p>
+
+
+---
+
+⚡ **Design before you code**
+AsyncFlow doesn’t need your backend to exist.
+Model it with YAML or Python, run simulations, and see bottlenecks before a single line of production code is written.
+
+---
+
 
 ### What Questions Can It Answer?
 
-By running simulations on your defined topology, you can get quantitative answers to critical engineering questions, such as:
+With scenario simulations, AsyncFlow helps answer questions such as:
 
-  * How does **p95 latency** change if active users increase from 100 to 200?
-  * What is the impact on the system if the **client-to-server network latency** increases by 3ms?
-  * Will a specific API endpoint—with a pipeline of parsing, RAM allocation, and database I/O—hold its **SLA at a load of 40 requests per second**?
+* How does **p95 latency** shift if active users double?
+* What happens when a **client–server edge** suffers a 20 ms spike for 60 seconds?
+* Will a given endpoint pipeline — CPU parse → RAM allocation → DB I/O — still meet its **SLA at 40 RPS**?
+* How many sockets and how much RAM will a load balancer need under peak conditions?
+
 ---
 
 ## Installation
@@ -279,97 +316,28 @@ bash scripts/run_sys_tests.sh
 
 Executes **pytest** with a terminal coverage summary (no XML, no slowest list).
 
+## Current Limitations (v0.1.1)
 
+AsyncFlow is still in alpha. The current release has some known limitations that are already on the project roadmap:
 
-## What AsyncFlow Models (v0.1)
+* **Network model** — only base latency + jitter/spikes.  
+  Bandwidth, queuing, and protocol-level details (HTTP/2 streams, QUIC, TLS handshakes) are not yet modeled.
 
-AsyncFlow provides a detailed simulation of your backend system. Here is a high-level overview of the core components it models. For a deeper technical dive into the implementation and design rationale, follow the links to the internal documentation.
+* **Server model** — single event loop per server.  
+  Multi-process or multi-threaded execution is not yet supported.
 
-* **Async Event Loop:** Simulates a single-threaded, non-blocking event loop per server. **CPU steps** block the loop, while **I/O steps** are non-blocking, accurately modeling `asyncio` behavior.
-    * *(Deep Dive: `docs/internals/runtime-and-resources.md`)*
+* **Endpoint flows** — endpoints are linear pipelines.  
+  Branching/fan-out (e.g. service calls to DB + cache) will be added in future versions.
 
-* **System Resources:** Models finite server resources, including **CPU cores** and **RAM (MB)**. Requests must acquire these resources, creating natural back-pressure and contention when the system is under load.
-    * *(Deep Dive: `docs/internals/runtime-and-resources.md`)*
+* **Workload generation** — stationary workloads only.  
+  No support yet for diurnal patterns, feedback loops, or adaptive backpressure.
 
-* **Endpoints & Request Lifecycles:** Models server endpoints as a linear sequence of **steps**. Each step is a distinct operation, such as `cpu_bound_operation`, `io_wait`, or `ram` allocation.
-    * *(Schema Definition: `docs/internals/simulation-input.md`)*
+* **Overload policies** — no explicit handling of overload conditions.  
+  Queue caps, deadlines, timeouts, rate limiting, and circuit breakers are not yet implemented.
 
-* **Network Edges:** Simulates the connections between system components. Each edge has a configurable **latency** (drawn from a probability distribution) and an optional **dropout rate** to model packet loss.
-    * *(Schema Definition: `docs/internals/simulation-input.md` | Runtime Behavior: `docs/internals/runtime-and-resources.md`)*
+* **Sampling cadence** — very short events may be missed if the `sample_period_s` is too large.
 
-* **Stochastic Workload:** Generates user traffic based on a two-stage sampling model, combining the number of active users and their request rate per minute to produce a realistic, fluctuating load (RPS) on the system.
-    * *(Modeling Details with mathematical explanation and clear assumptions: `docs/internals/requests-generator.md`)*
+---
 
-* **Metrics & Outputs:** Collects two types of data: **time-series metrics** (e.g., `ready_queue_len`, `ram_in_use`) and **event-based data** (`RqsClock`). This raw data is used to calculate final KPIs like **p95/p99 latency** and **throughput**.
-    * *(Metric Reference: `docs/internals/metrics`)*
-
-## Current Limitations (v0.1)
-
-* Network realism: base latency + optional drops (no bandwidth/payload/TCP yet).
-* Single event loop per server: no multi-process/multi-node servers yet.
-* Linear endpoint flows: no branching/fan-out within an endpoint.
-* No thread-level concurrency; modeling OS threads and scheduler/context switching is out of scope.”
-* Stationary workload: no diurnal patterns or feedback/backpressure.
-* Sampling cadence: very short spikes can be missed if `sample_period_s` is large.
-
-
-## Roadmap (Order is not indicative of priority)
-
-This roadmap outlines the key development areas to transform AsyncFlow into a comprehensive framework for statistical analysis and resilience modeling of distributed systems.
-
-### 1. Monte Carlo Simulation Engine
-
-**Why:** To overcome the limitations of a single simulation run and obtain statistically robust results. This transforms the simulator from an "intuition" tool into an engineering tool for data-driven decisions with confidence intervals.
-
-* **Independent Replications:** Run the same simulation N times with different random seeds to sample the space of possible outcomes.
-* **Warm-up Period Management:** Introduce a "warm-up" period to be discarded from the analysis, ensuring that metrics are calculated only on the steady-state portion of the simulation.
-* **Ensemble Aggregation:** Calculate means, standard deviations, and confidence intervals for aggregated metrics (latency, throughput) across all replications.
-* **Confidence Bands:** Visualize time-series data (e.g., queue lengths) with confidence bands to show variability over time.
-
-### 2. Realistic Service Times (Stochastic Service Times)
-
-**Why:** Constant service times underestimate tail latencies (p95/p99), which are almost always driven by "slow" requests. Modeling this variability is crucial for a realistic analysis of bottlenecks.
-
-* **Distributions for Steps:** Allow parameters like `cpu_time` and `io_waiting_time` in an `EndpointStep` to be sampled from statistical distributions (e.g., Lognormal, Gamma, Weibull) instead of being fixed values.
-* **Per-Request Sampling:** Each request will sample its own service times independently, simulating the natural variability of a real-world system.
-
-### 3. Component Library Expansion
-
-**Why:** To increase the variety and realism of the architectures that can be modeled.
-
-* **New System Nodes:**
-    * `CacheRuntime`: To model caching layers (e.g., Redis) with hit/miss logic, TTL, and warm-up behavior.
-    * `APIGatewayRuntime`: To simulate API Gateways with features like rate-limiting and authentication caching.
-    * `DBRuntime`: A more advanced model for databases featuring connection pool contention and row-level locking.
-* **New Load Balancer Algorithms:** Add more advanced routing strategies (e.g., Weighted Round Robin, Least Response Time).
-
-### 4. Fault and Event Injection
-
-**Why:** To test the resilience and behavior of the system under non-ideal conditions, a fundamental use case for Site Reliability Engineering (SRE).
-
-* **API for Scheduled Events:** Introduce a system to schedule events at specific simulation times, such as:
-    * **Node Down/Up:** Turn a server off and on to test the load balancer's failover logic.
-    * **Degraded Edge:** Drastically increase the latency or drop rate of a network link.
-    * **Error Bursts:** Simulate a temporary increase in the rate of application errors.
-
-### 5. Advanced Network Modeling
-
-**Why:** To more faithfully model network-related bottlenecks that are not solely dependent on latency.
-
-* **Bandwidth and Payload Size:** Introduce the concepts of link bandwidth and request/response size to simulate delays caused by data transfer.
-* **Retries and Timeouts:** Model retry and timeout logic at the client or internal service level.
-
-### 6. Complex Endpoint Flows
-
-**Why:** To model more realistic business logic that does not follow a linear path.
-
-* **Conditional Branching:** Introduce the ability to have conditional steps within an endpoint (e.g., a different path for a cache hit vs. a cache miss).
-* **Fan-out / Fan-in:** Model scenarios where a service calls multiple downstream services in parallel and waits for their responses.
-
-### 7. Backpressure and Autoscaling
-
-**Why:** To simulate the behavior of modern, adaptive systems that react to load.
-
-* **Dynamic Rate Limiting:** Introduce backpressure mechanisms where services slow down the acceptance of new requests if their internal queues exceed a certain threshold.
-* **Autoscaling Policies:** Model simple Horizontal Pod Autoscaler (HPA) policies where the number of server replicas increases or decreases based on metrics like CPU utilization or queue length.
+📌 See the [ROADMAP](./ROADMAP.md) for planned features and upcoming milestones.
 

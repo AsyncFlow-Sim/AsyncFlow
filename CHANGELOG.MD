@@ -1,4 +1,3 @@
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -7,24 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## \[Unreleased]
 
+### Planned
+
+* **Network baseline upgrade** (sockets, RAM per connection, keep-alive).
+* **New metrics and visualization improvements** (queue wait times, service histograms).
+* **Monte Carlo analysis** with confidence intervals.
+
+---
+
+## \[0.1.1] – 2025-08-29
+
 ### Added
 
-* **Event Injection input schema** (merged on `develop`):
+* **Event Injection (runtime-ready):**
 
-  * Declarative events with `start` / `end` markers (server **down/up**, network **spike start/end**).
-  * Strong validation (Pydantic):
+  * Declarative events with `start` / `end` markers (server down/up, network spike start/end).
+  * Runtime scheduler integrated with SimPy, applying events at the right simulation time.
+  * Deterministic latency **offset handling** for network spikes (phase 1).
 
-    * `event_id` uniqueness.
-    * `target_id` must exist (server or edge).
-    * Start/end times within the simulation horizon and well-ordered.
-    * Kind ↔ target compatibility (server events must target servers, network events must target edges).
-    * Safety guard: **never all servers down simultaneously**.
-* Documentation comments and examples for authoring event windows in YAML.
+* **Improved Server Model:**
 
-### In Progress
+  * Refined CPU + I/O handling with clearer queue accounting.
+  * Ready queue length now explicitly updated on contention.
+  * I/O queue metrics improved with better protection against mis-counting edge cases.
+  * Enhanced readability and maintainability in endpoint step execution flow.
 
-* **Runtime Event Scheduler**: SimPy process to apply events at scheduled times.
-* **Edge spike handling (phase 1)**: deterministic latency **offsets** during spike windows (no changes to base distributions yet).
+### Documentation
+
+* Expanded examples on event injection in YAML.
+* Inline comments clarifying queue management logic.
+
+### Notes
+
+* This is still an **alpha-series** release, but now supports scenario-driven **event injection** and a more faithful **server runtime model**, paving the way for the upcoming network baseline upgrade.
 
 ---
 
@@ -96,11 +110,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 * **Python 3.12+** (Linux/macOS/Windows).
 * Install from PyPI: `pip install asyncflow-sim`.
 
-### Known Limitations (alpha)
 
-* Network: latency + optional drops (no bandwidth/payload/TCP yet).
-* Single event loop per server (no multi-process/node).
-* Linear endpoint pipelines (no branching/fan-out inside endpoints).
-* Stationary workload; very short spikes may be missed if `sample_period_s` is large.
 
 

@@ -9,11 +9,11 @@
 # Each server runs: CPU(2 ms) → RAM(128 MB) → IO wait(12 ms)
 # All network links use exponential latency with small means (2–3 ms).
 #
-# Workload targets ~40 rps (120 users × 20 req/min ÷ 60).
+
 
 rqs_input:
   id: rqs-1
-  avg_active_users: { mean: 120 }
+  avg_active_users: { mean: 400 }
   avg_request_per_minute_per_user: { mean: 20 }
   user_sampling_window: 60
 

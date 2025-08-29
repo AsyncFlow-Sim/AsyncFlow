@@ -52,3 +52,14 @@ jobs:
         run: |
           poetry run pytest \
             --disable-warnings
+            --cov=asyncflow \
+            --cov-report=term-missing \
+            --cov-report=xml
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          flags: tests
+          fail_ci_if_error: true
+        

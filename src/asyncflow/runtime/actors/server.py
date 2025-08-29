@@ -244,6 +244,10 @@ class ServerRuntime:
                     if not is_in_io_queue:
                         is_in_io_queue = True
                         self._el_io_queue_len += 1
+                
+                # here is a sage check: the first step should always
+                # be a cpu bound (parsing of the request), if an user
+                # start with a I/O this allow to don't break the flux
                 elif not is_in_io_queue:
                     is_in_io_queue = True
                     self._el_io_queue_len += 1

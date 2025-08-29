@@ -27,6 +27,39 @@ With the new **event injection engine**, you can explore *what-if* dynamics: net
 
 ---
 
+### How Does It Work?
+
+AsyncFlow represents your system as a **directed graph of components**, for example: clients, load balancers, servers—connected by network edges with configurable latency models. Each server is **event-loop aware**: CPU work blocks, RAM stays allocated, and I/O yields the loop, just like real async frameworks. You can define topologies via **YAML** or a **Pythonic builder**.
+
+![Topology](https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/topology.png)
+
+Run the simulation and inspect the outputs:
+
+<!-- Hero full-width -->
+<p align="center">
+  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_dashboard.png">
+    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_dashboard.png"
+         alt="Latency + Throughput Dashboard"
+         style="max-width:100%;height:auto;" loading="lazy">
+  </a>
+</p>
+
+<!-- Due immagini affiancate -->
+<p align="center">
+  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-1_metrics.png">
+    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-1_metrics.png"
+         alt="Server 1 Metrics" width="49%" loading="lazy">
+  </a>
+  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-2_metrics.png">
+    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-2_metrics.png"
+         alt="Server 2 Metrics" width="49%" loading="lazy">
+  </a>
+</p>
+
+
+
+---
+
 ### What Problem Does It Solve?
 
 Predicting how an async system will behave under real-world load is notoriously hard. Teams often rely on rough guesses, over-provisioning, or painful production incidents. **AsyncFlow replaces guesswork with scenario-driven simulations**: you declare the conditions (network RTT, jitter, resource limits, injected failures) and observe the consequences on latency, throughput, and resource pressure.
@@ -38,29 +71,6 @@ Predicting how an async system will behave under real-world load is notoriously 
 AsyncFlow doesn’t need your backend to exist.
 You can model your architecture with YAML or Python, run simulations, and explore bottlenecks **before writing production code**.
 This scenario-driven approach lets you stress-test scaling strategies, network assumptions, and failure modes safely and repeatably.
-
----
-
-### How Does It Work?
-
-AsyncFlow represents your system as a **directed graph of components**, for example: clients, load balancers, servers—connected by network edges with configurable latency models. Each server is **event-loop aware**: CPU work blocks, RAM stays allocated, and I/O yields the loop, just like real async frameworks. You can define topologies via **YAML** or a **Pythonic builder**.
-
-![Topology](https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/topology.png)
-
-Run the simulation and inspect the outputs:
-
-<p>
-  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_dashboard.png">
-    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_dashboard.png" alt="Latency + Throughput Dashboard" width="300">
-  </a>
-  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-1_metrics.png">
-    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-1_metrics.png" alt="Server 1 Metrics" width="300">
-  </a>
-  <a href="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-2_metrics.png">
-    <img src="https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/lb_server_srv-2_metrics.png" alt="Server 2 Metrics" width="300">
-  </a>
-</p>
-
 
 ---
 

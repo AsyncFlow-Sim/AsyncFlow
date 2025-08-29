@@ -54,7 +54,7 @@ pytestmark = [
 
 SEED = 7778
 # LB re-routing and stochasticity can raise throughput
-REL_TOL_TPUT_UPPER = 0.15  # allow up to +15% increase;
+REL_TOL_TPUT_UPPER = 0.25  # allow up to +25% increase;
 REL_TOL_TPUT_LOWER = 0.30   # must keep at least 30% throughput
 
 

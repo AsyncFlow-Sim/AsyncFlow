@@ -54,10 +54,12 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 def main() -> None:
     """Defines paths, runs the simulation, and generates all outputs."""
     # --- 1. Define File Paths ---
-    script_dir = Path(__file__).parent           # <-- same folder as this file
-    out_dir = script_dir                         # <-- save outputs here
+    script_dir = Path(__file__).parent                # same folder as this script
+    out_dir = script_dir / "single_server_plot"       # outputs will go here
+    out_dir.mkdir(parents=True, exist_ok=True)        # create if not exists
+
     yaml_path = script_dir.parent / "data" / "single_server.yml"
-    output_base_name = "single_server_results"   # prefix for all output files
+    output_base_name = "single_server_results"        # prefix for output files
 
     if not yaml_path.exists():
         raise FileNotFoundError(f"YAML configuration file not found: {yaml_path}")

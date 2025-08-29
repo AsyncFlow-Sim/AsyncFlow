@@ -49,6 +49,12 @@ jobs:
         run: poetry run mypy src tests
 
       - name: All tests (unit + integration + system)
-        run: |
-          poetry run pytest \
-            --disable-warnings
+        run: poetry run pytest --disable-warnings --cov=asyncflow --cov-report=xml
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          flags: tests
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}

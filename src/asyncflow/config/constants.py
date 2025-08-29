@@ -176,6 +176,19 @@ class SystemEdges(StrEnum):
     NETWORK_CONNECTION = "network_connection"
 
 # ======================================================================
+# CONSTANTS FOR THE EVENT TO INJECT IN THE SIMULATION
+# ======================================================================
+
+class EventDescription(StrEnum):
+  """Description for the events you may inject during the simulation"""
+
+  SERVER_UP = "server_up"
+  SERVER_DOWN = "server_down"
+  NETWORK_SPIKE_START = "network_spike_start"
+  NETWORK_SPIKE_END = "network_spike_end"
+
+
+# ======================================================================
 # CONSTANTS FOR SAMPLED METRICS
 # ======================================================================
 

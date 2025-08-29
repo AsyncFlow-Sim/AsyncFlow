@@ -6,7 +6,7 @@ drop probability, and optional connection-pool contention—by exposing a
 waits the sampled delay (and any resource wait) before delivering the
 message to the target node's inbox.
 """
-from collections.abc import Generator
+from collections.abc import Container, Generator, Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -23,25 +23,40 @@ if TYPE_CHECKING:
     from asyncflow.schemas.common.random_variables import RVConfig
 
 
-
 class EdgeRuntime:
     """definining the logic to handle the edges during the simulation"""
 
-    def __init__(
+    def __init__( # Noqa: PLR0913
         self,
         *,
         env: simpy.Environment,
         edge_config: Edge,
+
+        # ------------------------------------------------------------
+        # ATTRIBUTES FROM THE OBJECT EVENTINJECTIONRUNTIME
+        # We do not want to pass the full object EventInjectionRuntime
+        # we pass only the two structure necessary to add the spike
+        # in the case the edge is affected by increase latency
+        # We initiate both objects to None to dont break the API
+        # of SimulationRunner
+
+        edge_spike: Mapping[str, float] | None = None, # read-only view
+        edges_affected: Container[str] | None = None, # membership only
+        # -------------------------------------------------------------
+
         rng: np.random.Generator | None = None,
         target_box: simpy.Store,
         settings: SimulationSettings,
+
         ) -> None:
         """Definition of the instance attributes"""
         self.env = env
         self.edge_config = edge_config
+        self.edges_spike = edge_spike
+        self.edges_affected = edges_affected
         self.target_box = target_box
         self.rng = rng or np.random.default_rng()
-        self.setting = settings
+        self.settings = settings
         self._edge_enabled_metrics = build_edge_metrics(
             settings.enabled_sample_metrics,
         )
@@ -73,7 +88,24 @@ class EdgeRuntime:
         self._concurrent_connections +=1
 
         transit_time = general_sampler(random_variable, self.rng)
-        yield self.env.timeout(transit_time)
+
+
+        # Logic to add if exists the event injection for the given edge
+        spike = 0.0
+        if (
+            self.edges_spike
+            and self.edges_affected
+            and self.edge_config.id in self.edges_affected
+        ):
+            spike = self.edges_spike.get(self.edge_config.id, 0.0)
+
+        # we do not use max(0.0, effective since) the transite time
+        # is positive, this condition is guaranteed from the pydantic
+        # validation
+
+        effective = transit_time + spike
+        yield self.env.timeout(effective)
+
 
         state.record_hop(
             SystemEdges.NETWORK_CONNECTION,

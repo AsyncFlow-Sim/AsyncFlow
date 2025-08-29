@@ -1,7 +1,11 @@
 """Components to run the whole simulation given specific input data"""
 
+from __future__ import annotations
+
+from collections import OrderedDict
 from itertools import chain
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Protocol, cast
 
 import numpy as np
@@ -16,11 +20,13 @@ from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
 from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
 from asyncflow.runtime.actors.server import ServerRuntime
+from asyncflow.runtime.events.injection import EventInjectionRuntime
 from asyncflow.schemas.payload import SimulationPayload
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from asyncflow.schemas.events.injection import EventInjection
     from asyncflow.schemas.topology.edges import Edge
     from asyncflow.schemas.topology.nodes import (
         Client,
@@ -63,18 +69,51 @@ class SimulationRunner:
         # instantiation of object needed to build nodes for the runtime phase
         self.servers: list[Server] = simulation_input.topology_graph.nodes.servers
         self.client: Client = simulation_input.topology_graph.nodes.client
+        self.events: list[EventInjection] | None = None
         self.rqs_generator: RqsGenerator = simulation_input.rqs_input
         self.lb: LoadBalancer | None = None
         self.simulation_settings = simulation_input.sim_settings
         self.edges: list[Edge] = simulation_input.topology_graph.edges
         self.rng = np.random.default_rng()
 
-        # Object needed to start the simualation
+        # Object needed to start the simulation
         self._servers_runtime: dict[str, ServerRuntime] = {}
         self._client_runtime: dict[str, ClientRuntime] = {}
         self._rqs_runtime: dict[str, RqsGeneratorRuntime] = {}
-        self._lb_runtime: dict[str, LoadBalancerRuntime] = {}
+        # right now we allow max one LB per simulation so we don't need a dict
+        self._lb_runtime: LoadBalancerRuntime | None = None
         self._edges_runtime: dict[tuple[str, str], EdgeRuntime] = {}
+        self._events_runtime: EventInjectionRuntime | None = None
+
+        # Initialization of the OrderedDict used for event injection.
+        # This structure allows us to temporarily shut down servers by removing
+        # their edges from the load balancer during the simulation. The choice
+        # of OrderedDict is motivated by its mutability and O(1) operations for
+        # both removal (by key) and moving an element to the end.
+        #
+        # Advantages of this approach:
+        # 1) We allocate a single shared object in memory.
+        # 2) The same object is aliased in both LoadBalancerRuntime and
+        #    EventInjectionRuntime, so updates are reflected dynamically.
+        #
+        # Workflow:
+        # - Instantiate the OrderedDict here.
+        # - Remove edges (LB→server connections) in EventInjectionRuntime
+        #   when a server goes down.
+        # - Pass the same OrderedDict to LoadBalancerRuntime, which will
+        #   apply its algorithm (RR, LeastConnections) only to the currently
+        #   available edges.
+        #
+        # Notes:
+        # - Pydantic ensures that at least one server remains available, so the
+        #   condition "all servers down" is not allowed.
+        # - Shutting down a server by cutting its edge reduces the number of
+        #   SimPy processes to manage, because we skip transport to a down
+        #   server entirely.
+        # - This also avoids extra conditions or policies on the server side to
+        #   check whether the server is up or down.
+
+        self._lb_out_edges: OrderedDict[str, EdgeRuntime] = OrderedDict()
 
 
     # ------------------------------------------------------------------ #
@@ -144,7 +183,7 @@ class SimulationRunner:
         """
         Build given the input data the load balancer runtime we will
         use a dict because we may have multiple load balancer and we
-        will be usefull to assign outer edges
+        will be useful to assign outer edges
         """
         # Topologies without a LB are perfectly legal (e.g. the “minimal”
         # integration test).  Early-return instead of asserting.
@@ -153,12 +192,14 @@ class SimulationRunner:
 
         self.lb = self.simulation_input.topology_graph.nodes.load_balancer
 
-        self._lb_runtime[self.lb.id] = LoadBalancerRuntime(
+        self._lb_runtime = LoadBalancerRuntime(
             env=self.env,
             lb_config=self.lb,
-            out_edges= [],
+            lb_out_edges = self._lb_out_edges,
             lb_box=self._make_inbox(),
         )
+
+
 
 
     def _build_edges(self) -> None:
@@ -168,9 +209,11 @@ class SimulationRunner:
         all_nodes: dict[str, object] = {
             **self._servers_runtime,
             **self._client_runtime,
-            **self._lb_runtime,
             **self._rqs_runtime,
-}
+        }
+
+        if self._lb_runtime is not None:
+            all_nodes[self._lb_runtime.lb_config.id] = self._lb_runtime
 
         for edge in self.edges:
 
@@ -185,6 +228,7 @@ class SimulationRunner:
             else:
                 msg = f"Unknown runtime for {edge.target!r}"
                 raise TypeError(msg)
+
 
             self._edges_runtime[(edge.source, edge.target)] = (
                 EdgeRuntime(
@@ -208,16 +252,47 @@ class SimulationRunner:
                     edge.target)
                 ]
             elif isinstance(source_object, LoadBalancerRuntime):
-                assert source_object.out_edges is not None
-                source_object.out_edges.append(self._edges_runtime[(
-                    edge.source,
-                    edge.target,
-                    )
-                ])
-
+                self._lb_out_edges[edge.id] = (
+                    self._edges_runtime[(edge.source, edge.target)]
+                )
             else:
                 msg =  f"Unknown runtime for {edge.source!r}"
                 raise TypeError(msg)
+
+
+
+    def _build_events(self) -> None:
+        """
+        Function to centralize the events logic: with this function
+        we attach all events to the components affected
+        """
+        if not self.simulation_input.events or self._events_runtime is not None:
+            return
+
+        self.events = self.simulation_input.events
+        self._events_runtime = EventInjectionRuntime(
+            events=self.events,
+            edges=self.edges,
+            env=self.env,
+            servers=self.servers,
+            lb_out_edges=self._lb_out_edges,
+        )
+
+        # container only readable
+        edges_affected_view = self._events_runtime.edges_affected
+
+        # only readable map
+        edges_spike_view = MappingProxyType(self._events_runtime.edges_spike)
+
+        # We assign the two objects to all edges even though there are no
+        # events affecting them, this case is managed in the EdgeRuntime
+        # In the future we may control here if an edge is affected from an
+        # event this should have some advantage at the level of ram
+
+        for edge in self._edges_runtime.values():
+            edge.edges_affected = edges_affected_view
+            edge.edges_spike = edges_spike_view
+
 
 
     # ------------------------------------------------------------------ #
@@ -242,13 +317,14 @@ class SimulationRunner:
         self._rqs_runtime.values(),
         self._client_runtime.values(),
         self._servers_runtime.values(),
-        self._lb_runtime.values(),
+        ([] if self._lb_runtime is None else [self._lb_runtime]),
         )
 
         # Here we are saying to mypy that those object are of
         # the startable type and they share the start method
         for rt in cast("Iterable[Startable]", runtimes):
             rt.start()
+
 
     def _start_metric_collector(self) -> None:
         """One coroutine that snapshots RAM / queues / connections."""
@@ -258,6 +334,14 @@ class SimulationRunner:
             env=self.env,
             sim_settings=self.simulation_settings,
         ).start()
+
+
+    def _start_events(self) -> None:
+        """Function to start the process to build events"""
+        if self._events_runtime is not None:
+            self._events_runtime.start()
+
+
 
     # ------------------------------------------------------------------ #
     # Public entry-point                                                 #
@@ -273,7 +357,11 @@ class SimulationRunner:
         # 2. WIRE
         self._build_edges()
 
+        # 3 ATTACH EVENTS TO THE COMPONENTS
+        self._build_events()
+
         # 3. START ALL COROUTINES
+        self._start_events()
         self._start_all_processes()
         self._start_metric_collector()
 
@@ -296,7 +384,7 @@ class SimulationRunner:
         *,
         env: simpy.Environment,
         yaml_path: str | Path,
-    ) -> "SimulationRunner":
+    ) -> SimulationRunner:
         """
         Quick helper so that integration tests & CLI can do:
 

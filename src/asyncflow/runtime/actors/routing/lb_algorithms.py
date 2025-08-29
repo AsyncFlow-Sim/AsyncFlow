@@ -1,30 +1,45 @@
 """algorithms to simulate the load balancer during the simulation"""
 
+from collections import OrderedDict
+from collections.abc import Callable
 
-
+from asyncflow.config.constants import LbAlgorithmsName
 from asyncflow.runtime.actors.edge import EdgeRuntime
 
 
-def least_connections(list_edges: list[EdgeRuntime]) -> EdgeRuntime:
-    """We send the state to the edge with less concurrent connections"""
-    concurrent_connections = [edge.concurrent_connections for edge in list_edges]
+def least_connections(
+    edges: OrderedDict[str, EdgeRuntime],
+    ) -> EdgeRuntime:
+    """Return the edge with the fewest concurrent connections"""
+    # Here we use a O(n) operation, considering the amount of edges
+    # for the average simulation it should be ok, however, in the
+    # future we might consider to implement an heap structure to
+    # reduce the time complexity, especially if we will see
+    # during the Montecarlo analysis not good performances
+    name = min(edges, key=lambda k: edges[k].concurrent_connections)
+    return edges[name]
 
-    idx_min = concurrent_connections.index(min(concurrent_connections))
-
-    return list_edges[idx_min]
-
-def round_robin(edges: list[EdgeRuntime], idx: int) -> tuple[EdgeRuntime, int]:
+def round_robin(
+    edges: OrderedDict[str, EdgeRuntime],
+    ) -> EdgeRuntime:
     """
     We send states to different server in uniform way by
-    rotating the list of edges that should transport the state
-    to the correct server, we rotate the index and not the list
-    to avoid aliasing since the list is shared by many components
+    rotating the ordered dict, given the pydantic validation
+    we don't have to manage the edge case where the dict
+    is empty
     """
-    idx %= len(edges)
-    chosen = edges[idx]
-    idx = (idx + 1) % len(edges)
-    return chosen, idx
+    # we use iter next creating all time a new iterator
+    # to be sure that we return always the first element
+    key, value = next(iter(edges.items()))
+    edges.move_to_end(key)
+
+    return value
 
 
+LB_TABLE: dict[LbAlgorithmsName,
+               Callable[[OrderedDict[str, EdgeRuntime]], EdgeRuntime]] = {
+    LbAlgorithmsName.LEAST_CONNECTIONS: least_connections,
+    LbAlgorithmsName.ROUND_ROBIN: round_robin,
+}
 
 

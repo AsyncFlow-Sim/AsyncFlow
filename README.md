@@ -33,9 +33,17 @@ Predicting how an async system will behave under real-world load is notoriously 
 
 ---
 
+### Why Scenario-Driven? *Design Before You Code*
+
+AsyncFlow doesn’t need your backend to exist.
+You can model your architecture with YAML or Python, run simulations, and explore bottlenecks **before writing production code**.
+This scenario-driven approach lets you stress-test scaling strategies, network assumptions, and failure modes safely and repeatably.
+
+---
+
 ### How Does It Work?
 
-AsyncFlow represents your system as a **directed graph of components**—clients, load balancers, servers—connected by network edges with configurable latency models. Each server is **event-loop aware**: CPU work blocks, RAM stays allocated, and I/O yields the loop, just like real async frameworks. You can define topologies via **YAML** or a **Pythonic builder**.
+AsyncFlow represents your system as a **directed graph of components**, for example: clients, load balancers, servers—connected by network edges with configurable latency models. Each server is **event-loop aware**: CPU work blocks, RAM stays allocated, and I/O yields the loop, just like real async frameworks. You can define topologies via **YAML** or a **Pythonic builder**.
 
 ![Topology](https://raw.githubusercontent.com/AsyncFlow-Sim/AsyncFlow/main/readme_img/topology.png)
 
@@ -55,13 +63,6 @@ Run the simulation and inspect the outputs:
 
 
 ---
-
-⚡ **Design before you code**
-AsyncFlow doesn’t need your backend to exist.
-Model it with YAML or Python, run simulations, and see bottlenecks before a single line of production code is written.
-
----
-
 
 ### What Questions Can It Answer?
 
@@ -204,7 +205,7 @@ You’ll get latency stats in the terminal and a PNG with four charts (latency d
 
 **Want more?** 
 
-For ready-to-run scenarios—including examples using the Pythonic builder and multi-server topologies—check out the `examples/` directory in the repository.
+For ready-to-run scenarios including examples using the Pythonic builder and multi-server topologies, check out the `examples/` directory in the repository.
 
 ## Development
 
@@ -337,7 +338,7 @@ AsyncFlow is still in alpha. The current release has some known limitations that
 
 * **Sampling cadence** — very short events may be missed if the `sample_period_s` is too large.
 
----
+
 
 📌 See the [ROADMAP](./ROADMAP.md) for planned features and upcoming milestones.
 

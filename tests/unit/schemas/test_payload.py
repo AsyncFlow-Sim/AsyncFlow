@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from tests.unit.helpers import make_min_ep
 
 from asyncflow.config.constants import Distribution, EventDescription
 from asyncflow.schemas.common.random_variables import RVConfig
@@ -96,8 +97,14 @@ def _topology_with_two_servers_and_edge() -> TopologyGraph:
     """Create a topology with two servers and a minimal edge."""
     client = Client(id="client-1")
     servers = [
-    Server(id="srv-1", server_resources={"cpu_cores": 1}, endpoints=[]),
-    Server(id="srv-2", server_resources={"cpu_cores": 1}, endpoints=[]),
+    Server(
+        id="srv-1", server_resources={"cpu_cores": 1},
+        endpoints=[make_min_ep()],
+    ),
+    Server(
+        id="srv-2", server_resources={"cpu_cores": 1},
+        endpoints=[make_min_ep()],
+    ),
 ]
     edge = Edge(
         id="gen-to-client",

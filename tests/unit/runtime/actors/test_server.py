@@ -34,7 +34,7 @@ from asyncflow.runtime.actors.server import ServerRuntime
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
-from asyncflow.schemas.topology.nodes import Server, ServerResources
+from asyncflow.schemas.topology.nodes import NodesResources, Server
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -96,7 +96,7 @@ def _make_server_runtime(
     steps: Iterable[Step] | None = None,
 ) -> tuple[ServerRuntime, simpy.Store]:
     """Return a (ServerRuntime, sink) ready for injection tests."""
-    res_spec = ServerResources(cpu_cores=cpu_cores, ram_mb=ram_mb)
+    res_spec = NodesResources(cpu_cores=cpu_cores, ram_mb=ram_mb)
     containers = build_containers(env, res_spec)
 
     endpoint = _mk_endpoint(steps if steps is not None else _default_steps())
@@ -319,7 +319,7 @@ def test_ram_gating_blocks_before_ready() -> None:
     """When RAM is scarce, blocks on RAM and must NOT inflate ready."""
     env = simpy.Environment()
 
-    # Respect ServerResources(min RAM = 256).
+    # Respect NodesResources(min RAM = 256).
     # Endpoint needs 256 MB → second request waits on RAM (not in ready).
     steps = (
         Step(

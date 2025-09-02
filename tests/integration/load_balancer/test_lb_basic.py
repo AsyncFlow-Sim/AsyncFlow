@@ -37,8 +37,8 @@ from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
     LoadBalancer,
+    NodesResources,
     Server,
-    ServerResources,
     TopologyNodes,
 )
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator
@@ -60,7 +60,7 @@ def _server(server_id: str) -> Server:
     )
     return Server(
         id=server_id,
-        server_resources=ServerResources(),  # defaults are fine
+        server_resources=NodesResources(),  # defaults are fine
         endpoints=[ep],
     )
 

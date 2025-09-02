@@ -7,8 +7,8 @@ from asyncflow.schemas.topology.endpoint import Endpoint
 from asyncflow.schemas.topology.nodes import (
     Client,
     LoadBalancer,
+    NodesResources,
     Server,
-    ServerResources,
 )
 
 __all__ = [
@@ -17,8 +17,8 @@ __all__ = [
     "Endpoint",
     "EventInjection",
     "LoadBalancer",
+    "NodesResources",
     "Server",
-    "ServerResources",
     ]
 
 

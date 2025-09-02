@@ -1,4 +1,4 @@
-"""Unit-tests for topology schemas (Client, ServerResources, Edge, …)"""
+"""Unit-tests for topology schemas (Client, NodesResources, Edge, …)"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from asyncflow.config.constants import (
     EndpointStepCPU,
     NetworkParameters,
-    ServerResourcesDefaults,
+    NodesResourcesDefaults,
     StepOperation,
     SystemEdges,
     SystemNodes,
@@ -20,8 +20,8 @@ from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
     LoadBalancer,
+    NodesResources,
     Server,
-    ServerResources,
     TopologyNodes,
 )
 
@@ -43,22 +43,22 @@ def test_invalid_client_type() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# ServerResources                                                             #
+# NodesResources                                                             #
 # --------------------------------------------------------------------------- #
 
 
 def test_server_resources_defaults() -> None:
     """All defaults match constant table."""
-    res = ServerResources()
-    assert res.cpu_cores == ServerResourcesDefaults.CPU_CORES
-    assert res.ram_mb == ServerResourcesDefaults.RAM_MB
-    assert res.db_connection_pool is ServerResourcesDefaults.DB_CONNECTION_POOL
+    res = NodesResources()
+    assert res.cpu_cores == NodesResourcesDefaults.CPU_CORES
+    assert res.ram_mb == NodesResourcesDefaults.RAM_MB
+    assert res.db_connection_pool is NodesResourcesDefaults.DB_CONNECTION_POOL
 
 
 def test_server_resources_min_constraints() -> None:
     """Values below minimum trigger validation failure."""
     with pytest.raises(ValidationError):
-        ServerResources(cpu_cores=0, ram_mb=128)  # too small
+        NodesResources(cpu_cores=0, ram_mb=128)  # too small
 
 
 # --------------------------------------------------------------------------- #
@@ -80,7 +80,7 @@ def test_valid_server() -> None:
     srv = Server(
         id="api-1",
         type=SystemNodes.SERVER,
-        server_resources=ServerResources(cpu_cores=2, ram_mb=1024),
+        server_resources=NodesResources(cpu_cores=2, ram_mb=1024),
         endpoints=[_dummy_endpoint()],
     )
     assert srv.id == "api-1"
@@ -92,7 +92,7 @@ def test_invalid_server_type() -> None:
         Server(
             id="bad-srv",
             type=SystemNodes.CLIENT,
-            server_resources=ServerResources(),
+            server_resources=NodesResources(),
             endpoints=[_dummy_endpoint()],
         )
 
@@ -118,7 +118,7 @@ def _single_node_topology() -> TopologyNodes:
     """Helper returning one server + one client topology."""
     srv = Server(
         id="svc-A",
-        server_resources=ServerResources(),
+        server_resources=NodesResources(),
         endpoints=[_dummy_endpoint()],
     )
     cli = Client(id="browser")

@@ -88,7 +88,7 @@ AsyncFlow mirrors that physical constraint through the **Resource layer**, which
 
 | Responsibility        | Implementation detail                                                                                                                                                                                            |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Discover capacity** | Walks the *validated* `TopologyGraph.nodes.servers`, reading `cpu_cores` and `ram_mb` from each `ServerResources` spec.                                                                                          |
+| **Discover capacity** | Walks the *validated* `TopologyGraph.nodes.servers`, reading `cpu_cores` and `ram_mb` from each `NodesResources` spec.                                                                                          |
 | **Mint containers**   | Calls `build_containers(env, spec)` which returns<br>`{"CPU": simpy.Container(init=cpu_cores), "RAM": simpy.Container(init=ram_mb)}` — the containers start **full** so a server can immediately consume tokens. |
 | **Registry map**      | Stores them in a private dict `_by_server: dict[str, ServerContainers]`.                                                                                                                                         |
 | **Public API**        | `registry[server_id] → ServerContainers` (raises `KeyError` if the ID is unknown).                                                                                                                               |

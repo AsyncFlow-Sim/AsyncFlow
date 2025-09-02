@@ -16,8 +16,8 @@ from asyncflow.components import (
     Endpoint,
     EventInjection,
     LoadBalancer,
+    NodesResources,
     Server,
-    ServerResources,
 )
 from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator, RVConfig
@@ -47,7 +47,7 @@ def test_components_public_symbols() -> None:
         "EventInjection",
         "LoadBalancer",
         "Server",
-        "ServerResources",
+        "NodesResources",
     ]
     _assert_all_equals("asyncflow.components", expected)
 
@@ -62,7 +62,7 @@ def test_components_symbols_are_importable_classes() -> None:
         (EventInjection, "EventInjection"),
         (LoadBalancer, "LoadBalancer"),
         (Server, "Server"),
-        (ServerResources, "ServerResources"),
+        (NodesResources, "NodesResources"),
     ]:
         assert isinstance(cls, type), f"{name} should be a class type"
         assert cls.__name__ == name

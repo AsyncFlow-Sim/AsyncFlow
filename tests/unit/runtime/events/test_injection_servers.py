@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import simpy
+from tests.unit.helpers import make_min_ep
 
 from asyncflow.config.constants import EventDescription
 from asyncflow.runtime.actors.edge import EdgeRuntime
@@ -14,7 +15,7 @@ from asyncflow.runtime.events.injection import EventInjectionRuntime
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.topology.edges import Edge
-from asyncflow.schemas.topology.nodes import Server, ServerResources
+from asyncflow.schemas.topology.nodes import NodesResources, Server
 
 if TYPE_CHECKING:
     from asyncflow.schemas.settings.simulation import SimulationSettings
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #
 # --------------------------------------------------------------------------- #
+
+
 
 def _edge(edge_id: str, source: str, target: str) -> Edge:
     """Create a minimal LB→server edge with negligible latency."""
@@ -38,8 +41,8 @@ def _srv(server_id: str) -> Server:
     """Create a minimal, fully-typed Server instance for tests."""
     return Server(
         id=server_id,
-        server_resources=ServerResources(),  # uses defaults
-        endpoints=[],                        # empty list is valid
+        server_resources=NodesResources(),  # uses defaults
+        endpoints=[make_min_ep()],
     )
 
 def _srv_event(

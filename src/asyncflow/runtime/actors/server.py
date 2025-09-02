@@ -196,7 +196,7 @@ class ServerRuntime:
 
         for step in selected_endpoint.steps:
 
-            if step.kind in EndpointStepCPU:
+            if isinstance(step.kind, EndpointStepCPU):
                 # with the boolean we avoid redundant operation of asking
                 # the core multiple time on a given step
                 # for example if we have two consecutive cpu bound step
@@ -232,7 +232,7 @@ class ServerRuntime:
 
             # since the object is of an Enum class we check if the step.kind
             # is one member of enum
-            elif step.kind in EndpointStepIO:
+            elif isinstance(step.kind, EndpointStepIO):
                 # define the io time
                 io_time = step.step_operation[StepOperation.IO_WAITING_TIME]
 
@@ -244,7 +244,7 @@ class ServerRuntime:
                     if not is_in_io_queue:
                         is_in_io_queue = True
                         self._el_io_queue_len += 1
-                
+
                 # here is a sage check: the first step should always
                 # be a cpu bound (parsing of the request), if an user
                 # start with a I/O this allow to don't break the flux
@@ -305,6 +305,21 @@ class ServerRuntime:
         The main dispatcher loop. It pulls requests from the inbox and
         spawns a new '_handle_request' process for each one.
         """
+        # we assume in the current model that there is a one
+        # to one correspondence between cpu cores and workers
+        # before entering in the loop in the current implementation
+        # we reserve the ram necessary to run the processes
+        if self.server_config.ram_per_process:
+            processes_ram = (
+                self.server_config.ram_per_process *
+                self.server_config.server_resources.cpu_cores
+            )
+
+            yield self.server_resources[
+                ServerResourceName.RAM.value
+                ].get(processes_ram)
+
+
         while True:
             # Wait for a request to arrive in the server's inbox
             raw_state = yield self.server_box.get()

@@ -30,8 +30,8 @@ from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
     LoadBalancer,
+    NodesResources,
     Server,
-    ServerResources,
     TopologyNodes,
 )
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 
 def _server(sid: str) -> Server:
-    return Server(id=sid, server_resources=ServerResources(), endpoints=[])
+    return Server(id=sid, server_resources=NodesResources(), endpoints=[])
 
 
 def _edge(eid: str, src: str, tgt: str, mean: float = 0.002) -> Edge:

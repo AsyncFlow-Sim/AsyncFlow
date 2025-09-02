@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import pytest
 import simpy
 import yaml
+from tests.unit.helpers import make_min_ep
 
 from asyncflow.config.constants import Distribution, EventDescription
 from asyncflow.runtime.simulation_runner import SimulationRunner
@@ -25,8 +26,8 @@ from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
     LoadBalancer,
+    NodesResources,
     Server,
-    ServerResources,
     TopologyNodes,
 )
 
@@ -149,7 +150,10 @@ def _payload_with_lb_one_server_and_edges(
 ) -> SimulationPayload:
     """Build a small payload with LB → server wiring and one net edge."""
     client = Client(id="client-1")
-    server = Server(id="srv-1", server_resources=ServerResources(), endpoints=[])
+    server = Server(
+        id="srv-1", server_resources=NodesResources(),
+        endpoints=[make_min_ep()],
+    )
     lb = LoadBalancer(id="lb-1")
     nodes = TopologyNodes(servers=[server], client=client, load_balancer=lb)
 

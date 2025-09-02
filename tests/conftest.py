@@ -160,3 +160,4 @@ def payload_base(
 def env() -> simpy.Environment:
     """Return a fresh SimPy environment per test."""
     return simpy.Environment()
+

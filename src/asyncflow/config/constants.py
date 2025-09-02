@@ -117,7 +117,7 @@ class StepOperation(StrEnum):
 # CONSTANTS FOR THE RESOURCES OF A SERVER
 # ======================================================================
 
-class ServerResourcesDefaults:
+class NodesResourcesDefaults:
     """Resources available for a single server"""
 
     CPU_CORES = 1

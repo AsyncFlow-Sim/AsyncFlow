@@ -19,7 +19,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 import simpy
+from numpy.random import Generator as NpGenerator
 from numpy.random import default_rng
 
 from asyncflow.config.constants import (
@@ -30,8 +32,10 @@ from asyncflow.config.constants import (
     StepOperation,
 )
 from asyncflow.resources.server_containers import build_containers
+from asyncflow.runtime.actors import server as server_mod
 from asyncflow.runtime.actors.server import ServerRuntime
 from asyncflow.runtime.rqs_state import RequestState
+from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 from asyncflow.schemas.topology.nodes import NodesResources, Server
@@ -366,3 +370,112 @@ def test_enabled_metrics_dict_populated() -> None:
         SampledMetricName.EVENT_LOOP_IO_SLEEP,
     }
     assert mandatory.issubset(server.enabled_metrics.keys())
+
+
+# --------------------------------------------------------------------------- #
+# CPU step: RVConfig is sampled via general_sampler                           #
+# --------------------------------------------------------------------------- #
+
+def test_cpu_step_uses_rvconfig_sample(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CPU step duration follows the (patched) sampler result."""
+    # Patch sampler: return 7 ms when mean=0.123 (CPU sentinel)
+    def fake_sampler(cfg: RVConfig, rng: NpGenerator) -> float:
+        return 0.007 if cfg.mean == 0.123 else 0.0
+
+    monkeypatch.setattr(server_mod, "general_sampler", fake_sampler)
+
+    env = simpy.Environment()
+    steps = (
+        Step(
+            kind=EndpointStepRAM.RAM,
+            step_operation={StepOperation.NECESSARY_RAM: 64},
+        ),
+        Step(
+            kind=EndpointStepCPU.CPU_BOUND_OPERATION,
+            step_operation={StepOperation.CPU_TIME: RVConfig(mean=0.123)},
+        ),
+        Step(
+            kind=EndpointStepIO.WAIT,
+            step_operation={StepOperation.IO_WAITING_TIME: 0.010},
+        ),
+    )
+    server, _ = _make_server_runtime(env, steps=steps, cpu_cores=1)
+    cpu = server.server_resources["CPU"]
+
+    server.server_box.put(RequestState(id=100, initial_time=0.0))
+    server.start()
+
+    # During CPU (7 ms)
+    env.run(until=0.004)
+    assert cpu.level == 0  # 1 core, held
+    # After CPU finished
+    env.run(until=0.008)
+    assert cpu.level == 1  # released
+
+
+# --------------------------------------------------------------------------- #
+# IO step: RVConfig is sampled via general_sampler                            #
+# --------------------------------------------------------------------------- #
+
+def test_io_step_uses_rvconfig_sample(monkeypatch: pytest.MonkeyPatch) -> None:
+    """IO step duration follows the (patched) sampler result."""
+    # Patch sampler: return 15 ms when mean=0.456 (IO sentinel)
+    def fake_sampler(cfg: RVConfig, rng: NpGenerator) -> float:
+        return 0.015 if cfg.mean == 0.456 else 0.0
+
+    monkeypatch.setattr(server_mod, "general_sampler", fake_sampler)
+
+    env = simpy.Environment()
+    steps = (
+        Step(
+            kind=EndpointStepRAM.RAM,
+            step_operation={StepOperation.NECESSARY_RAM: 64},
+        ),
+        Step(
+            kind=EndpointStepCPU.CPU_BOUND_OPERATION,
+            step_operation={StepOperation.CPU_TIME: 0.002},
+        ),
+        Step(
+            kind=EndpointStepIO.DB,
+            step_operation={StepOperation.IO_WAITING_TIME: RVConfig(mean=0.456)},
+        ),
+    )
+    server, _ = _make_server_runtime(env, steps=steps, cpu_cores=1)
+
+    server.server_box.put(RequestState(id=200, initial_time=0.0))
+    server.start()
+
+    # After CPU (2 ms), inside IO (15 ms total)
+    env.run(until=0.010)
+    assert server.io_queue_len == 1
+    # After IO finished
+    env.run(until=0.020)
+    assert server.io_queue_len == 0
+
+
+# --------------------------------------------------------------------------- #
+# Helpers: _compute_latency_cpu/_io dispatch to sampler and accept ints/floats #
+# --------------------------------------------------------------------------- #
+
+def test_helpers_sample_and_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Helpers use sampler for RVConfig and accept int/float deterministics."""
+    # Patch sampler to a fixed value
+    def fake_sampler(cfg: RVConfig, rng: NpGenerator) -> float:
+        return 0.123
+
+    monkeypatch.setattr(server_mod, "general_sampler", fake_sampler)
+
+    # Minimal runtime just to call methods
+    env = simpy.Environment()
+
+    # Call unbound methods with a real ServerRuntime instance to be safe
+    # (we can build one via the existing factory)
+    server, _ = _make_server_runtime(env)
+
+    # RVConfig paths
+    assert server._compute_latency_cpu(RVConfig(mean=1.0)) == pytest.approx(0.123) # noqa: SLF001
+    assert server._compute_latency_io(RVConfig(mean=1.0)) == pytest.approx(0.123) # noqa: SLF001
+
+    # Deterministic int/float paths
+    assert server._compute_latency_cpu(2) == pytest.approx(2.0) # noqa: SLF001
+    assert server._compute_latency_io(0.5) == pytest.approx(0.5) # noqa: SLF001

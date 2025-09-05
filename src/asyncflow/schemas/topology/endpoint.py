@@ -14,6 +14,7 @@ from asyncflow.config.constants import (
     EndpointStepRAM,
     StepOperation,
 )
+from asyncflow.schemas.common.random_variables import RVConfig
 
 
 class Step(BaseModel):
@@ -23,7 +24,7 @@ class Step(BaseModel):
     """
 
     kind: EndpointStepIO | EndpointStepCPU | EndpointStepRAM
-    step_operation: dict[StepOperation, PositiveFloat | PositiveInt]
+    step_operation: dict[StepOperation, PositiveFloat | PositiveInt | RVConfig]
 
     @field_validator("step_operation", mode="before")
     def ensure_non_empty(
@@ -81,6 +82,55 @@ class Step(BaseModel):
         ):
 
             msg = f"An I/O step must use {StepOperation.IO_WAITING_TIME}"
+            raise ValueError(msg)
+
+        return model
+
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def ensure_cpu_io_positive_rv(cls, model: "Step") -> "Step":  # noqa: N805
+        """
+        For CPU/IO steps: if the operation is an RVConfig, require mean > 0
+        and variance ≥ 0. Deterministic PositiveFloat è già validato.
+        """
+        # safe anche se per qualche motivo ci fossero 0/2+ chiavi
+        op_val = next(iter(model.step_operation.values()), None)
+        if op_val is None:
+            return model
+
+        if isinstance(model.kind, EndpointStepCPU) and isinstance(op_val, RVConfig):
+            if op_val.mean <= 0:
+                msg = "CPU_TIME RVConfig.mean must be > 0"
+                raise ValueError(msg)
+            if op_val.variance is not None and op_val.variance < 0:
+                msg = "CPU_TIME RVConfig.variance must be >= 0"
+                raise ValueError(msg)
+
+        if isinstance(model.kind, EndpointStepIO) and isinstance(op_val, RVConfig):
+            if op_val.mean <= 0:
+                msg = "IO_WAITING_TIME RVConfig.mean must be > 0"
+                raise ValueError(msg)
+            if op_val.variance is not None and op_val.variance < 0:
+                msg = "IO_WAITING_TIME RVConfig.variance must be >= 0"
+                raise ValueError(msg)
+
+        return model
+
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def ensure_ram_positive_int(cls, model: "Step") -> "Step":  # noqa: N805
+        """For RAM steps: operation must be a positive integer (no RVs/floats)"""
+        if not isinstance(model.kind, EndpointStepRAM):
+            return model
+
+        op_val = next(iter(model.step_operation.values()), None)
+        if op_val is None:
+            return model
+
+        if isinstance(op_val, RVConfig) or not isinstance(op_val, int):
+            msg = "NECESSARY_RAM must be a positive integer"
+            raise TypeError(msg)
+
+        if op_val <= 0:
+            msg = "NECESSARY_RAM must be > 0"
             raise ValueError(msg)
 
         return model

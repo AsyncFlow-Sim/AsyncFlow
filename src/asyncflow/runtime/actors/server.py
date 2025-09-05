@@ -3,11 +3,13 @@ definition of the class necessary to manage the server
 during the simulation
 """
 
+
 from collections.abc import Generator
 from typing import cast
 
 import numpy as np
 import simpy
+from pydantic import PositiveFloat, PositiveInt
 
 from asyncflow.config.constants import (
     EndpointStepCPU,
@@ -22,6 +24,8 @@ from asyncflow.metrics.server import build_server_metrics
 from asyncflow.resources.server_containers import ServerContainers
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.rqs_state import RequestState
+from asyncflow.samplers.common_helpers import general_sampler
+from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.nodes import Server
 
@@ -75,6 +79,45 @@ class ServerRuntime:
             settings.enabled_sample_metrics,
         )
 
+    # ------------------------------------------------------------------
+    # HELPERS
+    # ------------------------------------------------------------------
+
+    def _sample_duration(
+        self, time: RVConfig | PositiveFloat | PositiveInt,
+        ) -> float:
+        """
+        Return a non-negative duration in seconds.
+
+        - RVConfig -> sample via general_sampler(self.rng)
+        - float/int -> cast to float
+        - Negative draws are clamped to 0.0 (e.g., Normal tails).
+        """
+        if isinstance(time, RVConfig):
+            time = float(general_sampler(time, self.rng))
+        else:
+            time = float(time)
+
+        return time
+
+    def _compute_latency_cpu(
+        self,
+        cpu_time:PositiveFloat | PositiveInt | RVConfig,
+        ) -> float:
+        """Helper to compute the latency of a cpu bound given step"""
+        return self._sample_duration(cpu_time)
+
+    def _compute_latency_io(
+        self,
+        io_time:PositiveFloat | PositiveInt | RVConfig,
+        ) -> float:
+        """Helper to compute the latency of a IO bound given step"""
+        return self._sample_duration(io_time)
+
+    # -------------------------------------------------------------------
+    # Main function to elaborate a request
+    # -------------------------------------------------------------------
+
     # right now we disable the warnings but a refactor will be done soon
     def _handle_request( # noqa: PLR0915, PLR0912, C901
         self,
@@ -103,11 +146,12 @@ class ServerRuntime:
 
 
         # Extract the total ram to execute the endpoint
-        total_ram = sum(
-            step.step_operation[StepOperation.NECESSARY_RAM]
-            for step in selected_endpoint.steps
-            if isinstance(step.kind, EndpointStepRAM)
-        )
+        total_ram = 0
+        for step in selected_endpoint.steps:
+            if isinstance(step.kind, EndpointStepRAM):
+                ram = step.step_operation[StepOperation.NECESSARY_RAM]
+                assert isinstance(ram, int)
+                total_ram += ram
 
         # ------------------------------------------------------------------
         # CPU & RAM SCHEDULING
@@ -226,7 +270,9 @@ class ServerRuntime:
 
                     core_locked = True
 
-                cpu_time = step.step_operation[StepOperation.CPU_TIME]
+                cpu_time = self._compute_latency_cpu(
+                    step.step_operation[StepOperation.CPU_TIME],
+                )
                 # Execute the step giving back the control to the simpy env
                 yield self.env.timeout(cpu_time)
 
@@ -234,7 +280,9 @@ class ServerRuntime:
             # is one member of enum
             elif isinstance(step.kind, EndpointStepIO):
                 # define the io time
-                io_time = step.step_operation[StepOperation.IO_WAITING_TIME]
+                io_time = self._compute_latency_io(
+                    step.step_operation[StepOperation.IO_WAITING_TIME],
+                    )
 
                 if core_locked:
                     # release the core coming from a cpu step

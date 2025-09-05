@@ -11,6 +11,7 @@ from asyncflow.config.constants import (
     EndpointStepRAM,
     StepOperation,
 )
+from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 
 
@@ -129,3 +130,97 @@ def test_wrong_operation_name_for_io() -> None:
             kind=EndpointStepIO.CACHE,
             step_operation={StepOperation.NECESSARY_RAM: 64},
         )
+
+
+# --------------------------------------------------------------------------- #
+# CPU: RVConfig branch                                                        #
+# --------------------------------------------------------------------------- #
+
+def test_cpu_step_rvconfig_positive_ok() -> None:
+    """CPU step with RVConfig(mean>0, variance=0) is accepted."""
+    s = Step(
+        kind=EndpointStepCPU.CPU_BOUND_OPERATION,
+        step_operation={StepOperation.CPU_TIME: RVConfig(mean=0.05, variance=0.0)},
+    )
+    assert isinstance(s.step_operation[StepOperation.CPU_TIME], RVConfig)
+
+
+def test_cpu_step_rvconfig_zero_mean_fails() -> None:
+    """CPU step with RVConfig(mean==0) is rejected by model validator."""
+    with pytest.raises(ValidationError):
+        Step(
+            kind=EndpointStepCPU.CPU_BOUND_OPERATION,
+            step_operation={StepOperation.CPU_TIME: RVConfig(mean=0.0)},
+        )
+
+
+def test_cpu_step_deterministic_zero_fails() -> None:
+    """Deterministic CPU time must be PositiveFloat (>0)."""
+    with pytest.raises(ValidationError):
+        Step(
+            kind=EndpointStepCPU.CPU_BOUND_OPERATION,
+            step_operation={StepOperation.CPU_TIME: 0.0},
+        )
+
+
+# --------------------------------------------------------------------------- #
+# IO: RVConfig branch                                                         #
+# --------------------------------------------------------------------------- #
+
+def test_io_step_rvconfig_negative_variance_fails() -> None:
+    """IO step with negative variance is rejected."""
+    with pytest.raises(ValidationError):
+        Step(
+            kind=EndpointStepIO.WAIT,
+            step_operation={
+                StepOperation.IO_WAITING_TIME:
+                    RVConfig(mean=0.02, variance=-1.0)},
+        )
+
+
+def test_io_step_rvconfig_positive_ok() -> None:
+    """IO step with RVConfig(mean>0, variance=None) is accepted."""
+    s = Step(
+        kind=EndpointStepIO.WAIT,
+        step_operation={StepOperation.IO_WAITING_TIME: RVConfig(mean=0.02)},
+    )
+    assert isinstance(s.step_operation[StepOperation.IO_WAITING_TIME], RVConfig)
+
+
+# --------------------------------------------------------------------------- #
+# RAM: type discipline                                                        #
+# --------------------------------------------------------------------------- #
+
+def test_ram_step_rejects_float_and_rvconfig() -> None:
+    """RAM step must use a positive integer; float and RVConfig are rejected."""
+    # float rejected
+    with pytest.raises(TypeError):
+        Step(
+            kind=EndpointStepRAM.RAM,
+            step_operation={StepOperation.NECESSARY_RAM: 64.0},
+        )
+    # RVConfig rejected
+    with pytest.raises(TypeError):
+        Step(
+            kind=EndpointStepRAM.RAM,
+            step_operation={StepOperation.NECESSARY_RAM: RVConfig(mean=128.0)},
+        )
+
+
+def test_ram_step_zero_fails() -> None:
+    """RAM step with 0 is rejected by model validator."""
+    with pytest.raises(ValidationError):
+        Step(
+            kind=EndpointStepRAM.RAM,
+            step_operation={StepOperation.NECESSARY_RAM: 0},
+        )
+
+
+
+
+
+
+
+
+
+

@@ -6,6 +6,8 @@ drop probability, and optional connection-pool contention—by exposing a
 waits the sampled delay (and any resource wait) before delivering the
 message to the target node's inbox.
 """
+
+
 from collections.abc import Container, Generator, Mapping
 from typing import TYPE_CHECKING
 
@@ -16,11 +18,14 @@ from asyncflow.config.constants import SampledMetricName, SystemEdges
 from asyncflow.metrics.edge import build_edge_metrics
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.samplers.common_helpers import general_sampler
+from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.edges import Edge
 
 if TYPE_CHECKING:
-    from asyncflow.schemas.common.random_variables import RVConfig
+    from pydantic import PositiveFloat
+
+
 
 
 class EdgeRuntime:
@@ -73,7 +78,6 @@ class EdgeRuntime:
     def _deliver(self, state: RequestState) -> Generator[simpy.Event, None, None]:
         """Function to deliver the state to the next node"""
         # extract the random variables defining the latency of the edge
-        random_variable: RVConfig = self.edge_config.latency
 
         uniform_variable = self.rng.uniform()
         if uniform_variable < self.edge_config.dropout_rate:
@@ -85,9 +89,15 @@ class EdgeRuntime:
             )
             return
 
+        # latency
+        latency: RVConfig | PositiveFloat = self.edge_config.latency
+
         self._concurrent_connections +=1
 
-        transit_time = general_sampler(random_variable, self.rng)
+        if isinstance(latency, RVConfig):
+            transit_time = general_sampler(latency, self.rng)
+        else:
+            transit_time = latency
 
 
         # Logic to add if exists the event injection for the given edge

@@ -3,12 +3,7 @@ Define the property of the edges of the system representing
 links between different nodes
 """
 
-from pydantic import (
-    BaseModel,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, Field, PositiveFloat, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from asyncflow.config.constants import (
@@ -32,8 +27,9 @@ class Edge(BaseModel):
         Identifier of the source node (where the request comes from).
     target : str
         Identifier of the destination node (where the request goes to).
-    latency : RVConfig
-        Random-variable configuration for network latency on this link.
+    latency : RVConfig | PositiveFloat
+        Random-variable configuration for network latency on this link or
+        positive float value.
     probability : float
         Probability of taking this edge when there are multiple outgoing links.
         Must be in [0.0, 1.0]. Defaults to 1.0 (always taken).
@@ -45,7 +41,7 @@ class Edge(BaseModel):
     id: str
     source: str
     target: str
-    latency: RVConfig
+    latency: RVConfig | PositiveFloat
     edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
     dropout_rate: float = Field(
         NetworkParameters.DROPOUT_RATE,
@@ -66,10 +62,13 @@ class Edge(BaseModel):
     @field_validator("latency", mode="after")
     def ensure_latency_is_non_negative(
         cls, # noqa: N805
-        v: RVConfig,
+        v: RVConfig | PositiveFloat,
         info: ValidationInfo,
-        ) -> RVConfig:
+        ) -> RVConfig | PositiveFloat:
         """Ensures that the latency's mean and variance are positive."""
+        if not isinstance(v, RVConfig):
+            return v
+
         mean = v.mean
         variance = v.variance
 
@@ -79,9 +78,10 @@ class Edge(BaseModel):
         if mean <= 0:
             msg = f"The mean latency of the edge '{edge_id}' must be positive"
             raise ValueError(msg)
+
         if variance is not None and variance < 0: # Variance can be zero
             msg = (
-                f"The variance of the latency of the edge {edge_id}"
+                f"The variance of the latency of the edge {edge_id} "
                 "must be non negative"
             )
             raise ValueError(msg)

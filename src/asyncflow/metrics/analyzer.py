@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 
-from asyncflow.config.constants import LatencyKey, SampledMetricName
+from asyncflow.config.constants import (
+    EventMetricName,
+    LatencyKey,
+    SampledMetricName,
+)
 from asyncflow.config.plot_constants import (
     LATENCY_PLOT,
     RAM_PLOT,
@@ -15,6 +19,7 @@ from asyncflow.config.plot_constants import (
     THROUGHPUT_PLOT,
     PlotCfg,
 )
+from asyncflow.metrics.server import ServerClock
 
 if TYPE_CHECKING:
     # Standard library typing imports in type-checking block (TC003).
@@ -31,6 +36,18 @@ if TYPE_CHECKING:
 
 # Short alias to keep signatures within 88 chars (E501).
 Series = tuple[list[float], list[float]]
+
+
+class ServerArrays(TypedDict):
+    """Object to collect relevant data for each server"""
+
+    latencies: list[float]
+    service_time: list[float]
+    io_time: list[float]
+    waiting_time: list[float]
+    finish_times: list[float]
+
+ServerArraysMap = dict[str, ServerArrays]
 
 
 class ResultsAnalyzer:
@@ -68,17 +85,121 @@ class ResultsAnalyzer:
         self.throughput_series: Series | None = None
         # Sampled metrics are stored with string metric keys for simplicity.
         self.sampled_metrics: dict[str, dict[str, list[float]]] | None = None
+        # Per-server, per-request arrays (filled lazily by _collect_server_event_arrays)
+        # Map: server_id -> {
+        #   'latencies':     list[float],  # server-side (finish - start)
+        #   'service_time':  list[float],
+        #   'io_time':       list[float],
+        #   'waiting_time':  list[float],
+        #   'finish_times':  list[float],  # for per-server throughput
+        # }
+        self.server_event_arrays: ServerArraysMap | None = None
 
     # ─────────────────────────────────────────────
     # Core computation
     # ─────────────────────────────────────────────
     def process_all_metrics(self) -> None:
         """Compute all aggregated and sampled metrics if not already done."""
+        # Client-side: end-to-end latencies + 1s throughput
         if self.latency_stats is None and self._client.rqs_clock:
             self._process_event_metrics()
 
+        # Sampled time series from servers/edges (RAM, queues, etc.)
         if self.sampled_metrics is None:
             self._extract_sampled_metrics()
+
+        # Per-server per-request arrays (service/io/wait/server-latency/finishes)
+        self.get_server_event_arrays()  # single call, handles lazy init
+
+    def _build_server_event_arrays(self) -> ServerArraysMap:
+        """Pure builder: returns {server_id -> arrays} without mutating self."""
+        out: ServerArraysMap = {}
+
+        for srv in self._servers:
+            sid = srv.server_config.id
+            latencies: list[float] = []
+            service: list[float] = []
+            io_w: list[float] = []
+            wait: list[float] = []
+            finishes: list[float] = []
+
+            # srv.server_rqs_clock: Mapping[int, MetricBucket]
+            for bucket in srv.server_rqs_clock.values():
+                # Server clock (if present and completed)
+                clock = bucket.get(EventMetricName.RQS_SERVER_CLOCK)
+                if isinstance(clock, ServerClock) and clock.finish is not None:
+                    latencies.append(float(clock.finish - clock.start))
+                    finishes.append(float(clock.finish))
+
+                # Accumulators are floats in the bucket
+                st = bucket.get(EventMetricName.SERVICE_TIME, 0.0)
+                if isinstance(st, float):
+                    service.append(st)
+
+                it = bucket.get(EventMetricName.IO_TIME, 0.0)
+                if isinstance(it, float):
+                    io_w.append(it)
+
+                wt = bucket.get(EventMetricName.WAITING_TIME, 0.0)
+                if isinstance(wt, float):
+                    wait.append(wt)
+
+            out[sid] = ServerArrays(
+                latencies=latencies,
+                service_time=service,
+                io_time=io_w,
+                waiting_time=wait,
+                finish_times=finishes,
+            )
+
+        return out
+
+    def _ensure_server_arrays(self) -> ServerArraysMap:
+        """Ensure self.server_event_arrays is built exactly once, and return it."""
+        if self.server_event_arrays is None:
+            self.server_event_arrays = self._build_server_event_arrays()
+        return self.server_event_arrays
+
+    def get_server_event_arrays(self) -> ServerArraysMap:
+        """Return {server_id -> per-request arrays} (computed lazily)."""
+        return self._ensure_server_arrays()
+
+    def get_server_throughput_series(
+        self, server_id: str, *, window_s: float | None = None,
+    ) -> Series:
+        """
+        Return (timestamps, RPS) for a single server
+        in fixed windows (default 1s)
+        """
+        if window_s is None:
+            window_s = ResultsAnalyzer._WINDOW_SIZE_S
+
+        arrays = self.get_server_event_arrays().get(server_id)
+        if arrays is None:
+            return ([], [])
+
+        finishes = sorted(arrays["finish_times"])
+        if not finishes:
+            return ([], [])
+
+        end_time = self._settings.total_simulation_time
+        timestamps: list[float] = []
+        rps_values: list[float] = []
+        idx = 0
+        window = float(window_s)
+        current_end = window
+
+        while current_end <= end_time:
+            count = 0
+            while idx < len(finishes) and finishes[idx] <= current_end:
+                count += 1
+                idx += 1
+            timestamps.append(current_end)
+            rps_values.append(count / window)
+            current_end += window
+
+        return (timestamps, rps_values)
+
 
     def _process_event_metrics(self) -> None:
         """Calculate latency stats and throughput time series (1s RPS)."""
@@ -533,7 +654,6 @@ class ResultsAnalyzer:
         leg.get_frame().set_facecolor("white")
 
 
-
     def plot_single_server_ram(self, ax: Axes, server_id: str) -> None:
         """Plot RAM usage with mean/min/max lines and a single legend box with
         values. No trend/ewma, no legend entry for the main series.
@@ -587,3 +707,187 @@ class ResultsAnalyzer:
             fontsize=9.5,
         )
         leg.get_frame().set_facecolor("white")
+
+    # -------------------------------------------------
+    # SERVER METRICS PLOT
+    #--------------------------------------------------
+
+    def _plot_histogram_with_overlays(
+        self,
+        ax: Axes,
+        data: list[float],
+        *,
+        title: str,
+        xlabel: str,
+        show_p50: bool = False,
+    ) -> None:
+        """Render a histogram with mean/(optional)P50/P95/P99 overlays
+        and a compact legend.
+        """
+        if not data:
+            ax.text(0.5, 0.5, "No data", ha="center", va="center")
+            ax.set_title(title)
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel("count")
+            ax.grid(visible=True)
+            return
+
+        # Colors consistent with the rest of the module
+        col_mean = "#d62728"   # red
+        col_p50  = "#ff7f0e"   # orange
+        col_p95  = "#2ca02c"   # green
+        col_p99  = "#9467bd"   # purple
+        hist_color = "#1f77b4" # soft blue
+
+        arr = np.asarray(data, dtype=float)
+        v_mean = float(np.mean(arr))
+        v_p95  = float(np.percentile(arr, 95))
+        v_p99  = float(np.percentile(arr, 99))
+
+        # Histogram (subtle to let overlays stand out)
+        ax.hist(
+            arr, bins=50, color=hist_color, alpha=0.40,
+            edgecolor="none", zorder=1,
+        )
+
+        # Overlays
+        ax.axvline(
+            v_mean, color=col_mean, linestyle=":", linewidth=1.8,
+            alpha=0.95, zorder=3,
+        )
+        handles: list[Line2D] = []
+
+        # Legend handles (dummy lines with values)
+        h_mean = ax.plot(
+            [], [], color=col_mean, linestyle=":", linewidth=2.4,
+            label=f"mean = {v_mean:.3f}",
+        )[0]
+        handles.append(h_mean)
+
+        if show_p50:
+            v_p50 = float(np.percentile(arr, 50))
+            ax.axvline(
+                v_p50, color=col_p50, linestyle="-.", linewidth=1.6,
+                alpha=0.90, zorder=3,
+            )
+            h_p50 = ax.plot(
+                [], [], color=col_p50, linestyle="-.", linewidth=2.4,
+                label=f"P50  = {v_p50:.3f}",
+            )[0]
+            handles.append(h_p50)
+
+        ax.axvline(
+            v_p95, color=col_p95, linestyle="--", linewidth=1.6,
+            alpha=0.90, zorder=3,
+        )
+        ax.axvline(
+            v_p99, color=col_p99, linestyle="--", linewidth=1.6,
+            alpha=0.90, zorder=3,
+        )
+
+        h_p95 = ax.plot(
+            [], [], color=col_p95, linestyle="--", linewidth=2.4,
+            label=f"P95  = {v_p95:.3f}",
+        )[0]
+        h_p99 = ax.plot(
+            [], [], color=col_p99, linestyle="--", linewidth=2.4,
+            label=f"P99  = {v_p99:.3f}",
+        )[0]
+        handles.extend([h_p95, h_p99])
+
+        # Titles / labels / grid
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel("count")
+        ax.grid(visible=True)
+
+        # Legend (top-right) with readable background
+        leg = ax.legend(
+            handles=handles,
+            loc="upper right",
+            bbox_to_anchor=(0.98, 0.98),
+            borderaxespad=0.0,
+            framealpha=0.90,
+            fancybox=True,
+            handlelength=2.6,
+            fontsize=9.5,
+        )
+        leg.get_frame().set_facecolor("white")
+
+
+    def plot_server_event_metrics_dashboard(
+            self,
+            ax_latency_hist: Axes,
+            ax_service_hist: Axes,
+            ax_io_hist: Axes,
+            ax_wait_hist: Axes,
+            server_id: str,
+        ) -> None:
+            """Dashboard of per-request distributions for a single server:
+            - server-side latency (finish - start)
+            - accumulated SERVICE_TIME (CPU)
+            - accumulated IO_TIME
+            - accumulated WAITING_TIME
+            """
+            arrays = self.get_server_event_arrays().get(server_id, None)
+            if arrays is None:
+                # Graceful empty state for all panes
+                for ax, msg in [
+                    (ax_latency_hist, "No server-side latencies"),
+                    (ax_service_hist, "No service-time samples"),
+                    (ax_io_hist, "No I/O-time samples"),
+                    (ax_wait_hist, "No waiting-time samples"),
+                ]:
+                    ax.text(0.5, 0.5, msg, ha="center", va="center")
+                    ax.grid(visible=True)
+                return
+
+            # 1) Server-side latency histogram (mean/P50/P95/P99)
+            self._plot_histogram_with_overlays(
+                ax_latency_hist,
+                arrays["latencies"],
+                title=f"Server latency — {server_id}",
+                xlabel="seconds",
+                show_p50=True,
+            )
+
+            # 2) CPU service time (mean/P95/P99)
+            self._plot_histogram_with_overlays(
+                ax_service_hist,
+                arrays["service_time"],
+                title=f"CPU service time — {server_id}",
+                xlabel="seconds",
+                show_p50=False,
+            )
+
+            # 3) I/O wait time (mean/P95/P99)
+            self._plot_histogram_with_overlays(
+                ax_io_hist,
+                arrays["io_time"],
+                title=f"I/O time — {server_id}",
+                xlabel="seconds",
+                show_p50=False,
+            )
+
+            # 4) CPU waiting time (mean/P95/P99)
+            self._plot_histogram_with_overlays(
+                ax_wait_hist,
+                arrays["waiting_time"],
+                title=f"CPU waiting time — {server_id}",
+                xlabel="seconds",
+                show_p50=False,
+            )
+
+    def plot_server_timeseries_dashboard(
+        self,
+        ax_ready: Axes,
+        ax_io: Axes,
+        ax_ram: Axes,
+        server_id: str,
+        ) -> None:
+        """Quick dashboard for one server: Ready queue, I/O queue, and RAM series."""
+        # Reuse existing single-plot helpers for consistency.
+        self.plot_single_server_ready_queue(ax_ready, server_id)
+        self.plot_single_server_io_queue(ax_io, server_id)
+        self.plot_single_server_ram(ax_ram, server_id)
+

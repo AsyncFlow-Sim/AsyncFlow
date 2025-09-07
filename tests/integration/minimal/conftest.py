@@ -15,7 +15,7 @@ import pytest
 import simpy
 
 from asyncflow.config.constants import TimeDefaults
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 

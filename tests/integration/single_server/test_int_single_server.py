@@ -18,8 +18,8 @@ import pytest
 from asyncflow.config.constants import LatencyKey, SampledMetricName
 
 if TYPE_CHECKING:  # only needed for type-checking
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
-    from asyncflow.runtime.simulation_runner import SimulationRunner
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
+    from asyncflow.runner.simulation import SimulationRunner
 
 
 # --------------------------------------------------------------------------- #

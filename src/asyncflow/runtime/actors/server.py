@@ -3,8 +3,9 @@ definition of the class necessary to manage the server
 during the simulation
 """
 
-
-from collections.abc import Generator
+from collections import defaultdict
+from collections.abc import Generator, Mapping
+from types import MappingProxyType
 from typing import cast
 
 import numpy as np
@@ -15,12 +16,13 @@ from asyncflow.config.constants import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
+    EventMetricName,
     SampledMetricName,
     ServerResourceName,
     StepOperation,
     SystemNodes,
 )
-from asyncflow.metrics.server import build_server_metrics
+from asyncflow.metrics.server import ServerClock, build_server_metrics
 from asyncflow.resources.server_containers import ServerContainers
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.rqs_state import RequestState
@@ -29,9 +31,33 @@ from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.nodes import Server
 
+# Initialization of the nested dict to collect the metrics
+# for the server
+MetricValue = ServerClock | float
+MetricBucket = dict[EventMetricName, MetricValue]
 
 class ServerRuntime:
     """class to define the server during the simulation"""
+
+    @staticmethod
+    def _new_metric_bucket() -> MetricBucket:
+        """
+        Factory for a per-request metric bucket.
+        Returns a fresh dict pre-populated with cumulative metrics that
+        always start at 0.0 (I/O time, waiting time, service time).
+        Event-specific clocks (e.g. RQS_SERVER_CLOCK) are added later
+        when the request is actually dispatched.
+        This function is used as the `default_factory` for the
+        `_server_rqs_clock` defaultdict, so each new request id gets
+        its own independent bucket automatically.
+        """
+        return {
+            EventMetricName.IO_TIME: 0.0,
+            EventMetricName.WAITING_TIME: 0.0,
+            EventMetricName.SERVICE_TIME: 0.0,
+            # RQS_SERVER_CLOCK will be added in the dispatcher
+        }
+
 
     def __init__( # noqa: PLR0913
         self,
@@ -79,6 +105,9 @@ class ServerRuntime:
             settings.enabled_sample_metrics,
         )
 
+        self._server_rqs_clock: defaultdict[int, MetricBucket]
+        self._server_rqs_clock = defaultdict(self._new_metric_bucket)
+
     # ------------------------------------------------------------------
     # HELPERS
     # ------------------------------------------------------------------
@@ -117,6 +146,46 @@ class ServerRuntime:
     # -------------------------------------------------------------------
     # Main function to elaborate a request
     # -------------------------------------------------------------------
+
+    def _dispatcher(self) -> Generator[simpy.Event, None, None]:
+        """
+        The main dispatcher loop. It pulls requests from the inbox and
+        spawns a new '_handle_request' process for each one.
+        """
+        # we assume in the current model that there is a one
+        # to one correspondence between cpu cores and workers
+        # before entering in the loop in the current implementation
+        # we reserve the ram necessary to run the processes
+        if self.server_config.ram_per_process:
+            processes_ram = (
+                self.server_config.ram_per_process *
+                self.server_config.server_resources.cpu_cores
+            )
+
+            yield self.server_resources[
+                ServerResourceName.RAM.value
+                ].get(processes_ram)
+
+
+        while True:
+            # Wait for a request to arrive in the server's inbox
+            raw_state = yield self.server_box.get()
+            request_state = cast("RequestState", raw_state)
+
+            # Start the collection of the metric initializing
+            # the principal key that is the unique id of the
+            # state elaborated
+            bucket = self._server_rqs_clock[request_state.id]
+            bucket[EventMetricName.RQS_SERVER_CLOCK] = ServerClock(
+            start=self.env.now,
+        )
+
+            # Spawn a new, independent process to handle this request
+            self.env.process(self._handle_request(request_state))
+
+    def start(self) -> simpy.Process:
+        """Generate the process to simulate the server inside simpy env"""
+        return self.env.process(self._dispatcher())
 
     # right now we disable the warnings but a refactor will be done soon
     def _handle_request( # noqa: PLR0915, PLR0912, C901
@@ -199,6 +268,7 @@ class ServerRuntime:
         core_locked = False
         is_in_io_queue = False
         waiting_cpu = False
+        wait_start: float | None = None
 
 
         # --- Step Execution: CPU & I/O dynamics ---
@@ -251,6 +321,11 @@ class ServerRuntime:
                     is_in_io_queue = False
                     self._el_io_queue_len -= 1
 
+                # core_locked is a local variable just for the single request
+                # if the request already block the core so we avoid all the if
+                # conditions and we add the coroutine, if it is not blocked, we
+                # have to ask for a core, because it might be occupy from another
+                # request
                 if not core_locked:
                     # simpy create an event and if it can be satisfied is triggered
                     cpu_req = self.server_resources[ServerResourceName.CPU.value].get(1)
@@ -258,6 +333,7 @@ class ServerRuntime:
                     # no trigger ready queue without execution
                     if not cpu_req.triggered:
                         waiting_cpu = True
+                        wait_start = self.env.now
                         self._el_ready_queue_len += 1
 
                     # at this point wait for the cpu
@@ -265,6 +341,18 @@ class ServerRuntime:
 
                     # here the cpu is free
                     if waiting_cpu:
+                        assert wait_start is not None
+                        bucket = self._server_rqs_clock[state.id]
+
+                        # mypy assert
+                        value = bucket[EventMetricName.WAITING_TIME]
+                        assert isinstance(value, float)
+
+                        # assign delta
+                        bucket[EventMetricName.WAITING_TIME] = (
+                          value + (self.env.now - wait_start)
+                        )
+                        wait_start = None
                         waiting_cpu = False
                         self._el_ready_queue_len -= 1
 
@@ -273,6 +361,16 @@ class ServerRuntime:
                 cpu_time = self._compute_latency_cpu(
                     step.step_operation[StepOperation.CPU_TIME],
                 )
+
+                bucket = self._server_rqs_clock[state.id]
+
+                # mypy assertion
+                value = bucket[EventMetricName.SERVICE_TIME]
+                assert isinstance(value, float)
+
+                # delta assignment
+                bucket[EventMetricName.SERVICE_TIME] = value + cpu_time
+
                 # Execute the step giving back the control to the simpy env
                 yield self.env.timeout(cpu_time)
 
@@ -300,6 +398,14 @@ class ServerRuntime:
                     is_in_io_queue = True
                     self._el_io_queue_len += 1
 
+                bucket = self._server_rqs_clock[state.id]
+
+                # assert for mypy
+                value = bucket[EventMetricName.IO_TIME]
+                assert isinstance(value, float)
+
+                # assign the delta
+                bucket[EventMetricName.IO_TIME] = value + io_time
                 yield self.env.timeout(io_time)
 
         if core_locked:
@@ -314,17 +420,19 @@ class ServerRuntime:
             waiting_cpu = False
             self._el_ready_queue_len -= 1
 
-
         if total_ram:
-
             self._ram_in_use -= total_ram
             yield self.server_resources[ServerResourceName.RAM.value].put(total_ram)
+
+        bucket = self._server_rqs_clock[state.id]
+        clock = cast("ServerClock", bucket[EventMetricName.RQS_SERVER_CLOCK])
+        clock.finish = self.env.now
 
         assert self.out_edge is not None
         self.out_edge.transport(state)
 
 
-    # we need three accessor because we need to read these private attribute
+    # we need these accessor because we need to read these private attribute
     # in the sampled metric collector
     @property
     def ready_queue_len(self) -> int:
@@ -346,36 +454,28 @@ class ServerRuntime:
         """Read-only access to the metric store."""
         return self._server_enabled_metrics
 
-
-
-    def _dispatcher(self) -> Generator[simpy.Event, None, None]:
+    @property
+    def server_rqs_clock(self) -> Mapping[int, MetricBucket]:
         """
-        The main dispatcher loop. It pulls requests from the inbox and
-        spawns a new '_handle_request' process for each one.
+        Read-only snapshot of the per-request server metrics.
+
+        Returns
+        -------
+        Mapping[int, MetricBucket]
+            A mapping from request id → metric bucket, where each bucket is a
+            dict[EventMetricName, float | ServerClock]. The top-level mapping is
+            immutable (cannot add/remove keys) and is created from a shallow copy
+            to avoid defaultdict autovivification.
+
+        Notes
+        -----
+        This is a *snapshot* of the current state: as the server runs, the
+        underlying buckets may continue to change.
+        Buckets themselves are not frozen; **do not mutate them** from callers.
+        Treat the returned structure as read-only.
+
         """
-        # we assume in the current model that there is a one
-        # to one correspondence between cpu cores and workers
-        # before entering in the loop in the current implementation
-        # we reserve the ram necessary to run the processes
-        if self.server_config.ram_per_process:
-            processes_ram = (
-                self.server_config.ram_per_process *
-                self.server_config.server_resources.cpu_cores
-            )
-
-            yield self.server_resources[
-                ServerResourceName.RAM.value
-                ].get(processes_ram)
+        return MappingProxyType(dict(self._server_rqs_clock))
 
 
-        while True:
-            # Wait for a request to arrive in the server's inbox
-            raw_state = yield self.server_box.get()
-            request_state = cast("RequestState", raw_state)
-            # Spawn a new, independent process to handle this request
-            self.env.process(self._handle_request(request_state))
-
-    def start(self) -> simpy.Process:
-        """Generate the process to simulate the server inside simpy env"""
-        return self.env.process(self._dispatcher())
 

@@ -35,7 +35,6 @@ def round_robin(
 
     return value
 
-
 LB_TABLE: dict[LbAlgorithmsName,
                Callable[[OrderedDict[str, EdgeRuntime]], EdgeRuntime]] = {
     LbAlgorithmsName.LEAST_CONNECTIONS: least_connections,

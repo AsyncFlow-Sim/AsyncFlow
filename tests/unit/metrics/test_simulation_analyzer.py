@@ -19,7 +19,9 @@ import pytest
 from matplotlib.figure import Figure
 
 from asyncflow.analysis import ResultsAnalyzer
+from asyncflow.config.constants import EventMetricName
 from asyncflow.enums import SampledMetricName
+from asyncflow.metrics.server import ServerClock
 
 if TYPE_CHECKING:
     from asyncflow.runtime.actors.client import ClientRuntime
@@ -73,6 +75,9 @@ class DummyServer:
         self.enabled_metrics = {
             DummyName(name): values for name, values in metrics.items()
         }
+        self.server_rqs_clock: dict[
+            int,
+            dict[EventMetricName, float | ServerClock]] = {}
 
 
 class DummyEdgeConfig:
@@ -288,3 +293,145 @@ def test_plot_single_server_ram(
     assert any(lbl.lower().startswith("max") for lbl in labels)
     assert len(labels) == 3
 
+# ---------------------------------------------------------------
+# Test server event metric
+# ---------------------------------------------------------------
+
+def _mk_bucket(
+    st: float, io: float, wt: float, start: float, finish: float,
+) -> dict[EventMetricName, float | ServerClock]:
+    """Helper to build one metric bucket like the real server does."""
+    return {
+        EventMetricName.SERVICE_TIME: st,
+        EventMetricName.IO_TIME: io,
+        EventMetricName.WAITING_TIME: wt,
+        EventMetricName.RQS_SERVER_CLOCK: ServerClock(start=start, finish=finish),
+    }
+
+
+def test_get_server_event_arrays_extracts_fields(
+    sim_settings: SimulationSettings) -> None:
+    """Analyzer should extract per-request arrays for a server from its buckets."""
+    sim_settings.total_simulation_time = 2
+    sim_settings.sample_period_s = 0.5
+
+    client = DummyClient([])
+
+    srv = DummyServer("srvA", {
+        "ready_queue_len": [0, 0],
+        "event_loop_io_sleep": [0, 1],
+        "ram_in_use": [128.0, 256.0],
+    })
+    # Populate per-request buckets (two requests)
+    srv.server_rqs_clock = {
+        1: _mk_bucket(0.004, 0.010, 0.001, 0.100, 0.115),  # latency 0.015
+        2: _mk_bucket(0.006, 0.020, 0.000, 0.300, 0.326),  # latency 0.026
+    }
+
+    an = ResultsAnalyzer(
+        client=cast("ClientRuntime", client),
+        servers=[cast("ServerRuntime", srv)],
+        edges=[],
+        settings=sim_settings,
+    )
+
+    arrays = an.get_server_event_arrays()
+    assert "srvA" in arrays
+    a = arrays["srvA"]
+
+    # Order of buckets is not relevant; compare sorted values
+    assert sorted(a["service_time"]) == [0.004, 0.006]
+    assert sorted(a["io_time"]) == [0.010, 0.020]
+    assert sorted(a["waiting_time"]) == [0.000, 0.001]
+    assert pytest.approx(sorted(a["latencies"])) == sorted([0.015, 0.026])
+    assert pytest.approx(sorted(a["finish_times"])) == sorted([0.115, 0.326])
+
+
+def test_get_server_throughput_series_per_server(
+    sim_settings: SimulationSettings) -> None:
+    """Throughput per-server should count completions within each fixed window."""
+    sim_settings.total_simulation_time = 3
+    sim_settings.sample_period_s = 0.5
+    client = DummyClient([])
+
+    srv = DummyServer("srvT", {})
+    # Three completions at 0.8s, 1.2s, 2.6s
+    srv.server_rqs_clock = {
+        10: _mk_bucket(0.001, 0.002, 0.000, 0.00, 0.80),
+        11: _mk_bucket(0.001, 0.002, 0.000, 0.90, 1.20),
+        12: _mk_bucket(0.001, 0.002, 0.000, 2.30, 2.60),
+    }
+
+    an = ResultsAnalyzer(
+        client=cast("ClientRuntime", client),
+        servers=[cast("ServerRuntime", srv)],
+        edges=[],
+        settings=sim_settings,
+    )
+
+    # 1s windows → boundaries at 1.0, 2.0, 3.0 → counts [1,1,1]
+    ts1, rps1 = an.get_server_throughput_series("srvT", window_s=1.0)
+    assert ts1 == [1.0, 2.0, 3.0]
+    assert rps1 == [1.0, 1.0, 1.0]
+
+    # 0.5s windows → boundaries 0.5,1.0,1.5,2.0,2.5,3.0
+    # counts per window [0,1,1,0,0,1] → rates [0,2,2,0,0,2]
+    ts2, rps2 = an.get_server_throughput_series("srvT", window_s=0.5)
+    assert ts2[:6] == [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    assert rps2[:6] == [0.0, 2.0, 2.0, 0.0, 0.0, 2.0]
+
+
+def test_plot_server_event_metrics_dashboard_smoke_and_legends(
+    sim_settings: SimulationSettings,
+) -> None:
+    """Dashboard (latency/service/io/wait) should set titles and show a legend."""
+    sim_settings.total_simulation_time = 1
+    client = DummyClient([])
+
+    srv = DummyServer("srvZ", {})
+    srv.server_rqs_clock = {
+        1: _mk_bucket(0.003, 0.012, 0.000, 0.10, 0.115),
+        2: _mk_bucket(0.007, 0.018, 0.002, 0.20, 0.230),
+        3: _mk_bucket(0.005, 0.010, 0.001, 0.30, 0.315),
+    }
+
+    an = ResultsAnalyzer(
+        client=cast("ClientRuntime", client),
+        servers=[cast("ServerRuntime", srv)],
+        edges=[],
+        settings=sim_settings,
+    )
+
+    fig = Figure()
+    ax_lat, ax_svc, ax_io, ax_wait = fig.subplots(2, 2).ravel()
+    an.plot_server_event_metrics_dashboard(ax_lat, ax_svc, ax_io, ax_wait, "srvZ")
+
+    # Titles contain expected labels
+    assert "Server latency — srvZ" in ax_lat.get_title()
+    assert "CPU service time — srvZ" in ax_svc.get_title()
+    assert "I/O time — srvZ" in ax_io.get_title()
+    assert "CPU waiting time — srvZ" in ax_wait.get_title()
+
+    # Legends exist and contain at least 'mean' (and 'P50' on latency pane)
+    for ax in (ax_lat, ax_svc, ax_io, ax_wait):
+        lg = ax.get_legend()
+        assert lg is not None
+        labels = [t.get_text().lower() for t in lg.get_texts()]
+        assert any(lbl.startswith("mean") for lbl in labels)
+    # Latency pane also shows P50
+    lat_labels = [t.get_text() for t in ax_lat.get_legend().get_texts()]
+    assert any("P50" in s for s in lat_labels)
+
+
+def test_plot_server_timeseries_dashboard_sets_titles(
+    analyzer_with_metrics: ResultsAnalyzer,
+) -> None:
+    """Time-series dashboard for a server wires the three single-plot helpers."""
+    fig = Figure()
+    ax_ready, ax_io, ax_ram = fig.subplots(1, 3)
+    analyzer_with_metrics.plot_server_timeseries_dashboard(
+        ax_ready, ax_io, ax_ram, "srvX")
+
+    assert "Ready Queue" in ax_ready.get_title()
+    assert "I/O Queue" in ax_io.get_title()
+    assert "RAM" in ax_ram.get_title()

@@ -15,8 +15,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import simpy
 
-from asyncflow.metrics.analyzer import ResultsAnalyzer
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
+from asyncflow.runner.simulation import SimulationRunner
 
 
 def main() -> None:

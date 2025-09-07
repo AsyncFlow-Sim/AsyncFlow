@@ -51,8 +51,8 @@ from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator
 
 # Runner + Analyzer
-from asyncflow.runtime.simulation_runner import SimulationRunner
-from asyncflow.metrics.analyzer import ResultsAnalyzer
+from asyncflow.runner.simulation import SimulationRunner
+from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 
 
 def main() -> None:

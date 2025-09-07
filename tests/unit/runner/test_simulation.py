@@ -16,7 +16,7 @@ import yaml
 from tests.unit.helpers import make_min_ep
 
 from asyncflow.config.constants import Distribution, EventDescription
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.payload import SimulationPayload

@@ -24,7 +24,7 @@ from asyncflow.config.constants import (
     SampledMetricName,
     StepOperation,
 )
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
@@ -44,7 +44,7 @@ from asyncflow.schemas.topology.nodes import (
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 if TYPE_CHECKING:
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 
 
 def _server(server_id: str) -> Server:

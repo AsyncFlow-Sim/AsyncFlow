@@ -16,7 +16,7 @@ import pytest
 import simpy
 
 if TYPE_CHECKING:  # heavy imports only when type-checking
-    from asyncflow.runtime.simulation_runner import SimulationRunner
+    from asyncflow.runner.simulation import SimulationRunner
 
 
 # --------------------------------------------------------------------------- #
@@ -38,7 +38,7 @@ def runner(env: simpy.Environment) -> SimulationRunner:
     :pymeth:`SimulationRunner.from_yaml`.
     """
     # import deferred to avoid ruff TC001
-    from asyncflow.runtime.simulation_runner import SimulationRunner  # noqa: PLC0415
+    from asyncflow.runner.simulation import SimulationRunner  # noqa: PLC0415
 
     yaml_path: Path = (
         Path(__file__).parent / "data" / "single_server.yml"

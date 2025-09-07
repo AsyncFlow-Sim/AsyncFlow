@@ -28,9 +28,11 @@ from asyncflow.config.constants import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
+    EventMetricName,
     SampledMetricName,
     StepOperation,
 )
+from asyncflow.metrics.server import ServerClock
 from asyncflow.resources.server_containers import build_containers
 from asyncflow.runtime.actors import server as server_mod
 from asyncflow.runtime.actors.server import ServerRuntime
@@ -479,3 +481,135 @@ def test_helpers_sample_and_deterministic(monkeypatch: pytest.MonkeyPatch) -> No
     # Deterministic int/float paths
     assert server._compute_latency_cpu(2) == pytest.approx(2.0) # noqa: SLF001
     assert server._compute_latency_io(0.5) == pytest.approx(0.5) # noqa: SLF001
+
+
+def test_server_clock_and_cumulative_metrics_default_pipeline() -> None:
+    """
+    Single request on default pipeline:
+    - SERVICE_TIME should equal CPU(5ms)
+    - IO_TIME should equal I/O(20ms)
+    - WAITING_TIME should be ~0 (2 cores, no contention)
+    - RQS_SERVER_CLOCK has start/finish with finish > start
+    """
+    env = simpy.Environment()
+    server, _ = _make_server_runtime(env)  # default: 2 cores, default steps
+
+    req_id = 301
+    server.server_box.put(RequestState(id=req_id, initial_time=0.0))
+    server.start()
+    env.run()
+
+    bucket = server.server_rqs_clock[req_id]
+    # Clock present and well-formed
+    assert EventMetricName.RQS_SERVER_CLOCK in bucket
+    clock = bucket[EventMetricName.RQS_SERVER_CLOCK]
+    assert isinstance(clock, ServerClock)
+    assert clock.finish is not None
+    assert clock.finish >= clock.start
+
+    # Accumulators
+    assert bucket[EventMetricName.SERVICE_TIME] == pytest.approx(0.005, abs=1e-9)
+    assert bucket[EventMetricName.IO_TIME] == pytest.approx(0.020, abs=1e-9)
+    assert bucket[EventMetricName.WAITING_TIME] == pytest.approx(0.0, abs=1e-12)
+
+    # Server-side elapsed time should be at least the sum (avoid approx on RHS of >=)
+    elapsed = clock.finish - clock.start
+    assert elapsed >= (0.005 + 0.020) - 1e-9
+
+def test_waiting_time_accumulates_under_contention() -> None:
+    """
+    With 1 core and two overlapping requests on a CPU-only endpoint:
+    - The second request's WAITING_TIME ~= (first CPU time - overlap).
+    """
+    env = simpy.Environment()
+
+    steps = (
+        Step(
+            kind=EndpointStepRAM.RAM,
+            step_operation={StepOperation.NECESSARY_RAM: 64},
+        ),
+        Step(
+            kind=EndpointStepCPU.CPU_BOUND_OPERATION,
+            step_operation={StepOperation.CPU_TIME: 0.008},
+        ),
+    )
+    server, _ = _make_server_runtime(env, steps=steps, cpu_cores=1)
+
+    first_id, second_id = 401, 402
+
+    # First arrives at t=0.0
+    server.server_box.put(RequestState(id=first_id, initial_time=0.0))
+
+    # Schedule the second to actually arrive at t=0.001 (creates 1ms overlap)
+    def _arrive_later() -> Generator[simpy.Event, None, None]:
+        yield env.timeout(0.001)
+        yield server.server_box.put(RequestState(id=second_id, initial_time=0.001))
+
+    env.process(_arrive_later())
+
+    server.start()
+    env.run()
+
+    b1 = server.server_rqs_clock[first_id]
+    b2 = server.server_rqs_clock[second_id]
+
+    # First: no waiting, service time = 8ms, no IO
+    assert b1[EventMetricName.WAITING_TIME] == pytest.approx(0.0, abs=1e-9)
+    assert b1[EventMetricName.SERVICE_TIME] == pytest.approx(0.008, abs=1e-9)
+    assert b1[EventMetricName.IO_TIME] == pytest.approx(0.0, abs=1e-12)
+
+    # Second: expected wait ≈ 0.007 (first CPU 8ms - 1ms overlap)
+    assert b2[EventMetricName.WAITING_TIME] == pytest.approx(0.007, abs=2e-4)
+    assert b2[EventMetricName.SERVICE_TIME] == pytest.approx(0.008, abs=1e-9)
+    assert b2[EventMetricName.IO_TIME] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_metrics_follow_rv_samples(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    With RVConfig on CPU and IO, SERVICE_TIME and IO_TIME must match
+    the (patched) sampler outcomes.
+    """
+    # 6ms for CPU sentinel, 13ms for IO sentinel
+    def fake_sampler(cfg: RVConfig, rng: NpGenerator) -> float:
+        if cfg.mean == 0.321:
+            return 0.006
+        if cfg.mean == 0.654:
+            return 0.013
+        return 0.0
+
+    monkeypatch.setattr(server_mod, "general_sampler", fake_sampler)
+
+    env = simpy.Environment()
+    steps = (
+        Step(
+            kind=EndpointStepRAM.RAM,
+            step_operation={StepOperation.NECESSARY_RAM: 64},
+        ),
+        Step(
+            kind=EndpointStepCPU.CPU_BOUND_OPERATION,
+            step_operation={StepOperation.CPU_TIME: RVConfig(mean=0.321)},
+        ),
+        Step(
+            kind=EndpointStepIO.DB,
+            step_operation={StepOperation.IO_WAITING_TIME: RVConfig(mean=0.654)},
+        ),
+    )
+    server, _ = _make_server_runtime(env, steps=steps, cpu_cores=1)
+
+    req_id = 501
+    server.server_box.put(RequestState(id=req_id, initial_time=0.0))
+    server.start()
+    env.run()
+
+    bucket = server.server_rqs_clock[req_id]
+    assert bucket[EventMetricName.SERVICE_TIME] == pytest.approx(0.006, abs=1e-9)
+    assert bucket[EventMetricName.IO_TIME] == pytest.approx(0.013, abs=1e-9)
+    assert bucket[EventMetricName.WAITING_TIME] == pytest.approx(0.0, abs=1e-12)
+
+    clock = bucket[EventMetricName.RQS_SERVER_CLOCK]
+    assert isinstance(clock, ServerClock)
+    assert clock.finish is not None
+
+    # Elapsed server-side time must be at least the sum of CPU+IO
+    elapsed = clock.finish - clock.start
+    assert elapsed >= (0.006 + 0.013) - 1e-9

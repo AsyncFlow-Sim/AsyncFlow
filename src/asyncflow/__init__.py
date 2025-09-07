@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from asyncflow.builder.asyncflow_builder import AsyncFlow
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
+from asyncflow.runner.sweep import Sweep
 
-__all__ = ["AsyncFlow",  "SimulationRunner"]
+__all__ = ["AsyncFlow",  "SimulationRunner", "Sweep"]

@@ -26,13 +26,13 @@ import simpy
 from asyncflow import AsyncFlow
 from asyncflow.components import Client, Edge, Endpoint, Server
 from asyncflow.config.constants import LatencyKey
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
     # Imported only for type checking (ruff: TC001)
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
     from asyncflow.schemas.payload import SimulationPayload
 
 pytestmark = [

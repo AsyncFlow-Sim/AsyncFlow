@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 import simpy
 
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -213,7 +213,7 @@ class SamplePeriods(float, Enum):
 
   STANDARD_TIME = 0.01 # 10 MILLISECONDS
   MINIMUM_TIME = 0.001 # 1 MILLISECOND
-  MAXIMUM_TIME = 0.1   # 100 MILLISECONDS
+  MAXIMUM_TIME = 0.5   # 500 MILLISECONDS
 
 # ======================================================================
 # CONSTANTS FOR EVENT METRICS
@@ -227,7 +227,13 @@ class EventMetricName(StrEnum):
 
   # Mandatory
   RQS_CLOCK = "rqs_clock" # useful to collect starting and finishing time of rqs
-  # Not mandatory
+  RQS_SERVER_CLOCK = "rqs_server_clock" #useful for latency and throughput of the server
+  SERVICE_TIME = "service_time"
+  IO_TIME = "io_time"
+  WAITING_TIME = "waiting_time"
+
+
+  # Not mandatory now not implemented
   LLM_COST = "llm_cost"
 
 
@@ -240,6 +246,14 @@ class AggregatedMetricName(StrEnum):
 
   LATENCY_STATS = "latency_stats"
   THROUGHPUT = "throughput_rps"
+  SERVER_THROUGHPUT = "server_throughput"
+  SERVER_LATENCY_STATS = "server_latency_stats"
+  SERVICE_TIME_STATS = "service_time_stats"
+  IO_TIME_STATS = "io_time_stats"
+  WAITING_TIME_STATS = "waiting_time_stats"
+  UTILIZATION = "utilization"
+
+  # now not implemented
   LLM_STATS = "llm_stats"
 
 # ======================================================================

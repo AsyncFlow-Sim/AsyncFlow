@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from asyncflow.schemas.settings.simulation import SimulationSettings
 
 
-# Short alias to keep signatures within 88 chars (E501).
+# Short alias to keep signatures within 88 chars.
 Series = tuple[list[float], list[float]]
 
 

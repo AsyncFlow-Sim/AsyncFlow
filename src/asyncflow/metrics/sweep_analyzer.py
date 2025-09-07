@@ -61,6 +61,7 @@ class ServerPoint:
     Wq: float                  # mean waiting time (s)
     service_mean_s: float      # mean service time (s)
     completions: int           # number of completed requests
+    server_latency_mean_s: float
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -206,6 +207,14 @@ class SweepAnalyzer:
                     else 0.0
                 )
 
+                # server latency
+                lat_vals: list[float] = arr.get("latencies", [])
+                if lat_vals:
+                    server_lat_mean = float(sum(lat_vals)) / float(len(lat_vals))
+                else:
+                    server_lat_mean = wq_mean + (
+                        1.0 / mu if mu not in (0.0, float("inf")) else s_mean)
+
                 # λᵢ via proportional split of completions
                 n_i = per_server_compl.get(sid, 0)
                 if total_compl > 0:
@@ -226,6 +235,7 @@ class SweepAnalyzer:
                         Wq=wq_mean,
                         service_mean_s=s_mean,
                         completions=n_i,
+                        server_latency_mean_s=server_lat_mean,
                     ),
                 )
 
@@ -326,7 +336,7 @@ class SweepAnalyzer:
         max_servers: int = 5,
         server_ids: list[str] | None = None,
     ) -> None:
-        """Overlay of server utilization ρᵢ vs. users (auto-picks hottest)"""
+        """Overlay of server utilization rho vs. users (auto-picks hottest)"""
         self._ensure_servers_collected()
         ids = server_ids or self._select_top_servers("rho", max_servers)
         for sid in sorted(ids):
@@ -334,9 +344,9 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.rho for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server utilization (rho_i) vs. concurrent users")
+        ax.set_title("Server utilization (rho) vs. concurrent users")
         ax.set_xlabel("Mean concurrent users")
-        ax.set_ylabel("rho_i")
+        ax.set_ylabel("rho")
         if ids:
             ax.legend()
         ax.grid(visible=True, alpha=0.3)
@@ -356,9 +366,9 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.Wq for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server waiting time (Wq_i) vs. concurrent users")
+        ax.set_title("Server waiting time (Wq) vs. concurrent users")
         ax.set_xlabel("Mean concurrent users")
-        ax.set_ylabel("Wq_i (seconds)")
+        ax.set_ylabel("Wq (seconds)")
         if ids:
             ax.legend()
         ax.grid(visible=True, alpha=0.3)
@@ -370,7 +380,7 @@ class SweepAnalyzer:
         max_servers: int = 5,
         server_ids: list[str] | None = None,
     ) -> None:
-        """Overlay of server service rate μᵢ vs. users (auto-picks hottest)"""
+        """Overlay of server service rate μ vs. users (auto-picks hottest)"""
         self._ensure_servers_collected()
         ids = server_ids or self._select_top_servers("mu", max_servers)
         for sid in sorted(ids):
@@ -378,9 +388,9 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.mu_rps for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server service rate (mu_i) vs. concurrent users")
+        ax.set_title("Server service rate (mu) vs. concurrent users")
         ax.set_xlabel("Mean concurrent users")
-        ax.set_ylabel("mu_i (1/s)")
+        ax.set_ylabel("mu (1/s)")
         if ids:
             ax.legend()
         ax.grid(visible=True, alpha=0.3)
@@ -392,7 +402,7 @@ class SweepAnalyzer:
         max_servers: int = 5,
         server_ids: list[str] | None = None,
     ) -> None:
-        """Overlay of server throughput λᵢ vs. users (auto-picks hottest by default)."""
+        """Overlay of server throughput λ vs. users (auto-picks hottest by default)."""
         self._ensure_servers_collected()
         ids = server_ids or self._select_top_servers("lambda", max_servers)
         for sid in sorted(ids):
@@ -400,19 +410,46 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.lambda_rps for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server throughput (lambda_i) vs. concurrent users")
+        ax.set_title("Server throughput (lambda) vs. concurrent users")
         ax.set_xlabel("Mean concurrent users")
-        ax.set_ylabel("lambda_i (1/s)")
+        ax.set_ylabel("lambda (1/s)")
         if ids:
             ax.legend()
         ax.grid(visible=True, alpha=0.3)
 
+    def plot_server_latency_overlay(
+        self, ax: Axes, *, max_servers: int = 5, server_ids: list[str] | None = None,
+    ) -> None:
+        """Plot of the latency vs concurrent user"""
+        self._ensure_servers_collected()
+        ids = server_ids or self._select_top_servers("Wq", max_servers)
+        for sid in sorted(ids):
+            pts = self._server_points.get(sid, [])
+            xs = [p.users for p in pts]
+            ys = [p.server_latency_mean_s for p in pts]
+            ax.plot(xs, ys, marker="o", label=sid)
+        ax.set_title("Server latency (waiting+service) vs. concurrent users")
+        ax.set_xlabel("Mean concurrent users")
+        ax.set_ylabel("Server latency (s)")
+        if ids:
+            ax.legend()
+        ax.grid(visible=True, alpha=0.3)
+
+
     def plot_server_dashboard(self) -> Figure:
-        """2x2 per-server overlay: rho_i, Wq_i, mu_i, lambda_i."""
-        fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=130)
+        """2x3 per-server overlay: rho_i, Wq_i, mu_i, lambda_i, server latency."""
+        fig, axes = plt.subplots(2, 3, figsize=(16, 8), dpi=130)
+
+        # Row 1
         self.plot_server_utilization_overlay(axes[0, 0])
         self.plot_server_waiting_time_overlay(axes[0, 1])
-        self.plot_server_service_rate_overlay(axes[1, 0])
-        self.plot_server_throughput_overlay(axes[1, 1])
+        self.plot_server_service_rate_overlay(axes[0, 2])
+
+        # Row 2
+        self.plot_server_throughput_overlay(axes[1, 0])
+        self.plot_server_latency_overlay(axes[1, 1])
+        axes[1, 2].axis("off")  # keep layout symmetric
+
         fig.tight_layout()
         return fig
+

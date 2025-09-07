@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import pytest
 import simpy
 
-from asyncflow.metrics.analyzer import ResultsAnalyzer
+from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 from asyncflow.runner.simulation import SimulationRunner
 
 if TYPE_CHECKING:

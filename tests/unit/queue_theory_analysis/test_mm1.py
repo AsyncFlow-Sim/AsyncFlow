@@ -11,7 +11,7 @@ from asyncflow.queue_theory_analysis.mm1 import MM1
 from asyncflow.schemas.payload import SimulationPayload
 
 if TYPE_CHECKING:
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 
 
 # ---------------------------------------------------------------------------

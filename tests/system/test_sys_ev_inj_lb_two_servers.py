@@ -38,7 +38,7 @@ from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
     from asyncflow.schemas.payload import SimulationPayload
 
 pytestmark = [

@@ -12,8 +12,8 @@ import numpy as np
 import simpy
 import yaml
 
-from asyncflow.metrics.analyzer import ResultsAnalyzer
 from asyncflow.metrics.collector import SampledMetricCollector
+from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 from asyncflow.resources.registry import ResourcesRuntime
 from asyncflow.runtime.actors.client import ClientRuntime
 from asyncflow.runtime.actors.edge import EdgeRuntime
@@ -198,9 +198,6 @@ class SimulationRunner:
             lb_out_edges = self._lb_out_edges,
             lb_box=self._make_inbox(),
         )
-
-
-
 
     def _build_edges(self) -> None:
         """Initialization of the edges runtime dictionary from the input data"""
@@ -396,6 +393,14 @@ class SimulationRunner:
         data = yaml.safe_load(Path(yaml_path).read_text())
         payload = SimulationPayload.model_validate(data)
         return cls(env=env, simulation_input=payload)
+
+    # Method usefull to pass to the sweep class a payload
+    # directly from a yaml
+    @classmethod
+    def payload_from_yaml(cls, yaml_path: str | Path) -> SimulationPayload:
+        """Helper to return a valid payload"""
+        data = yaml.safe_load(Path(yaml_path).read_text())
+        return SimulationPayload.model_validate(data)
 
 
 

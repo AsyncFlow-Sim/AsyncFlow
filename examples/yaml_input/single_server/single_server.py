@@ -44,7 +44,7 @@ import simpy
 import matplotlib.pyplot as plt
 
 # The only imports a user needs to run a simulation
-from asyncflow.metrics.analyzer import ResultsAnalyzer
+from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 from asyncflow.runner.simulation import SimulationRunner
 
 # --- Basic Logging Setup ---

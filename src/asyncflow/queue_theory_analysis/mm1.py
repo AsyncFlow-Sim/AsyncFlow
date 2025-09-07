@@ -20,7 +20,7 @@ from asyncflow.schemas.common.random_variables import RVConfig
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
     from asyncflow.schemas.payload import SimulationPayload
 
 
@@ -322,13 +322,10 @@ class MM1(QueueTheoryBase):
 
         return rows
 
-    # --------------------------------------------------------
-    # Method to print
-    # --------------------------------------------------------
-
-        # ──────────────────────────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────────────
     # Pretty printing
     # ──────────────────────────────────────────────────────────────────
+
     @staticmethod
     def _format_rows_table(rows: list[KPIRow]) -> str:
         """

@@ -32,7 +32,7 @@ from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
     # Imported only for type checking (ruff: TC001)
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
     from asyncflow.schemas.payload import SimulationPayload
 
 pytestmark = [

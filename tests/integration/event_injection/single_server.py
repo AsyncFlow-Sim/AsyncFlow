@@ -37,7 +37,7 @@ from asyncflow.schemas.topology.nodes import (
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 if TYPE_CHECKING:
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 
 
 def _server(sid: str) -> Server:

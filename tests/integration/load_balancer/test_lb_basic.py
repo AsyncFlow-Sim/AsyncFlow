@@ -24,7 +24,7 @@ from asyncflow.config.constants import (
     SampledMetricName,
     StepOperation,
 )
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings

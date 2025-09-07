@@ -10,17 +10,16 @@ Load model
 Server model
     1 CPU core, 2 GB RAM
     Endpoint pipeline:
-        CPU(exp; mean ~3 ms) → RAM(100 MB) → I/O wait (exp; mean ~20 ms)
+        CPU(exp; mean ~15 ms)
     Semantics:
       - CPU step blocks the event loop (service time for M/M/1)
-      - RAM step holds a working set until request completion
-      - I/O step is non-blocking (event-loop friendly)
 
 Network model
-    Each edge has deterministic latency of 1 ms to keep M/M/1-style behavior
+    Each edge has deterministic latency of 0.1 ms to approximate M/M/1 behavior
     (exponential service from CPU, Poisson arrivals from the generator).
 
 Outputs
+    - Prints MM1 theory vs observed KPI comparison (pretty table)
     - Prints latency statistics to stdout
     - Saves three PNGs in the same directory as this script:
         1) system_dashboard.png
@@ -40,18 +39,16 @@ Outputs
 from __future__ import annotations
 
 from pathlib import Path
-import simpy
+
 import matplotlib.pyplot as plt
+import simpy
 
 # Public AsyncFlow API (builder)
-from asyncflow import AsyncFlow
-from asyncflow.components import Client, Server, Edge, Endpoint
+from asyncflow import AsyncFlow, SimulationRunner
+from asyncflow.analysis import MM1, ResultsAnalyzer
+from asyncflow.components import Client, Edge, Endpoint, Server
 from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator
-
-# Runner + Analyzer
-from asyncflow.runtime.simulation_runner import SimulationRunner
-from asyncflow.metrics.analyzer import ResultsAnalyzer
 
 
 def build_and_run() -> ResultsAnalyzer:
@@ -67,23 +64,19 @@ def build_and_run() -> ResultsAnalyzer:
     # Client
     client = Client(id="client-1")
 
-    # Server + endpoint:
-    # CPU = exponential (~3 ms), RAM = 100 MB, IO = exponential (~20 ms)
-    # Note: using RVConfig-like dicts for step durations.
+    # Server + endpoint: CPU (exp ~15 ms)
     endpoint = Endpoint(
-    endpoint_name="/api",
-    probability=1.0,
-    steps=[
-       
-        # New CPU step after I/O: mean >= 40ms
-        {
-            "kind": "initial_parsing",  # CPU-bound step (same kind mapping as sopra)
-            "step_operation": {
-                "cpu_time": {"mean": 0.015, "distribution": "exponential"},
+        endpoint_name="/api",
+        probability=1.0,
+        steps=[
+            {
+                "kind": "initial_parsing",
+                "step_operation": {
+                    "cpu_time": {"mean": 0.015, "distribution": "exponential"},
+                },
             },
-        },
-    ],
-)
+        ],
+    )
 
     server = Server(
         id="app-1",
@@ -91,13 +84,32 @@ def build_and_run() -> ResultsAnalyzer:
         endpoints=[endpoint],
     )
 
-    # Network edges: deterministic ~1 ms to approximate M/M/1 behavior
-    e_gen_client = Edge(id="gen-client", source="rqs-1", target="client-1", latency=0.001)
-    e_client_app = Edge(id="client-app", source="client-1", target="app-1", latency=0.001)
-    e_app_client = Edge(id="app-client", source="app-1", target="client-1", latency=0.001)
+    # Network edges: deterministic ~0.1 ms, no drops
+    e_gen_client = Edge(
+        id="gen-client",
+        source="rqs-1",
+        target="client-1",
+        latency=0.0001,
+        dropout_rate=0.0,
+    )
+    e_client_app = Edge(
+        id="client-app",
+        source="client-1",
+        target="app-1",
+        latency=0.0001,
+        dropout_rate=0.0,
+    )
+    e_app_client = Edge(
+        id="app-client",
+        source="app-1",
+        target="client-1",
+        latency=0.0001,
+        dropout_rate=0.0,
+    )
+
     # Simulation settings
     settings = SimulationSettings(
-        total_simulation_time=300,
+        total_simulation_time=900,
         sample_period_s=0.05,
         enabled_sample_metrics=[
             "ready_queue_len",
@@ -122,6 +134,16 @@ def build_and_run() -> ResultsAnalyzer:
     env = simpy.Environment()
     runner = SimulationRunner(env=env, simulation_input=payload)
     results: ResultsAnalyzer = runner.run()
+
+    # MM1 theory vs observed (pretty table printed directly by the analyzer)
+    mm1 = MM1()
+    try:
+        mm1.print_comparison(payload, results)
+    except ValueError as err:
+        # If the payload is not compatible with M/M/1 assumptions, skip gracefully.
+        print("\n[MM1] Skipping theory comparison — payload incompatible:")
+        print(f"  {err}\n")
+
     return results
 
 
@@ -152,7 +174,6 @@ def main() -> None:
 
         # 2) Server time-series dashboard: Ready | I/O | RAM
         fig_ts, axes_ts = plt.subplots(2, 2, figsize=(12, 8), dpi=160)
-        # We only need three panes; hide the unused bottom-right
         axes_ts[1, 1].axis("off")
         res.plot_server_timeseries_dashboard(
             ax_ready=axes_ts[0, 0],
@@ -177,7 +198,7 @@ def main() -> None:
     else:
         print("No servers available in the topology. Skipping server dashboards.")
 
-    print(f"Saved:")
+    print("Saved:")
     print(f"  - {p_system}")
     if sids:
         print(f"  - {p_srv_ts}")

@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 import simpy
 
 from asyncflow.config.constants import Distribution, EventDescription, LatencyKey
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.payload import SimulationPayload

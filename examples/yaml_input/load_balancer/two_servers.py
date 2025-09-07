@@ -23,7 +23,7 @@ from pathlib import Path
 import simpy
 import matplotlib.pyplot as plt
 
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.metrics.analyzer import ResultsAnalyzer
 
 

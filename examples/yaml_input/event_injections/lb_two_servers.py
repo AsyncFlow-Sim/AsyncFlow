@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import simpy
 
 from asyncflow.metrics.analyzer import ResultsAnalyzer
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 
 
 def main() -> None:

@@ -45,7 +45,7 @@ import matplotlib.pyplot as plt
 
 # The only imports a user needs to run a simulation
 from asyncflow.metrics.analyzer import ResultsAnalyzer
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 
 # --- Basic Logging Setup ---
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

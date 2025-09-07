@@ -19,7 +19,7 @@ import pytest
 import simpy
 
 from asyncflow.metrics.analyzer import ResultsAnalyzer
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.runner.simulation import SimulationRunner
 
 if TYPE_CHECKING:
     from asyncflow.schemas.payload import SimulationPayload

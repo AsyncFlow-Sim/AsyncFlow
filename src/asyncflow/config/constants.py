@@ -146,6 +146,7 @@ class LbAlgorithmsName(StrEnum):
 
   ROUND_ROBIN = "round_robin"
   LEAST_CONNECTIONS = "least_connection"
+  RANDOM = "random"
 
 
 # ======================================================================

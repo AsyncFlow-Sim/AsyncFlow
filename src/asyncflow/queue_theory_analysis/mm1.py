@@ -111,10 +111,7 @@ class MM1(QueueTheoryBase):
             errs.append("the single step must be CPU-bound.")
             return errs
 
-        op_key, op_data = next(iter(step.step_operation.items()))
-        if op_key is not StepOperation.CPU_TIME:
-            errs.append("CPU step must use CPU_TIME as its operation.")
-            return errs
+        _, op_data = next(iter(step.step_operation.items()))
 
         # Must be exponential RV (not deterministic)
         if not isinstance(op_data, RVConfig):

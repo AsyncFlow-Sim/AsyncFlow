@@ -79,7 +79,7 @@ class RqsGeneratorRuntime:
         dist = self.rqs_generator_data.avg_active_users.distribution
 
         if dist == Distribution.NORMAL:
-            #Gaussian-Poisson model
+            # Gaussian-Poisson model
             return gaussian_poisson_sampling(
                 input_data=self.rqs_generator_data,
                 sim_settings=self.sim_settings,

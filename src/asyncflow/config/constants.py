@@ -46,10 +46,21 @@ class Distribution(StrEnum):
     """
 
     POISSON = "poisson"
-    NORMAL = "normal"
     LOG_NORMAL = "log_normal"
     EXPONENTIAL = "exponential"
     UNIFORM = "uniform"
+    EMPIRICAL = "empirical"
+    WEIBULL = "weibull"
+    PARETO = "pareto"
+    ERLANG = "erlang"
+    DETERMINISTIC = "deterministic"
+
+class VariabilityLevel(StrEnum):
+  """Wrapper to define three level of fluctuations"""
+
+  LOW = "low"
+  MEDIUM = "medium"
+  HIGH = "high"
 
 # ======================================================================
 # CONSTANTS FOR ENDPOINT STEP DEFINITION (REQUEST-HANDLER)

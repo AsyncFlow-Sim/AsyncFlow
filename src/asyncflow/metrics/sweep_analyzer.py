@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Literal, cast
 
 import matplotlib.pyplot as plt
 
-from asyncflow.config.constants import LatencyKey
+from asyncflow.config.enums import LatencyKey
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterable

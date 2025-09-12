@@ -9,7 +9,7 @@ import pytest
 import simpy
 from tests.unit.helpers import make_min_ep
 
-from asyncflow.config.constants import EventDescription
+from asyncfow.config.enums importEventDescription
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.events.injection import EventInjectionRuntime
 from asyncflow.schemas.common.random_variables import RVConfig

@@ -11,7 +11,7 @@ from typing import TypedDict
 
 import simpy
 
-from asyncflow.config.constants import ServerResourceName
+from asyncflow.config.enums import ServerResourceName
 from asyncflow.schemas.topology.nodes import NodesResources
 
 # ==============================================================

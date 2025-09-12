@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from asyncflow.config.constants import Distribution
+from asyncflow.config.enums import Distribution
 from asyncflow.schemas.common.random_variables import RVConfig
 
 

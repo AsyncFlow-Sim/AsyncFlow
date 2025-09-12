@@ -7,122 +7,13 @@ so that:
  JSON / YAML payloads can be strictly validated with Pydantic.
  Front-end and simulation engine share a single source of truth.
  Ruff, mypy and IDEs can leverage the strong typing provided by Enum classes.
-
-IMPORTANT: Changing any enum value is a breaking-change for every
-stored configuration file. Add new members whenever possible instead of
-renaming existing ones.
 """
 
-from enum import Enum, IntEnum, StrEnum
+from __future__ import annotations
 
-# ======================================================================
-# CONSTANTS FOR THE REQUEST-GENERATOR COMPONENT
-# ======================================================================
+from typing import Final  # needed for type-hinted module constants
 
-
-class TimeDefaults(IntEnum):
-    """
-    Default time-related constants (expressed in seconds).
-
-    These values are used when the user omits an explicit parameter. They also
-    serve as lower / upper bounds for validation for the requests generator.
-    """
-
-    MIN_TO_SEC = 60  # 1 minute → 60 s
-    USER_SAMPLING_WINDOW = 60  # every 60 seconds sample the number of active user
-    SIMULATION_TIME = 3_600  # run 1 h if user gives no value
-    MIN_SIMULATION_TIME = 5  # 5 seconds give a broad spectrum
-    MIN_USER_SAMPLING_WINDOW = 1 # 1 s minimum
-    MAX_USER_SAMPLING_WINDOW = 120 # 2 min maximum
-
-
-class Distribution(StrEnum):
-    """
-    Probability distributions accepted by app.schemas.RVConfig.
-
-    The string value is exactly the identifier that must appear in JSON
-    payloads.  The simulation engine will map each name to the corresponding
-    random sampler (e.g.numpy.random.poisson).
-    """
-
-    POISSON = "poisson"
-    LOG_NORMAL = "log_normal"
-    EXPONENTIAL = "exponential"
-    UNIFORM = "uniform"
-    EMPIRICAL = "empirical"
-    WEIBULL = "weibull"
-    PARETO = "pareto"
-    ERLANG = "erlang"
-    DETERMINISTIC = "deterministic"
-
-class VariabilityLevel(StrEnum):
-  """Wrapper to define three level of fluctuations"""
-
-  LOW = "low"
-  MEDIUM = "medium"
-  HIGH = "high"
-
-# ======================================================================
-# CONSTANTS FOR ENDPOINT STEP DEFINITION (REQUEST-HANDLER)
-# ======================================================================
-
-class EndpointStepIO(StrEnum):
-    """
-    I/O-bound operation categories that can occur inside an endpoint step.
-      - TASK_SPAWN
-         Spawns an additional ``asyncio.Task`` and returns immediately.
-      - LLM
-         Performs a remote Large-Language-Model inference call.
-        - WAIT
-          Passive, *non-blocking* wait for I/O completion; no new task spawned.
-        - DB
-          Round-trip to a relational / NoSQL database.
-        - CACHE
-          Access to a local or distributed cache layer.
-    """
-
-    TASK_SPAWN = "io_task_spawn"
-    LLM        = "io_llm"
-    WAIT       = "io_wait"
-    DB         = "io_db"
-    CACHE      = "io_cache"
-
-
-class EndpointStepCPU(StrEnum):
-    """
-    CPU-bound operation categories inside an endpoint step.
-
-    Use these when the coroutine keeps the Python interpreter busy
-    (GIL-bound or compute-heavy code) rather than waiting for I/O.
-    """
-
-    INITIAL_PARSING      = "initial_parsing"
-    CPU_BOUND_OPERATION  = "cpu_bound_operation"
-
-
-class EndpointStepRAM(StrEnum):
-    """
-    Memory-related operations inside a step.
-
-    Currently limited to a single category, but kept as an Enum so that future
-    resource types (e.g. GPU memory) can be added without schema changes.
-    """
-
-    RAM = "ram"
-
-
-class StepOperation(StrEnum):
-    """
-    Keys used inside the metrics dictionary of a step.
-
-    CPU_TIME - Service time (seconds) during which the coroutine occupies
-      the CPU / GIL.
-    NECESSARY_RAM - Peak memory (MB) required by the step.
-    """
-
-    CPU_TIME        = "cpu_time"
-    IO_WAITING_TIME = "io_waiting_time"
-    NECESSARY_RAM   = "necessary_ram"
+from asyncflow.config.enums import VariabilityLevel
 
 # ======================================================================
 # CONSTANTS FOR THE RESOURCES OF A SERVER
@@ -137,159 +28,38 @@ class NodesResourcesDefaults:
     MINIMUM_RAM_MB = 256
     DB_CONNECTION_POOL = None
 
+
 # ======================================================================
 # CONSTANTS FOR NETWORK PARAMETERS
 # ======================================================================
 
 class NetworkParameters:
-  """parameters for the network"""
+    """Parameters for the network."""
 
-  MIN_DROPOUT_RATE = 0.0
-  DROPOUT_RATE = 0.01
-  MAX_DROPOUT_RATE = 1.0
-
-# ======================================================================
-# NAME FOR LOAD BALANCER ALGORITHMS
-# ======================================================================
-
-class LbAlgorithmsName(StrEnum):
-  """definition of the available algortithms for the Load Balancer"""
-
-  ROUND_ROBIN = "round_robin"
-  LEAST_CONNECTIONS = "least_connection"
-  RANDOM = "random"
+    MIN_DROPOUT_RATE = 0.0
+    DROPOUT_RATE = 0.01
+    MAX_DROPOUT_RATE = 1.0
 
 
 # ======================================================================
-# CONSTANTS FOR THE MACRO-TOPOLOGY GRAPH
+# CONSTANTS FOR ARRIVAL VARIABILITY PRESETS (shared across samplers)
 # ======================================================================
 
-class SystemNodes(StrEnum):
-    """
-    High-level node categories of the system topology graph.
-
-    Each member represents a *macro-component* that may have its own SimPy
-    resources (CPU cores, DB pool, etc.).
-    """
-
-    GENERATOR     = "generator"
-    SERVER        = "server"
-    CLIENT        = "client"
-    LOAD_BALANCER = "load_balancer"
-
-class SystemEdges(StrEnum):
-    """
-    Edge categories connecting different class SystemNodes.
-
-    Currently only network links are modeled; new types (IPC queue, message
-    bus, stream) can be added without impacting existing payloads.
-    """
-
-    NETWORK_CONNECTION = "network_connection"
-
-# ======================================================================
-# CONSTANTS FOR THE EVENT TO INJECT IN THE SIMULATION
-# ======================================================================
-
-class EventDescription(StrEnum):
-  """Description for the events you may inject during the simulation"""
-
-  SERVER_UP = "server_up"
-  SERVER_DOWN = "server_down"
-  NETWORK_SPIKE_START = "network_spike_start"
-  NETWORK_SPIKE_END = "network_spike_end"
+SCV_PRESETS: Final[dict[VariabilityLevel, float]] = {
+    VariabilityLevel.LOW: 0.25,
+    VariabilityLevel.MEDIUM: 1.0,
+    VariabilityLevel.HIGH: 4.0,
+}
 
 
 # ======================================================================
-# CONSTANTS FOR SAMPLED METRICS
+# DERIVED SAMPLER TUNING CONSTANTS
 # ======================================================================
+class Tuning:
+  """class of constants to tune behaviour of arrivals sampler"""
 
-class SampledMetricName(StrEnum):
-  """
-  Define the metrics sampled every fixed amount of
-  time to create a time series
-  """
-
-  # Mandatory metrics to collect
-  READY_QUEUE_LEN = "ready_queue_len" #length of the event loop ready q
-  EVENT_LOOP_IO_SLEEP = "event_loop_io_sleep"
-  RAM_IN_USE = "ram_in_use"
-  EDGE_CONCURRENT_CONNECTION = "edge_concurrent_connection"
-
-
-class SamplePeriods(float, Enum):
-  """
-  Defining the value of the sample periods for the metrics for which
-  we have to extract a time series
-  """
-
-  STANDARD_TIME = 0.01 # 10 MILLISECONDS
-  MINIMUM_TIME = 0.001 # 1 MILLISECOND
-  MAXIMUM_TIME = 0.5   # 500 MILLISECONDS
-
-# ======================================================================
-# CONSTANTS FOR EVENT METRICS
-# ======================================================================
-
-class EventMetricName(StrEnum):
-  """
-  Define the metrics triggered by event with no
-  time series
-  """
-
-  # Mandatory
-  RQS_CLOCK = "rqs_clock" # useful to collect starting and finishing time of rqs
-  RQS_SERVER_CLOCK = "rqs_server_clock" #useful for latency and throughput of the server
-  SERVICE_TIME = "service_time"
-  IO_TIME = "io_time"
-  WAITING_TIME = "waiting_time"
-
-
-  # Not mandatory now not implemented
-  LLM_COST = "llm_cost"
-
-
-# ======================================================================
-# CONSTANTS FOR AGGREGATED METRICS
-# ======================================================================
-
-class AggregatedMetricName(StrEnum):
-  """aggregated metrics to calculate at the end of simulation"""
-
-  LATENCY_STATS = "latency_stats"
-  THROUGHPUT = "throughput_rps"
-  SERVER_THROUGHPUT = "server_throughput"
-  SERVER_LATENCY_STATS = "server_latency_stats"
-  SERVICE_TIME_STATS = "service_time_stats"
-  IO_TIME_STATS = "io_time_stats"
-  WAITING_TIME_STATS = "waiting_time_stats"
-  UTILIZATION = "utilization"
-
-  # now not implemented
-  LLM_STATS = "llm_stats"
-
-# ======================================================================
-# CONSTANTS FOR SERVER RUNTIME
-# ======================================================================
-
-class ServerResourceName(StrEnum):
-  """Keys for each server resource type, used when building the container map."""
-
-  CPU = "CPU"
-  RAM = "RAM"
-
-# ======================================================================
-# CONSTANTS FOR LATENCY STATS
-# ======================================================================
-
-class LatencyKey(StrEnum):
-  """Keys for the collection of the latency stats"""
-
-  TOTAL_REQUESTS = "total_requests"
-  MEAN           = "mean"
-  MEDIAN         = "median"
-  STD_DEV        = "std_dev"
-  P95            = "p95"
-  P99            = "p99"
-  MIN            = "min"
-  MAX            = "max"
+  PARETO_ALPHA_EPS: Final[float] = 1e-6   # ensure finite variance: alpha > 2
+  WEIBULL_K_LOW: Final[float] = 2.10      # matches SCV≈0.25
+  WEIBULL_K_MED: Final[float] = 1.0       # SCV=1 (exponential)
+  WEIBULL_K_HIGH: Final[float] = 0.543    # matches SCV≈4
+  UNIFORM_REL_HALF_WIDTH: Final[float] = 0.5  # c2 = w^2 / 3 ≈ 0.0833

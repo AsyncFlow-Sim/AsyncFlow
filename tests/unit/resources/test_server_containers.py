@@ -2,7 +2,7 @@
 
 import simpy
 
-from asyncflow.config.constants import ServerResourceName
+from asyncfow.config.enums importServerResourceName
 from asyncflow.resources.server_containers import build_containers
 from asyncflow.schemas.topology.nodes import NodesResources
 

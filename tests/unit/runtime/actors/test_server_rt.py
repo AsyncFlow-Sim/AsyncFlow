@@ -21,10 +21,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import simpy
-from numpy.random import Generator as NpGenerator
-from numpy.random import default_rng
-
-from asyncflow.config.constants import (
+from asyncfow.config.enums import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
@@ -32,6 +29,9 @@ from asyncflow.config.constants import (
     SampledMetricName,
     StepOperation,
 )
+from numpy.random import Generator as NpGenerator
+from numpy.random import default_rng
+
 from asyncflow.metrics.server import ServerClock
 from asyncflow.resources.server_containers import build_containers
 from asyncflow.runtime.actors import server as server_mod

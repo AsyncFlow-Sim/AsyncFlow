@@ -1,4 +1,4 @@
-from asyncflow.config.constants import EndpointStepCPU, StepOperation
+from asyncfow.config.enums importEndpointStepCPU, StepOperation
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 
 

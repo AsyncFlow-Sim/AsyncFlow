@@ -9,10 +9,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from asyncflow.config.constants import Distribution, SystemNodes
+from asyncflow.config.enums import SystemNodes
 from asyncflow.runtime.rqs_state import RequestState
-from asyncflow.samplers.gaussian_poisson import gaussian_poisson_sampling
-from asyncflow.samplers.poisson_poisson import poisson_poisson_sampling
+from asyncflow.samplers.arrivals import general_interarrivals
 
 if TYPE_CHECKING:
 
@@ -21,11 +20,10 @@ if TYPE_CHECKING:
     import simpy
 
     from asyncflow.runtime.actors.edge import EdgeRuntime
+    from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
     from asyncflow.schemas.settings.simulation import SimulationSettings
-    from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
-
-class RqsGeneratorRuntime:
+class ArrivalsGeneratorRuntime:
     """
     A “node” that produces request contexts at stochastic inter-arrival times
     and immediately pushes them down the pipeline via an EdgeRuntime.
@@ -36,22 +34,22 @@ class RqsGeneratorRuntime:
         *,
         env: simpy.Environment,
         out_edge: EdgeRuntime | None,
-        rqs_generator_data: RqsGenerator,
+        arrivals: ArrivalsGenerator,
         sim_settings: SimulationSettings,
         rng: np.random.Generator | None = None,
         ) -> None:
         """
-        Definition of the instance attributes for the RqsGeneratorRuntime
+        Definition of the instance attributes for the ArrivalsGeneratorRuntime
 
         Args:
             env (simpy.Environment): environment for the simulation
             out_edge (EdgeRuntime): edge connecting this node with the next one
-            rqs_generator_data (RqsGenerator): data do define the sampler
+            arrivals (ArrivalsGenerator): data do define the sampler
             sim_settings (SimulationSettings): settings to start the simulation
             rng (np.random.Generator | None, optional): random variable generator.
 
         """
-        self.rqs_generator_data = rqs_generator_data
+        self.arrivals = arrivals
         self.sim_settings = sim_settings
         self.rng =  rng or np.random.default_rng()
         self.out_edge = out_edge
@@ -64,41 +62,15 @@ class RqsGeneratorRuntime:
         return self.id_counter
 
 
-    def _requests_generator(self) -> Generator[float, None, None]:
-        """
-        Return an iterator of inter-arrival gaps (seconds) according to the model
-        chosen in *input_data*.
-
-        Notes
-        -----
-        * If ``avg_active_users.distribution`` is ``"gaussian"`` or ``"normal"``,
-        the Gaussian-Poisson sampler is used.
-        * Otherwise the default Poisson-Poisson sampler is returned.
-
-        """
-        dist = self.rqs_generator_data.avg_active_users.distribution
-
-        if dist == Distribution.NORMAL:
-            # Gaussian-Poisson model
-            return gaussian_poisson_sampling(
-                input_data=self.rqs_generator_data,
-                sim_settings=self.sim_settings,
-                rng=self.rng,
-
-            )
-
-        # Poisson + Poisson
-        return poisson_poisson_sampling(
-            input_data=self.rqs_generator_data,
-            sim_settings=self.sim_settings,
-            rng=self.rng,
-        )
-
     def _event_arrival(self) -> Generator[simpy.Event, None, None]:
         """Simulating the process of event generation"""
         assert self.out_edge is not None
 
-        time_gaps = self._requests_generator()
+        time_gaps = general_interarrivals(
+          simulation_time_s=self.sim_settings.total_simulation_time,
+          rng=self.rng,
+          arrivals=self.arrivals,
+        )
 
         for gap in time_gaps:
             yield self.env.timeout(gap)
@@ -110,7 +82,7 @@ class RqsGeneratorRuntime:
             )
             state.record_hop(
                 SystemNodes.GENERATOR,
-                self.rqs_generator_data.id,
+                self.arrivals.id,
                 self.env.now,
             )
             # transport is a method of the edge runtime

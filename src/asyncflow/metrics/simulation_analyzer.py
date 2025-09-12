@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     EventMetricName,
     LatencyKey,
     SampledMetricName,

@@ -32,7 +32,7 @@ import simpy
 
 from asyncflow import AsyncFlow
 from asyncflow.components import Client, Edge, Endpoint, LoadBalancer, Server
-from asyncflow.config.constants import LatencyKey
+from asyncfow.config.enums importLatencyKey
 from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator

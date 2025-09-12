@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, cast
 
 import simpy
 
-from asyncflow.config.constants import SampledMetricName, SystemEdges, SystemNodes
+from asyncfow.config.enums importSampledMetricName, SystemEdges, SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.schemas.common.random_variables import RVConfig

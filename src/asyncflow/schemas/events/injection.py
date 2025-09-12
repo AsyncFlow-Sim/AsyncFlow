@@ -10,7 +10,7 @@ from pydantic import (
     model_validator,
 )
 
-from asyncflow.config.constants import EventDescription
+from asyncflow.config.enums import EventDescription
 
 # Event input schema:
 # - Each event has its own identifier (event_id) and references the affected

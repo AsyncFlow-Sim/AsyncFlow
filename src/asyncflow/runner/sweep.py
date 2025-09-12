@@ -63,67 +63,78 @@ class Sweep:
     # Method to iterate over the users
     # ---------------------------------------------------
 
-    def sweep_on_user(
-        self,
-        # we pass a validated payload from yaml or from
-        # the pythonic builder
-        payload: SimulationPayload,
-        user_lower_bound: int,
-        user_upper_bound: int,
-        step: int,
-        ) -> list[tuple[int, ResultsAnalyzer]]:
+    def sweep_on_lambda(
+    self,
+    *,
+    payload: SimulationPayload,
+    lambda_lower_bound: float,
+    lambda_upper_bound: float,
+    step: float,
+) -> list[tuple[float, ResultsAnalyzer]]:
         """
-        Function to prepare a list of results analzyer
-        with all the data necessary to evaluate how the
-        topology react on a given scenario by varying the
-        average concurrent users
+        Sweep the arrival rate (`lambda_rps`, requests/second) over a range and run a
+        simulation for each value.
+
+        Parameters
+        ----------
+        payload
+            A fully validated `SimulationPayload` used as the base configuration.
+            It will be deep-copied and patched with each `lambda_rps` value.
+        lambda_lower_bound
+            Inclusive lower bound for `lambda_rps` (> 0).
+        lambda_upper_bound
+            Inclusive upper bound for `lambda_rps` (>= lower bound, > 0).
+        step
+            Positive increment for the sweep grid.
+
+        Returns
+        -------
+        list[tuple[float, ResultsAnalyzer]]
+            A list of pairs `(lambda_rps, analyzer)` for each grid point.
+
+        Notes
+        -----
+        - Uses `model_copy(deep=True)` (Pydantic v2) to avoid mutating the input payload
+        - Builds the sweep grid robustly against floating-point accumulation errors.
+
         """
-        # Error handling to have a coherent interval
-        if step <= 0:
-            msg = "step must be > 0"
+        # --- Validate inputs early for clear error messages ---
+        if step <= 0.0:
+            msg="step must be > 0"
+            raise ValueError(msg)
+        if lambda_lower_bound <= 0.0 or lambda_upper_bound <= 0.0:
+            msg="The lower and upper bound must be strictly bigger than 0"
+            raise ValueError(msg)
+        if lambda_upper_bound < lambda_lower_bound:
+            msg="lambda_upper_bound must be >= lambda_lower_bound"
             raise ValueError(msg)
 
-        if user_lower_bound <= 0 or user_upper_bound <= 0:
-            msg = "The lower and upper bound must be strictly bigger than 0"
-            raise ValueError(msg)
+        # --- Build a numerically robust grid of lambda values ---
+        eps = step * 1e-9  # tiny slack to counter FP accumulation on the final step
+        lam = float(lambda_lower_bound)
+        lambda_grid: list[float] = []
+        while lam <= lambda_upper_bound + eps:
+            lambda_grid.append(float(lam))
+            lam += step
 
-        if user_upper_bound < user_lower_bound:
-            msg = "user_upper_bound must be >= user_lower_bound"
-            raise ValueError(msg)
+        # Keep the last grid if your class wants to expose it later (optional).
+        self._last_lambda_grid = lambda_grid[:]
 
-        # definition of the grid
-        users_grid: list[int] = list(
-            range(user_lower_bound, user_upper_bound + 1, step))
-        self._last_users_grid = users_grid.copy()
+        results: list[tuple[float, ResultsAnalyzer]] = []
 
-        # last grid used
-        self._last_users_grid = users_grid[:]
+        for lam in lambda_grid:
+            # 1) Clone the payload and override the arrival rate
+            pl = payload.model_copy(deep=True)
+            pl.arrivals = pl.arrivals.model_copy(update={"lambda_rps": lam})
 
-        results: list[tuple[int, ResultsAnalyzer]] = []
-
-        # Iteration to populate the list
-        for users in users_grid:
-            # 1) payload override
-            payload = payload.model_copy(deep=True)
-            payload.rqs_input.avg_active_users = (
-                    payload.rqs_input.avg_active_users.model_copy(
-                        update={"mean": users},
-            )
-)
-
-            # 2) instantiation of the new object for the simulation run
+            # 2) Instantiate and run the simulation
             runner = self.simulation_cls(
                 env=self._default_env_factory(),
-                simulation_input=payload,
+                simulation_input=pl,
             )
-
             analyzer = runner.run()
 
-            # 3) Accumulation of the analyzer
-            results.append((users, analyzer))
+            # 3) Accumulate the result
+            results.append((lam, analyzer))
 
         return results
-
-
-
-

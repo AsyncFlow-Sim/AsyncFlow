@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
-from asyncflow.config.constants import (
+from asyncfow.config.enums import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,
     StepOperation,
 )
+from pydantic import ValidationError
+
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 

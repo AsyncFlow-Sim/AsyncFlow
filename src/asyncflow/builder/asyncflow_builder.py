@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Self
 
-from asyncflow.config.constants import EventDescription
+from asyncflow.config.enums import EventDescription
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.events.injection import End, EventInjection, Start
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
@@ -16,7 +17,6 @@ from asyncflow.schemas.topology.nodes import (
     Server,
     TopologyNodes,
 )
-from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 class AsyncFlow:
@@ -24,7 +24,7 @@ class AsyncFlow:
 
     def __init__(self) -> None:
         """Instance attributes necessary to define the simulation payload"""
-        self._generator: RqsGenerator | None = None
+        self._arrivals: ArrivalsGenerator | None = None
         self._client: Client | None = None
         self._servers: list[Server] | None = None
         self._edges: list[Edge] | None = None
@@ -32,12 +32,15 @@ class AsyncFlow:
         self._load_balancer: LoadBalancer | None = None
         self._events: list[EventInjection] = []
 
-    def add_generator(self, rqs_generator: RqsGenerator) -> Self:
+    def add_arrivals_generator(
+        self,
+        arrivals: ArrivalsGenerator,
+        ) -> Self:
         """Method to instantiate the generator"""
-        if not isinstance(rqs_generator, RqsGenerator):
-            msg = "You must add a RqsGenerator instance"
+        if not isinstance(arrivals, ArrivalsGenerator):
+            msg = "You must add a ArrivalsGenerator instance"
             raise TypeError(msg)
-        self._generator = rqs_generator
+        self._arrivals = arrivals
         return self
 
     def add_client(self, client: Client) -> Self:
@@ -142,7 +145,7 @@ class AsyncFlow:
 
     def build_payload(self) -> SimulationPayload:
         """Method to build the payload for the simulation"""
-        if self._generator is None:
+        if self._arrivals is None:
             msg = "The generator input must be instantiated before the simulation"
             raise ValueError(msg)
         if self._client is None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from asyncflow.config.constants import Distribution, TimeDefaults
+from asyncfow.config.enums importDistribution, TimeDefaults
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.workload.rqs_generator import RqsGenerator

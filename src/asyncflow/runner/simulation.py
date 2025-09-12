@@ -15,10 +15,10 @@ import yaml
 from asyncflow.metrics.collector import SampledMetricCollector
 from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 from asyncflow.resources.registry import ResourcesRuntime
+from asyncflow.runtime.actors.arrivals_generator import ArrivalsGeneratorRuntime
 from asyncflow.runtime.actors.client import ClientRuntime
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
-from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
 from asyncflow.runtime.actors.server import ServerRuntime
 from asyncflow.runtime.events.injection import EventInjectionRuntime
 from asyncflow.schemas.payload import SimulationPayload
@@ -26,6 +26,7 @@ from asyncflow.schemas.payload import SimulationPayload
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
     from asyncflow.schemas.events.injection import EventInjection
     from asyncflow.schemas.topology.edges import Edge
     from asyncflow.schemas.topology.nodes import (
@@ -33,7 +34,6 @@ if TYPE_CHECKING:
         LoadBalancer,
         Server,
     )
-    from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 # --- PROTOCOL DEFINITION ---
 # This is the contract that all runtime actors must follow.
@@ -70,7 +70,7 @@ class SimulationRunner:
         self.servers: list[Server] = simulation_input.topology_graph.nodes.servers
         self.client: Client = simulation_input.topology_graph.nodes.client
         self.events: list[EventInjection] | None = None
-        self.rqs_generator: RqsGenerator = simulation_input.rqs_input
+        self.arrivals: ArrivalsGenerator = simulation_input.arrivals
         self.lb: LoadBalancer | None = None
         self.simulation_settings = simulation_input.sim_settings
         self.edges: list[Edge] = simulation_input.topology_graph.edges
@@ -79,7 +79,7 @@ class SimulationRunner:
         # Object needed to start the simulation
         self._servers_runtime: dict[str, ServerRuntime] = {}
         self._client_runtime: dict[str, ClientRuntime] = {}
-        self._rqs_runtime: dict[str, RqsGeneratorRuntime] = {}
+        self._arrivals_runtime: dict[str, ArrivalsGeneratorRuntime] = {}
         # right now we allow max one LB per simulation so we don't need a dict
         self._lb_runtime: LoadBalancerRuntime | None = None
         self._edges_runtime: dict[tuple[str, str], EdgeRuntime] = {}
@@ -130,10 +130,10 @@ class SimulationRunner:
         In the future we might add CDN so we will need
         multiple generators , one for each client
         """
-        self._rqs_runtime[self.rqs_generator.id] = RqsGeneratorRuntime(
+        self._arrivals_runtime[self.arrivals.id] = ArrivalsGeneratorRuntime(
             env = self.env,
             out_edge=None,
-            rqs_generator_data=self.rqs_generator,
+            arrivals=self.arrivals,
             sim_settings=self.simulation_settings,
             rng=self.rng,
         )
@@ -206,7 +206,7 @@ class SimulationRunner:
         all_nodes: dict[str, object] = {
             **self._servers_runtime,
             **self._client_runtime,
-            **self._rqs_runtime,
+            **self._arrivals_runtime,
         }
 
         if self._lb_runtime is not None:
@@ -242,7 +242,7 @@ class SimulationRunner:
             if isinstance(source_object, (
                 ServerRuntime,
                 ClientRuntime,
-                RqsGeneratorRuntime,
+                ArrivalsGeneratorRuntime,
                 )):
                 source_object.out_edge = self._edges_runtime[(
                     edge.source,
@@ -311,7 +311,7 @@ class SimulationRunner:
         # ------------------------------------------------------------------
 
         runtimes = chain(
-        self._rqs_runtime.values(),
+        self._arrivals_runtime.values(),
         self._client_runtime.values(),
         self._servers_runtime.values(),
         ([] if self._lb_runtime is None else [self._lb_runtime]),
@@ -357,12 +357,12 @@ class SimulationRunner:
         # 3 ATTACH EVENTS TO THE COMPONENTS
         self._build_events()
 
-        # 3. START ALL COROUTINES
+        # 4. START ALL COROUTINES
         self._start_events()
         self._start_all_processes()
         self._start_metric_collector()
 
-        # 4. ADVANCE THE SIMULATION
+        # 5. ADVANCE THE SIMULATION
         self.env.run(until=self.simulation_settings.total_simulation_time)
 
         return ResultsAnalyzer(

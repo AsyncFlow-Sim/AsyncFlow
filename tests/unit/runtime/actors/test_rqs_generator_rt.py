@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import simpy
 
-from asyncflow.config.constants import Distribution
-from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
+from asyncfow.config.enums importDistribution
+from asyncflow.runtime.actors.arrivals_generator import RqsGeneratorRuntime
 
 if TYPE_CHECKING:
 

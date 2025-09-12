@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from asyncflow.config.constants import LatencyKey
+from asyncfow.config.enums importLatencyKey
 from asyncflow.queue_theory_analysis.mm1 import MM1
 from asyncflow.schemas.payload import SimulationPayload
 

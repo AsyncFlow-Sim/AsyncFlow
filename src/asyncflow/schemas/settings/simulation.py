@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     EventMetricName,
     SampledMetricName,
     SamplePeriods,

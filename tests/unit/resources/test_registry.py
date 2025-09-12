@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import simpy
 
-from asyncflow.config.constants import ServerResourceName
+from asyncfow.config.enums importServerResourceName
 from asyncflow.resources.registry import ResourcesRuntime
 from asyncflow.schemas.topology.endpoint import Endpoint
 from asyncflow.schemas.topology.graph import TopologyGraph

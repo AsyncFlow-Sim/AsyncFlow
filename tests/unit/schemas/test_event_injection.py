@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from asyncflow.config.constants import EventDescription
+from asyncfow.config.enums importEventDescription
 from asyncflow.schemas.events.injection import End, EventInjection, Start
 
 # ---------------------------------------------------------------------------

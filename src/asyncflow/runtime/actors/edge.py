@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import simpy
 
-from asyncflow.config.constants import SampledMetricName, SystemEdges
+from asyncflow.config.enums import SampledMetricName, SystemEdges
 from asyncflow.metrics.edge import build_edge_metrics
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.samplers.common_helpers import general_sampler

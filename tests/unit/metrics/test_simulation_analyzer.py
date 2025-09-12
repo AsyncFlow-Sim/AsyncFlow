@@ -19,7 +19,7 @@ import pytest
 from matplotlib.figure import Figure
 
 from asyncflow.analysis import ResultsAnalyzer
-from asyncflow.config.constants import EventMetricName
+from asyncfow.config.enums importEventMetricName
 from asyncflow.enums import SampledMetricName
 from asyncflow.metrics.server import ServerClock
 

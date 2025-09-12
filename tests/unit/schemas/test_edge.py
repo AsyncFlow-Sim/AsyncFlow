@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from asyncflow.config.constants import NetworkParameters, SystemEdges
+from asyncfow.config.enums importNetworkParameters, SystemEdges
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.topology.edges import Edge
 

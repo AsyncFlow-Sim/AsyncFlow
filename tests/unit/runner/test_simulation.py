@@ -15,7 +15,7 @@ import simpy
 import yaml
 from tests.unit.helpers import make_min_ep
 
-from asyncflow.config.constants import Distribution, EventDescription
+from asyncfow.config.enums importDistribution, EventDescription
 from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
@@ -34,8 +34,8 @@ from asyncflow.schemas.topology.nodes import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from asyncflow.runtime.actors.arrivals_generator import RqsGeneratorRuntime
     from asyncflow.runtime.actors.client import ClientRuntime
-    from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
     from asyncflow.schemas.settings.simulation import SimulationSettings
     from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 

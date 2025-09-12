@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from numpy.random import Generator, default_rng
 
-from asyncflow.config.constants import TimeDefaults
+from asyncfow.config.enums importTimeDefaults
 from asyncflow.samplers.gaussian_poisson import (
     gaussian_poisson_sampling,
 )

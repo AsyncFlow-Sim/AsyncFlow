@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
-from asyncflow.config.constants import (
+from asyncfow.config.enums import (
     EndpointStepCPU,
     NetworkParameters,
     NodesResourcesDefaults,
@@ -13,6 +11,8 @@ from asyncflow.config.constants import (
     SystemEdges,
     SystemNodes,
 )
+from pydantic import ValidationError
+
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.topology.edges import Edge
 from asyncflow.schemas.topology.endpoint import Endpoint, Step

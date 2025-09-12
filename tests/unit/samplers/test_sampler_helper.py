@@ -8,7 +8,7 @@ from typing import cast
 import numpy as np
 import pytest
 
-from asyncflow.config.constants import Distribution
+from asyncfow.config.enums importDistribution
 from asyncflow.samplers.common_helpers import (
     exponential_variable_generator,
     general_sampler,

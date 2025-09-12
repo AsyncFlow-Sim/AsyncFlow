@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import pytest
 from tests.unit.helpers import make_min_ep
 
-from asyncflow.config.constants import Distribution, EventDescription
+from asyncfow.config.enums importDistribution, EventDescription
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import End, EventInjection, Start
 from asyncflow.schemas.payload import SimulationPayload

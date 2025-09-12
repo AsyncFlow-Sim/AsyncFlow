@@ -17,7 +17,7 @@ import pytest
 from asyncflow import AsyncFlow
 from asyncflow.analysis import MMc
 from asyncflow.components import Client, Edge, Endpoint, LoadBalancer, Server
-from asyncflow.config.constants import LatencyKey  # used by get_latency_stats()
+from asyncfow.config.enums importLatencyKey  # used by get_latency_stats()
 from asyncflow.settings import SimulationSettings
 from asyncflow.workload import RqsGenerator
 

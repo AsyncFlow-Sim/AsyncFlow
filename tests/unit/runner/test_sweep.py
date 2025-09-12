@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 import pytest
 
-from asyncflow.config.constants import Distribution, TimeDefaults
+from asyncfow.config.enums importDistribution, TimeDefaults
 from asyncflow.runner.sweep import Sweep
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.payload import SimulationPayload

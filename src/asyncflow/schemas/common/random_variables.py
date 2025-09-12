@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, NonNegativeFloat, model_validator
 
-from asyncflow.config.constants import Distribution
+from asyncflow.config.enums import Distribution
 
 
 class RVConfig(BaseModel):
@@ -16,7 +16,6 @@ class RVConfig(BaseModel):
     def default_variance(cls, model: "RVConfig") -> "RVConfig":  # noqa: N805
         """Set variance = mean when distribution require and variance is missing."""
         needs_variance: set[Distribution] = {
-            Distribution.NORMAL,
             Distribution.LOG_NORMAL,
         }
 

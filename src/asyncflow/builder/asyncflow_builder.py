@@ -173,7 +173,7 @@ class AsyncFlow:
         )
 
         return SimulationPayload.model_validate({
-            "rqs_input": self._generator,
+            "arrivals": self._arrivals,
             "topology_graph": graph,
             "sim_settings": self._sim_settings,
             "events": self._events or None,

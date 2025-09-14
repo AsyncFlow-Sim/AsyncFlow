@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 def test_lb_two_servers_end_to_end_smoke(
     env: simpy.Environment,
-    topology_two_servers: Callable[[float | None, float], TopologyGraph],
+    topology_two_servers: Callable[..., TopologyGraph],
     make_payload: Callable[
         [ArrivalsGenerator, TopologyGraph, SimulationSettings, None],
         SimulationPayload,

@@ -16,18 +16,17 @@ These helpers are intended to be wired by an external public factory.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Generator as FloatGen
 from math import gamma, isfinite, log, sqrt
-from typing import TYPE_CHECKING
-
-import numpy as np
+from typing import TYPE_CHECKING, Protocol
 
 from asyncflow.config.constants import SCV_PRESETS, Tuning
 from asyncflow.config.enums import Distribution, VariabilityLevel
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
+    from collections.abc import Generator as FloatGen
+
+    import numpy as np
 
     from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 
@@ -81,67 +80,41 @@ def _build_empirical_from_timestamps(
     clamp_min_s: float = 0.0,
 ) -> FloatGen[float, None, None]:
     """
-    Yield inter-arrival gaps from absolute timestamps, anchored at `origin_s`.
+    Yield inter-arrival gaps from absolute timestamps, anchored at origin.
 
-    The first yielded gap is (t0 - origin_s), then (t1 - t0), ...,
-    (tn - t{n-1}). Timestamps earlier than `origin_s` are discarded.
-
-    Parameters
-    ----------
-    timestamps_s
-        Iterable of absolute arrival times (seconds).
-    origin_s
-        Simulation origin in seconds. The initial idle (t0 - origin_s) is
-        included as the first gap. Defaults to 0.0.
-    assume_sorted
-        If False, timestamps are sorted ascending. Defaults to False.
-    clamp_min_s
-        Minimum allowed gap; values <= 0 are replaced with this threshold to
-        avoid zero-length hot loops. Defaults to 0.0.
-
-    Yields
-    ------
-    float
-        Inter-arrival gaps (seconds), finite sequence.
-
-    Raises
-    ------
-    ValueError
-        If the sequence is empty, contains non-finite values, or no timestamps
-        are at/after the chosen origin.
-
+    Gaps strictly smaller than `clamp_min_s` are clamped to that threshold
+    to avoid zero-length hot loops and numerical noise.
     """
     # Materialize and validate
-    ts: list[float] = []
+    timestamp_s: list[float] = []
     for i, v in enumerate(timestamps_s):
         if not isfinite(v):
-            msg = (
-                f"non-finite value in timestamps at index {i}: {v!r}."
-            )
+            msg = f"non-finite value in timestamps at index {i}: {v!r}."
             raise ValueError(msg)
-        ts.append(float(v))
-    if not ts:
-        msg = "empirical sequence is empty."
+        timestamp_s.append(float(v))
+    if not timestamp_s:
+        msg="empirical sequence is empty."
         raise ValueError(msg)
 
     if not assume_sorted:
-        ts.sort()
+        timestamp_s.sort()
 
     # Keep only timestamps at or after the origin
-    ts = [t for t in ts if t >= origin_s]
-    if not ts:
-        msg = "no timestamps at or after origin; nothing to simulate."
+    timestamp_s = [t for t in timestamp_s if t >= origin_s]
+    if not timestamp_s:
+        msg="no timestamps at or after origin; nothing to simulate."
         raise ValueError(msg)
 
     # First gap from origin, then consecutive differences
-    first_gap = ts[0] - origin_s
-    yield first_gap if first_gap > 0.0 else float(clamp_min_s)
+    first_gap = timestamp_s[0] - origin_s
+    yield first_gap if first_gap >= clamp_min_s else float(clamp_min_s)
 
-    prev = ts[0]
-    for t in ts[1:]:
+    prev = timestamp_s[0]
+    for t in timestamp_s[1:]:
         d = t - prev
-        yield d if d > 0.0 else float(clamp_min_s)
+        yield d if d >= clamp_min_s else float(clamp_min_s)
         prev = t
+
 
 
 def _exponential_interarrivals(
@@ -203,7 +176,7 @@ def _lognormal_interarrivals(
     *,
     lambda_rps: float,
     simulation_time_s: int,
-    variability: VariabilityLevel | None,
+    variability: VariabilityLevel,
     rng: np.random.Generator,
 ) -> FloatGen[float, None, None]:
     """Lognormal inter-arrivals tuned by SCV presets."""
@@ -222,7 +195,7 @@ def _weibull_interarrivals(
     *,
     lambda_rps: float,
     simulation_time_s: int,
-    variability: VariabilityLevel | None,
+    variability: VariabilityLevel,
     rng: np.random.Generator,
 ) -> FloatGen[float, None, None]:
     """
@@ -245,7 +218,7 @@ def _pareto_interarrivals(
     *,
     lambda_rps: float,
     simulation_time_s: int,
-    variability: VariabilityLevel | None,
+    variability: VariabilityLevel,
     rng: np.random.Generator,
 ) -> FloatGen[float, None, None]:
     """
@@ -271,7 +244,7 @@ def _erlang_interarrivals(
     *,
     lambda_rps: float,
     simulation_time_s: int,
-    variability: VariabilityLevel | None,
+    variability: VariabilityLevel,
     rng: np.random.Generator,
 ) -> FloatGen[float, None, None]:
     """
@@ -320,15 +293,36 @@ def _uniform_interarrivals(
 # dispatch tables to avoid a lot of if else
 # ------------------------------------------------------------
 
-VarSampler = Callable[
-    [float, int, VariabilityLevel, np.random.Generator],
-    FloatGen[float, None, None],
-]
+# ---- mypy compliance ----
 
-NoVarSampler = Callable[
-    [float, int, np.random.Generator],
-    FloatGen[float, None, None],
-]
+class VarSampler(Protocol):
+    """Sampler protocol that REQUIRES a variability level."""
+
+    def __call__(
+        self,
+        *,
+        lambda_rps: float,
+        simulation_time_s: int,
+        variability: VariabilityLevel,
+        rng: np.random.Generator,
+    ) -> FloatGen[float, None, None]:
+        """Yield inter-arrival gaps for the given rate, horizon and RNG."""
+        ...
+
+
+class NoVarSampler(Protocol):
+    """Sampler protocol that IGNORES variability."""
+
+    def __call__(
+        self,
+        *,
+        lambda_rps: float,
+        simulation_time_s: int,
+        rng: np.random.Generator,
+    ) -> FloatGen[float, None, None]:
+        """Yield inter-arrival gaps for the given rate, horizon and RNG."""
+        ...
+
 
 VAR_DISTRIBUTION: dict[Distribution, VarSampler] = {
     Distribution.LOG_NORMAL: _lognormal_interarrivals,
@@ -360,9 +354,6 @@ def general_interarrivals(
         if arrivals.empirical_data is None:
             msg = "empirical_data is required when model=EMPIRICAL."
             raise ValueError(msg)
-
-        # Finite generator: first gap (t0 - origin), then consecutive diffs.
-        # `simulation_time_s` is not used in this branch.
         return _build_empirical_from_timestamps(
             timestamps_s=arrivals.empirical_data,
             origin_s=0.0,
@@ -370,19 +361,20 @@ def general_interarrivals(
             clamp_min_s=0.0,
         )
 
-    if not arrivals.variability:
-        sampler = NO_VAR_DISTRIBUTION[arrivals.model]
-        return sampler(
+    if arrivals.variability is None:
+        sampler_no_var: NoVarSampler = NO_VAR_DISTRIBUTION[model]
+        return sampler_no_var(
             lambda_rps=arrivals.lambda_rps,
             simulation_time_s=simulation_time_s,
             rng=rng,
         )
-    sampler = VAR_DISTRIBUTION[arrivals.model]
 
-    return sampler(
+    sampler_var: VarSampler = VAR_DISTRIBUTION[model]
+    return sampler_var(
         lambda_rps=arrivals.lambda_rps,
         simulation_time_s=simulation_time_s,
         variability=arrivals.variability,
         rng=rng,
     )
+
 

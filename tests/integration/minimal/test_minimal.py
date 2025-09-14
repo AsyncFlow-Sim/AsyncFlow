@@ -16,12 +16,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-import simpy
 
 from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 from asyncflow.runner.simulation import SimulationRunner
 
 if TYPE_CHECKING:
+    import simpy
+
     from asyncflow.schemas.payload import SimulationPayload
 
 
@@ -31,9 +32,10 @@ if TYPE_CHECKING:
 class _NoOpEdge:
     """Edge stub: swallows every transport call."""
 
-    def transport(self, *args, **kwargs) -> None:
+    def transport(self, *_: object, **__: object) -> None:
         # Nothing to do — black-hole the message.
         return
+
 
 
 # --------------------------------------------------------------------------- #

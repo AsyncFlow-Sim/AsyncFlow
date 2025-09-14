@@ -25,10 +25,10 @@ import simpy
 
 from asyncflow import AsyncFlow
 from asyncflow.components import Client, Edge, Endpoint, Server
-from asyncfow.config.enums importLatencyKey
+from asyncflow.config.enums import Distribution, LatencyKey
 from asyncflow.runner.simulation import SimulationRunner
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.settings import SimulationSettings
-from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
     # Imported only for type checking (ruff: TC001)
@@ -55,11 +55,10 @@ def _seed_all(seed: int = SEED) -> None:
 
 def _build_payload() -> SimulationPayload:
     # Workload: ~26.7 rps (80 users * 20 rpm / 60)
-    gen = RqsGenerator(
+    gen = ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users={"mean": 80},
-        avg_request_per_minute_per_user={"mean": 20},
-        user_sampling_window=60,
+        lambda_rps=20,
+        model=Distribution.POISSON,
     )
     client = Client(id="client-1")
 
@@ -112,7 +111,7 @@ def _build_payload() -> SimulationPayload:
 
     flow = (
         AsyncFlow()
-        .add_generator(gen)
+        .add_arrivals_generator(gen)
         .add_client(client)
         .add_servers(srv)
         .add_edges(*edges)
@@ -140,7 +139,7 @@ def test_system_single_server_sane() -> None:
     _, rps = res.get_throughput_series()
     assert rps, "No throughput series produced."
     rps_mean = float(np.mean(rps))
-    lam = 80 * 20 / 60.0
+    lam = 20
     assert abs(rps_mean - lam) / lam <= REL_TOL
 
     # Sampled metrics present for srv-1

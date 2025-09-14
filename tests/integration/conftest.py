@@ -9,7 +9,7 @@ Design goals
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import pytest
 import simpy
@@ -134,8 +134,22 @@ def server_factory() -> Callable[[str, float | None], Server]:
     return _make
 
 
+class EdgeFactory(Protocol):
+    """Callable that builds an `Edge` with a latency RV."""
+
+    def __call__(
+        self,
+        eid: str,
+        src: str,
+        tgt: str,
+        mean: float,
+        dist: Distribution = ...,
+    ) -> Edge:
+        """Return an `Edge` from ids and latency parameters."""
+
+
 @pytest.fixture
-def edge_factory() -> Callable[[str, str, str, float, Distribution], Edge]:
+def edge_factory() -> Callable[..., Edge]:
     """
     Build an edge with a latency RV. Defaults to Poisson(mean=1ms) to keep
     tests fast; pass another distribution/mean when needed.
@@ -162,34 +176,32 @@ def edge_factory() -> Callable[[str, str, str, float, Distribution], Edge]:
 # Topology builders                                                           #
 # --------------------------------------------------------------------------- #
 
+class TwoServersBuilder(Protocol):
+    """Callable that returns a two-server `TopologyGraph`."""
+
+    def __call__(
+        self, *, service_time_s: float | None = ..., edge_mean: float = ...,
+    ) -> TopologyGraph:
+        """Build the graph with two servers and a load balancer."""
+
+
+class SingleServerBuilder(Protocol):
+    """Callable that returns a single-server `TopologyGraph`."""
+
+    def __call__(
+        self, *, service_time_s: float | None = ..., edge_mean: float = ...,
+    ) -> TopologyGraph:
+        """Build the graph with one server and a load balancer."""
+
+
 @pytest.fixture
 def topology_two_servers(
     server_factory: Callable[[str, float | None], Server],
-    edge_factory: Callable[[str, str, str, float, Distribution], Edge],
-) -> Callable[[float | None, float], TopologyGraph]:
-    """
-    Factory for a two-server topology with a load balancer.
-
-    Args:
-        server_factory: Fixture-provided constructor for a ``Server``.
-            Signature: ``(server_id, service_time_s|None)``. When
-            ``service_time_s`` is ``None``, the server has no steps;
-            otherwise it contains one CPU step with that mean service time.
-        edge_factory: Fixture-provided constructor for an ``Edge``.
-            Signature: ``(edge_id, source_id, target_id, mean_s, dist)``.
-
-    Returns:
-        A callable that builds a ``TopologyGraph`` when invoked with:
-          - ``service_time_s``: ``None`` → empty endpoints; otherwise a single
-            CPU step with the given mean (seconds).
-          - ``edge_mean``: mean latency (seconds) applied to all edges.
-
-    """
-
-    def _make(
-        service_time_s: float | None = 0.001,
-        edge_mean: float = 0.001,
-    ) -> TopologyGraph:
+    edge_factory: Callable[..., Edge],
+) -> Callable[..., TopologyGraph]:
+    """Factory for a two-server topology with a load balancer"""
+    def _make(*, service_time_s: float | None = 0.001,
+              edge_mean: float = 0.001) -> TopologyGraph:
         client = Client(id="client-1")
         lb = LoadBalancer(id="lb-1")
         srv1 = server_factory("srv-1", service_time_s)
@@ -204,43 +216,20 @@ def topology_two_servers(
             edge_factory("srv2-to-client", "srv-2", "client-1", edge_mean),
         ]
         nodes = TopologyNodes(
-            servers=[srv1, srv2],
-            client=client,
-            load_balancer=lb,
+            servers=[srv1, srv2], client=client, load_balancer=lb,
         )
         return TopologyGraph(nodes=nodes, edges=edges)
-
     return _make
 
 
 @pytest.fixture
 def topology_single_server(
     server_factory: Callable[[str, float | None], Server],
-    edge_factory: Callable[[str, str, str, float, Distribution], Edge],
-) -> Callable[[float | None, float], TopologyGraph]:
-    """
-    Factory for a single-server topology with a load balancer in front.
-
-    Args:
-        server_factory: Fixture-provided constructor for a ``Server``.
-            Signature: ``(server_id, service_time_s|None)``. When
-            ``service_time_s`` is ``None``, the server has no steps;
-            otherwise it contains one CPU step with that mean service time.
-        edge_factory: Fixture-provided constructor for an ``Edge``.
-            Signature: ``(edge_id, source_id, target_id, mean_s, dist)``.
-
-    Returns:
-        A callable that builds a ``TopologyGraph`` when invoked with:
-          - ``service_time_s``: ``None`` → empty endpoints; otherwise a single
-            CPU step with the given mean (seconds).
-          - ``edge_mean``: mean latency (seconds) applied to all edges.
-
-    """
-
-    def _make(
-        service_time_s: float | None = 0.001,
-        edge_mean: float = 0.001,
-    ) -> TopologyGraph:
+    edge_factory: Callable[..., Edge],
+) -> Callable[..., TopologyGraph]:
+    """Factory for a single-server topology with a load balancer in front"""
+    def _make(*, service_time_s: float | None = 0.001,
+              edge_mean: float = 0.001) -> TopologyGraph:
         client = Client(id="client-1")
         lb = LoadBalancer(id="lb-1")
         srv = server_factory("srv-1", service_time_s)
@@ -252,13 +241,11 @@ def topology_single_server(
             edge_factory("srv1-to-client", "srv-1", "client-1", edge_mean),
         ]
         nodes = TopologyNodes(
-            servers=[srv],
-            client=client,
-            load_balancer=lb,
+            servers=[srv], client=client, load_balancer=lb,
         )
         return TopologyGraph(nodes=nodes, edges=edges)
-
     return _make
+
 # --------------------------------------------------------------------------- #
 # Event factories                                                             #
 # --------------------------------------------------------------------------- #

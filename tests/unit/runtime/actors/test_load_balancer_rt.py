@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 import simpy
 
-from asyncfow.config.enums importLbAlgorithmsName, SystemNodes
+from asyncflow.config.enums import LbAlgorithmsName, SystemNodes
 from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
 from asyncflow.schemas.topology.nodes import LoadBalancer
 

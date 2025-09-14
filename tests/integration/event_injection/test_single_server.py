@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 def test_single_server_with_spike(
     env: simpy.Environment,
-    topology_single_server: Callable[[float | None, float], TopologyGraph],
+    topology_single_server: Callable[..., TopologyGraph],
     make_payload: Callable[
         [ArrivalsGenerator, TopologyGraph, SimulationSettings,
          list[EventInjection] | None],

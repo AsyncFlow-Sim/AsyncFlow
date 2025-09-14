@@ -1,6 +1,6 @@
 """Public enums used in scenario definitions."""
 
-from asyncfow.config.enums import (
+from asyncflow.config.enums import (
     Distribution,
     EndpointStepCPU,
     EndpointStepIO,

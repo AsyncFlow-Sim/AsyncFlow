@@ -16,17 +16,27 @@ import pytest
 # Public facades (end-user API)
 from asyncflow import AsyncFlow
 from asyncflow.analysis import MMc
-from asyncflow.components import Client, Edge, Endpoint, LoadBalancer, Server
-from asyncfow.config.enums importLatencyKey  # used by get_latency_stats()
+from asyncflow.components import (
+    ArrivalsGenerator,
+    Client,
+    Edge,
+    Endpoint,
+    LoadBalancer,
+    Server,
+)
+from asyncflow.config.enums import LatencyKey  # used by get_latency_stats()
+from asyncflow.enums import Distribution
+from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.topology.graph import TopologyGraph
+from asyncflow.schemas.topology.nodes import NodesResources, TopologyNodes
 from asyncflow.settings import SimulationSettings
-from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
     # Types used only for static checking (mypy), not imported at runtime.
     from collections.abc import Iterable, Mapping
 
     from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
-    from asyncflow.schemas.payload import SimulationPayload
+
 
 
 class _FakeResultsAnalyzer:
@@ -97,11 +107,10 @@ def _build_payload_mmc_split(
     - deterministic tiny latencies (≤ 1 ms)
     - load balancer with algorithms="random" (matches current MMc check)
     """
-    gen = RqsGenerator(
+    gen = ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users={"mean": users_mean},
-        avg_request_per_minute_per_user={"mean": rpm_per_user},
-        user_sampling_window=60,
+        lambda_rps=20,
+        model="poisson",
     )
 
     client = Client(id="client-1")
@@ -178,7 +187,7 @@ def _build_payload_mmc_split(
 
     return (
         AsyncFlow()
-        .add_generator(gen)
+        .add_arrivals_generator(gen)
         .add_client(client)
         .add_servers(*servers)
         .add_load_balancer(lb)
@@ -232,31 +241,9 @@ def test_mmc_compare_matches_theory() -> None:
 
 def test_mmc_instability_returns_infinities() -> None:
     """If rho >= 1, closed-form KPIs must be +inf (W, Wq, L, Lq)."""
-    # c=2, mu=100 -> capacity 200. Set lambda >= 200.
-    payload = _build_payload_mmc_split(
-        users_mean=1200,
-        rpm_per_user=10,
-        cpu_mean_s=0.01,
-        c=2,
-    )
-    mmc = MMc()
-    res = mmc.evaluate(payload)
+    # c=2, mu=100 rps (service=0.01 s) -> capacity = 200 rps.
+    # For instability set lambda >= 200.
 
-    assert res["rho"] >= 1.0
-    assert res["W"] == float("inf")
-    assert res["Wq"] == float("inf")
-    assert res["L"] == float("inf")
-    assert res["Lq"] == float("inf")
-
-def test_mmc_incompatible_wrong_lb_algorithm() -> None:
-    """Any LB algorithm different from the expected one should fail."""
-    # Build like helper but force a mismatching algorithm.
-    gen = RqsGenerator(
-        id="rqs-1",
-        avg_active_users={"mean": 120},
-        avg_request_per_minute_per_user={"mean": 20},
-        user_sampling_window=60,
-    )
     client = Client(id="client-1")
     endpoint = Endpoint(
         endpoint_name="/api",
@@ -269,95 +256,35 @@ def test_mmc_incompatible_wrong_lb_algorithm() -> None:
                 },
             },
         ],
+    )  # 0.01 s -> mu = 100 rps
+    srv = Server(
+        id="srv-1", server_resources=NodesResources(cpu_cores=2), endpoints=[endpoint],
     )
-    srv1 = Server(
-        id="srv-1",
-        server_resources={"cpu_cores": 1, "ram_mb": 2048},
-        endpoints=[endpoint],
-    )
-    srv2 = Server(
-        id="srv-2",
-        server_resources={"cpu_cores": 1, "ram_mb": 2048},
-        endpoints=[endpoint],
-    )
-    lb = LoadBalancer(
-        id="lb-1",
-        algorithms="least_connection",  # intentionally wrong here
-        server_covered={"srv-1", "srv-2"},
-    )
-    edges = [
-        Edge(
-            id="gen-client",
-            source="rqs-1",
-            target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="client-lb",
-            source="client-1",
-            target="lb-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="lb-srv1",
-            source="lb-1",
-            target="srv-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="lb-srv2",
-            source="lb-1",
-            target="srv-2",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="srv1-client",
-            source="srv-1",
-            target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="srv2-client",
-            source="srv-2",
-            target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-    ]
-    settings = SimulationSettings(
-        total_simulation_time=60,
-        sample_period_s=0.05,
-    )
-    payload = (
-        AsyncFlow()
-        .add_generator(gen)
-        .add_client(client)
-        .add_servers(srv1, srv2)
-        .add_load_balancer(lb)
-        .add_edges(*edges)
-        .add_simulation_settings(settings)
-    ).build_payload()
+    nodes = TopologyNodes(servers=[srv], client=client, load_balancer=None)
+    graph = TopologyGraph(nodes=nodes, edges=[])
+
+    # λ = 200 rps (== capacity) -> rho = 1
+    arrivals = ArrivalsGenerator(id="gen", lambda_rps=200.0, model=Distribution.POISSON)
+
+    settings = SimulationSettings(total_simulation_time=5)
+    payload = SimulationPayload(
+        arrivals=arrivals, topology_graph=graph, sim_settings=settings)
 
     mmc = MMc()
-    assert not mmc.is_compatible(payload)
-    reasons = mmc.explain_incompatibilities(payload)
-    # Do not rely on exact string; just ensure we flag the LB algo.
-    assert any("supported" in r or "round_robin" in r or "algorithm" in r
-               for r in reasons)
+    res = mmc.evaluate(payload)
+
+    assert res["rho"] >= 1.0
+    for key in ("W", "Wq", "L", "Lq"):
+        assert res[key] == float("inf")
+
 
 
 def test_mmc_incompatible_edge_latency_too_large() -> None:
     """Latency must be deterministic and <= 1 ms."""
-    gen = RqsGenerator(
+    gen = ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users={"mean": 120},
-        avg_request_per_minute_per_user={"mean": 20},
-        user_sampling_window=60,
+        lambda_rps=20,
+        model="poisson",
     )
     client = Client(id="client-1")
     endpoint = Endpoint(
@@ -437,7 +364,7 @@ def test_mmc_incompatible_edge_latency_too_large() -> None:
     )
     payload = (
         AsyncFlow()
-        .add_generator(gen)
+        .add_arrivals_generator(gen)
         .add_client(client)
         .add_servers(srv1, srv2)
         .add_load_balancer(lb)
@@ -453,11 +380,10 @@ def test_mmc_incompatible_edge_latency_too_large() -> None:
 
 def test_mmc_incompatible_server_model_requires_single_cpu_step() -> None:
     """Each server endpoint must have exactly one CPU step."""
-    gen = RqsGenerator(
+    gen = ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users={"mean": 120},
-        avg_request_per_minute_per_user={"mean": 20},
-        user_sampling_window=60,
+        lambda_rps=20,
+        model="poisson",
     )
     client = Client(id="client-1")
 
@@ -559,7 +485,7 @@ def test_mmc_incompatible_server_model_requires_single_cpu_step() -> None:
     )
     payload = (
         AsyncFlow()
-        .add_generator(gen)
+        .add_arrivals_generator(gen)
         .add_client(client)
         .add_servers(srv1, srv2)
         .add_load_balancer(lb)

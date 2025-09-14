@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import simpy
 
-from asyncfow.config.enums importSystemEdges, SystemNodes
+from asyncflow.config.enums import SystemEdges, SystemNodes
 from asyncflow.runtime.actors.client import ClientRuntime
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.schemas.topology.nodes import Client

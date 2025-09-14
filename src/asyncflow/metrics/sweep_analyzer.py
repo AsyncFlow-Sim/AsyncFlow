@@ -1,5 +1,5 @@
 """
-SweepAnalyzer — build plots from a sweep over *mean concurrent users*.
+SweepAnalyzer — build plots from a sweep over *mean rps*.
 
 Global
 ------
@@ -70,7 +70,7 @@ class ServerPoint:
 
 class SweepAnalyzer:
     """
-    Build plots from a sweep over *mean concurrent users*.
+    Build plots from a sweep over *mean rps*.
 
     Input
     -----
@@ -246,39 +246,39 @@ class SweepAnalyzer:
     # ──────────────────────────────────────────────────────────────────
 
     def plot_global_throughput(self, ax: Axes) -> None:
-        """Plot mean throughput (RPS) vs. mean concurrent users."""
+        """Plot mean throughput (RPS) vs. mean rps."""
         self._ensure_global_collected()
         pts = self._global_points
         xs = [p.users for p in pts]
         ys = [p.lambda_rps for p in pts]
         ax.plot(xs, ys, marker="o")
-        ax.set_title("Throughput (mean RPS) vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Throughput (mean RPS) vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("RPS")
         ax.grid(visible=True, alpha=0.3)
 
     def plot_global_latency(self, ax: Axes) -> None:
-        """Plot mean system time (W) vs. mean concurrent users."""
+        """Plot mean system time (W) vs. mean rps."""
         self._ensure_global_collected()
         pts = self._global_points
         xs = [p.users for p in pts]
         ys = [p.W for p in pts]
         ax.plot(xs, ys, marker="o")
-        ax.set_title("Mean system time (W) vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Mean system time (W) vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("W (seconds)")
         ax.grid(visible=True, alpha=0.3)
 
     def plot_global_latency_percentiles(self, ax: Axes) -> None:
-        """Plot P50, P95, P99 latency vs. mean concurrent users."""
+        """Plot P50, P95, P99 latency vs. mean rps."""
         self._ensure_global_collected()
         pts = self._global_points
         xs = [p.users for p in pts]
         ax.plot(xs, [p.p50 for p in pts], marker="o", label="P50")
         ax.plot(xs, [p.p95 for p in pts], marker="o", label="P95")
         ax.plot(xs, [p.p99 for p in pts], marker="o", label="P99")
-        ax.set_title("Latency percentiles vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Latency percentiles vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("Latency (seconds)")
         ax.legend()
         ax.grid(visible=True, alpha=0.3)
@@ -344,8 +344,8 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.rho for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server utilization (rho) vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Server utilization (rho) vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("rho")
         if ids:
             ax.legend()
@@ -366,8 +366,8 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.Wq for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server waiting time (Wq) vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Server waiting time (Wq) vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("Wq (seconds)")
         if ids:
             ax.legend()
@@ -388,8 +388,8 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.mu_rps for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server service rate (mu) vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Server service rate (mu) vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("mu (1/s)")
         if ids:
             ax.legend()
@@ -410,8 +410,8 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.lambda_rps for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server throughput (lambda) vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Server throughput (lambda) vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("lambda (1/s)")
         if ids:
             ax.legend()
@@ -428,8 +428,8 @@ class SweepAnalyzer:
             xs = [p.users for p in pts]
             ys = [p.server_latency_mean_s for p in pts]
             ax.plot(xs, ys, marker="o", label=sid)
-        ax.set_title("Server latency (waiting+service) vs. concurrent users")
-        ax.set_xlabel("Mean concurrent users")
+        ax.set_title("Server latency (waiting+service) vs. mean Lambda_rps")
+        ax.set_xlabel("mean rps")
         ax.set_ylabel("Server latency (s)")
         if ids:
             ax.legend()

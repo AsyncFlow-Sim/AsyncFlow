@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from asyncfow.config.enums importEventDescription
+from asyncflow.config.enums import EventDescription
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.events.injection import (
     END_MARK,

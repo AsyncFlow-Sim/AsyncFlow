@@ -26,10 +26,10 @@ import simpy
 
 from asyncflow import AsyncFlow
 from asyncflow.components import Client, Edge, Endpoint, LoadBalancer, Server
-from asyncfow.config.enums importLatencyKey
+from asyncflow.config.enums import Distribution, LatencyKey
 from asyncflow.runner.simulation import SimulationRunner
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.settings import SimulationSettings
-from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
     # Imported only for type checking (ruff: TC001)
@@ -56,11 +56,10 @@ def _seed_all(seed: int = SEED) -> None:
 
 
 def _build_payload() -> SimulationPayload:
-    gen = RqsGenerator(
+    gen = ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users={"mean": 120},
-        avg_request_per_minute_per_user={"mean": 20},
-        user_sampling_window=60,
+        lambda_rps=20,
+        model=Distribution.POISSON,
     )
     client = Client(id="client-1")
 
@@ -142,7 +141,7 @@ def _build_payload() -> SimulationPayload:
 
     flow = (
         AsyncFlow()
-        .add_generator(gen)
+        .add_arrivals_generator(gen)
         .add_client(client)
         .add_load_balancer(lb)
         .add_servers(srv1, srv2)
@@ -172,11 +171,11 @@ def test_system_lb_two_servers_balanced_and_sane() -> None:
     mean_lat = float(stats.get(LatencyKey.MEAN, 0.0))
     assert 0.020 <= mean_lat <= 0.060
 
-    # Throughput sanity vs nominal λ ≈ 40 rps
+    # Throughput sanity vs nominal λ ≈ 20 rps
     _, rps = res.get_throughput_series()
     assert rps, "No throughput series produced."
     rps_mean = float(np.mean(rps))
-    lam = 120 * 20 / 60.0
+    lam = 20
     assert abs(rps_mean - lam) / lam <= REL_TOL
 
     # Load balance check: edge concurrency lb→srv1 vs lb→srv2 close

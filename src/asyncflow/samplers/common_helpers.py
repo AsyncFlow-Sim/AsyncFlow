@@ -74,11 +74,6 @@ def general_sampler(random_variable: RVConfig, rng: np.random.Generator) -> floa
             assert var is None
             return exponential_variable_generator(mean, rng)
 
-        # ── Distributions that *do* need a variance parameter ───────────
-        case Distribution.NORMAL:
-            assert var is not None
-            return truncated_gaussian_generator(mean, var, rng)
-
         case Distribution.LOG_NORMAL:
             assert var is not None
             return lognormal_variable_generator(mean, var, rng)

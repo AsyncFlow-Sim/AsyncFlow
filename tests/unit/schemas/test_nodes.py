@@ -10,15 +10,15 @@ Unit tests for node schemas:
 from __future__ import annotations
 
 import pytest
-from asyncfow.config.enums import (
+from pydantic import ValidationError
+
+from asyncflow.config.constants import NodesResourcesDefaults
+from asyncflow.config.enums import (
     EndpointStepCPU,
     LbAlgorithmsName,
-    NodesResourcesDefaults,
     StepOperation,
     SystemNodes,
 )
-from pydantic import ValidationError
-
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 from asyncflow.schemas.topology.nodes import (
     Client,

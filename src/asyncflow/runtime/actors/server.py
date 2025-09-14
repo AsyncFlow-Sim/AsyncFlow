@@ -12,7 +12,7 @@ import numpy as np
 import simpy
 from pydantic import PositiveFloat, PositiveInt
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,

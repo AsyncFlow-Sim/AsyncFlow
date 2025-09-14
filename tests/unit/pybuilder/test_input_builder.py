@@ -14,24 +14,23 @@ from __future__ import annotations
 import pytest
 
 from asyncflow.builder.asyncflow_builder import AsyncFlow
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.edges import Edge
 from asyncflow.schemas.topology.endpoint import Endpoint
 from asyncflow.schemas.topology.nodes import Client, Server
-from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 # --------------------------------------------------------------------------- #
 # Helpers: build minimal, valid components                                    #
 # --------------------------------------------------------------------------- #
-def make_generator() -> RqsGenerator:
+def make_generator() -> ArrivalsGenerator:
     """Return a minimal valid request generator."""
-    return RqsGenerator(
+    return ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users={"mean": 10},
-        avg_request_per_minute_per_user={"mean": 30},
-        user_sampling_window=60,
+        lambda_rps=10,
+        model="poisson",
     )
 
 
@@ -112,7 +111,7 @@ def test_builder_happy_path_returns_payload() -> None:
     settings = make_settings()
 
     payload = (
-        flow.add_generator(generator)
+        flow.add_arrivals_generator(generator)
         .add_client(client)
         .add_servers(server)
         .add_edges(e1, e2, e3)
@@ -134,7 +133,7 @@ def test_add_methods_return_self_for_chaining() -> None:
     """Every add_* method returns `self` to support fluent chaining."""
     flow = AsyncFlow()
     ret = (
-        flow.add_generator(make_generator())
+        flow.add_arrivals_generator(make_generator())
         .add_client(make_client())
         .add_servers(make_server())
         .add_edges(*make_edges())
@@ -145,7 +144,10 @@ def test_add_methods_return_self_for_chaining() -> None:
 
 def test_add_servers_accepts_multiple_and_keeps_order() -> None:
     """Adding multiple servers keeps insertion order."""
-    flow = AsyncFlow().add_generator(make_generator()).add_client(make_client())
+    flow = AsyncFlow()
+    (flow.add_arrivals_generator(make_generator())
+        .add_client(make_client())
+    )
     s1 = make_server("srv-1")
     s2 = make_server("srv-2")
     s3 = make_server("srv-3")
@@ -184,7 +186,7 @@ def test_build_without_generator_raises() -> None:
 def test_build_without_client_raises() -> None:
     """Building without a client fails with a clear error."""
     flow = AsyncFlow()
-    flow.add_generator(make_generator())
+    flow.add_arrivals_generator(make_generator())
     flow.add_servers(make_server())
     flow.add_edges(*make_edges())
     flow.add_simulation_settings(make_settings())
@@ -199,7 +201,7 @@ def test_build_without_client_raises() -> None:
 def test_build_without_servers_raises() -> None:
     """Building without servers fails with a clear error."""
     flow = AsyncFlow()
-    flow.add_generator(make_generator())
+    flow.add_arrivals_generator(make_generator())
     flow.add_client(make_client())
     flow.add_edges(*make_edges())
     flow.add_simulation_settings(make_settings())
@@ -214,7 +216,7 @@ def test_build_without_servers_raises() -> None:
 def test_build_without_edges_raises() -> None:
     """Building without edges fails with a clear error."""
     flow = AsyncFlow()
-    flow.add_generator(make_generator())
+    flow.add_arrivals_generator(make_generator())
     flow.add_client(make_client())
     flow.add_servers(make_server())
     flow.add_simulation_settings(make_settings())
@@ -229,7 +231,7 @@ def test_build_without_edges_raises() -> None:
 def test_build_without_settings_raises() -> None:
     """Building without settings fails with a clear error."""
     flow = AsyncFlow()
-    flow.add_generator(make_generator())
+    flow.add_arrivals_generator(make_generator())
     flow.add_client(make_client())
     flow.add_servers(make_server())
     flow.add_edges(*make_edges())
@@ -245,10 +247,10 @@ def test_build_without_settings_raises() -> None:
 # Negative cases: type enforcement in add_* methods                           #
 # --------------------------------------------------------------------------- #
 def test_add_generator_rejects_wrong_type() -> None:
-    """`add_generator` rejects non-RqsGenerator instances."""
+    """`add_generator` rejects non-ArrivalsGenerator instances."""
     flow = AsyncFlow()
     with pytest.raises(TypeError):
-        flow.add_generator("not-a-generator") # type: ignore[arg-type]
+        flow.add_arrivals_generator("not-a-generator") # type: ignore[arg-type]
 
 
 def test_add_client_rejects_wrong_type() -> None:

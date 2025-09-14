@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,

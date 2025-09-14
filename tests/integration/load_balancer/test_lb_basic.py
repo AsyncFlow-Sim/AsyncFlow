@@ -15,100 +15,47 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import simpy
-
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     Distribution,
-    EndpointStepCPU,
     LatencyKey,
     SampledMetricName,
-    StepOperation,
 )
 from asyncflow.runner.simulation import SimulationRunner
-from asyncflow.schemas.common.random_variables import RVConfig
-from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import Edge
-from asyncflow.schemas.topology.endpoint import (
-    Endpoint,
-    Step,
-)
-from asyncflow.schemas.topology.graph import TopologyGraph
-from asyncflow.schemas.topology.nodes import (
-    Client,
-    LoadBalancer,
-    NodesResources,
-    Server,
-    TopologyNodes,
-)
-from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import simpy
+
     from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
+    from asyncflow.schemas.payload import SimulationPayload
+    from asyncflow.schemas.topology.graph import TopologyGraph
 
 
-def _server(server_id: str) -> Server:
-    """Minimal server with a single CPU-bound endpoint."""
-    ep = Endpoint(
-        endpoint_name="get",
-        steps=[
-            Step(
-                kind=EndpointStepCPU.CPU_BOUND_OPERATION,
-                step_operation={StepOperation.CPU_TIME: 0.001},
-            ),
-        ],
-    )
-    return Server(
-        id=server_id,
-        server_resources=NodesResources(),  # defaults are fine
-        endpoints=[ep],
-    )
-
-
-def _edge(eid: str, src: str, tgt: str, mean: float = 0.001) -> Edge:
-    """Low-latency edge to keep tests fast/deterministic enough."""
-    return Edge(
-        id=eid,
-        source=src,
-        target=tgt,
-        latency=RVConfig(mean=mean, distribution=Distribution.POISSON),
-    )
-
-
-def test_lb_two_servers_end_to_end_smoke() -> None:
+def test_lb_two_servers_end_to_end_smoke(
+    env: simpy.Environment,
+    topology_two_servers: Callable[..., TopologyGraph],
+    make_payload: Callable[
+        [ArrivalsGenerator, TopologyGraph, SimulationSettings, None],
+        SimulationPayload,
+    ],
+) -> None:
     """Run end-to-end with LB and two servers; check basic KPIs exist."""
-    env = simpy.Environment()
-
-    # Stronger workload to avoid empty stats due to randomness:
-    # ~5 active users generating ~60 rpm each → ~5 rps expected.
-    rqs = RqsGenerator(
+    arrivals = ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users=RVConfig(mean=5.0),
-        avg_request_per_minute_per_user=RVConfig(mean=60.0),
-        user_sampling_window=5.0,
+        lambda_rps=20.0,
+        model=Distribution.POISSON,
     )
+
     # Horizon must be >= 5 (schema), use a bit more to accumulate samples.
     sim = SimulationSettings(total_simulation_time=8.0)
 
     # Topology: rqs→client→lb→srv{1,2} and back srv→client
-    client = Client(id="client-1")
-    lb = LoadBalancer(id="lb-1")
+    topo = topology_two_servers(service_time_s=0.001, edge_mean=0.001)
 
-    srv1 = _server("srv-1")
-    srv2 = _server("srv-2")
-
-    edges = [
-        _edge("gen-to-client", "rqs-1", "client-1"),
-        _edge("client-to-lb", "client-1", "lb-1"),
-        _edge("lb-to-srv1", "lb-1", "srv-1"),
-        _edge("lb-to-srv2", "lb-1", "srv-2"),
-        _edge("srv1-to-client", "srv-1", "client-1"),
-        _edge("srv2-to-client", "srv-2", "client-1"),
-    ]
-    nodes = TopologyNodes(servers=[srv1, srv2], client=client, load_balancer=lb)
-    topo = TopologyGraph(nodes=nodes, edges=edges)
-
-    payload = SimulationPayload(rqs_input=rqs, topology_graph=topo, sim_settings=sim)
+    payload = make_payload(arrivals, topo, sim, None)
 
     runner = SimulationRunner(env=env, simulation_input=payload)
     results: ResultsAnalyzer = runner.run()

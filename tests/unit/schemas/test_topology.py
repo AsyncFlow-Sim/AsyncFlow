@@ -5,10 +5,9 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from asyncflow.config.constants import (
+from asyncflow.config.constants import NetworkParameters, NodesResourcesDefaults
+from asyncflow.config.enums import (
     EndpointStepCPU,
-    NetworkParameters,
-    NodesResourcesDefaults,
     StepOperation,
     SystemEdges,
     SystemNodes,

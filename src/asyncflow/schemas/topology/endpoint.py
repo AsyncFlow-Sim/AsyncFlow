@@ -8,7 +8,7 @@ from pydantic import (
     model_validator,
 )
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,

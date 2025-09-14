@@ -2,17 +2,17 @@
 
 from pydantic import BaseModel, field_validator, model_validator
 
-from asyncflow.config.constants import EventDescription
+from asyncflow.config.enums import EventDescription
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.graph import TopologyGraph
-from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 class SimulationPayload(BaseModel):
     """Full input structure to perform a simulation"""
 
-    rqs_input: RqsGenerator
+    arrivals: ArrivalsGenerator
     topology_graph: TopologyGraph
     sim_settings: SimulationSettings
     events: list[EventInjection] | None = None

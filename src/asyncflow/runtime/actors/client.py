@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import simpy
 
-from asyncflow.config.constants import SystemNodes
+from asyncflow.config.enums import SystemNodes
 from asyncflow.metrics.client import RqsClock
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.schemas.topology.nodes import Client

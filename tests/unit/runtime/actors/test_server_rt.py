@@ -24,7 +24,7 @@ import simpy
 from numpy.random import Generator as NpGenerator
 from numpy.random import default_rng
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     EndpointStepCPU,
     EndpointStepIO,
     EndpointStepRAM,

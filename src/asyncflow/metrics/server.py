@@ -5,7 +5,7 @@ and event metrics for the server of the system
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from asyncflow.config.constants import SampledMetricName
+from asyncflow.config.enums import SampledMetricName
 
 # Initialize one time outside the function all possible metrics
 # related to the servers, the idea of this structure is to

@@ -3,7 +3,7 @@ import random
 from collections import OrderedDict
 from collections.abc import Callable
 
-from asyncflow.config.constants import LbAlgorithmsName
+from asyncflow.config.enums import LbAlgorithmsName
 from asyncflow.runtime.actors.edge import EdgeRuntime
 
 

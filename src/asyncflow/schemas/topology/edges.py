@@ -6,10 +6,8 @@ links between different nodes
 from pydantic import BaseModel, Field, PositiveFloat, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from asyncflow.config.constants import (
-    NetworkParameters,
-    SystemEdges,
-)
+from asyncflow.config.constants import NetworkParameters
+from asyncflow.config.enums import SystemEdges
 from asyncflow.schemas.common.random_variables import RVConfig
 
 #-------------------------------------------------------------

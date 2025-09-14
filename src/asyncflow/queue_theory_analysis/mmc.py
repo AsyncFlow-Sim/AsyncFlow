@@ -9,7 +9,7 @@ import sys
 from typing import TYPE_CHECKING, Literal, TextIO, TypedDict, cast
 from weakref import WeakSet
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     Distribution,
     EndpointStepCPU,
     LatencyKey,
@@ -130,21 +130,17 @@ class MMc(QueueTheoryBase):
         elif lb is None:
             errs.append("for c>1 a load balancer is required.")
         elif lb.algorithms != LbAlgorithmsName.RANDOM:
-            errs.append("only round_robin is supported for the split M/M/c model.")
+            errs.append("only random is supported for the split M/M/c model.")
 
         return errs
 
     def _check_generator(self, payload: SimulationPayload) -> list[str]:
         errs: list[str] = []
-        gen = payload.rqs_input
-        if gen.avg_active_users.distribution != Distribution.POISSON:
-            errs.append("avg_active_users must be Poisson.")
-        if gen.avg_request_per_minute_per_user.distribution != Distribution.POISSON:
-            errs.append("avg_request_per_minute_per_user must be Poisson.")
-        if gen.avg_active_users.mean <= 0:
-            errs.append("avg_active_users.mean must be > 0.")
-        if gen.avg_request_per_minute_per_user.mean <= 0:
-            errs.append("avg_request_per_minute_per_user.mean must be > 0.")
+        arrivals = payload.arrivals
+        if arrivals.model not in {Distribution.POISSON, Distribution.EXPONENTIAL}:
+            errs.append("arrivals.model must be 'poisson' or 'exponential'.")
+
+            errs.append("avg_active_users must be Poisson or exponential.")
         return errs
 
     def _check_edges(self, payload: SimulationPayload) -> list[str]:
@@ -229,10 +225,7 @@ class MMc(QueueTheoryBase):
 
     def _arrival_rate_lambda_rate(self, payload: SimulationPayload) -> float:
         """λ = users_mean * rpm_per_user / 60."""
-        gen = payload.rqs_input
-        users_mean = float(gen.avg_active_users.mean)
-        rpm_per_user = float(gen.avg_request_per_minute_per_user.mean)
-        return users_mean * rpm_per_user / 60.0
+        return payload.arrivals.lambda_rps
 
 
     def _service_rate_mu_rate(self, payload: SimulationPayload) -> float:

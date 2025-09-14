@@ -15,9 +15,9 @@ from pydantic import (
     model_validator,
 )
 
-from asyncflow.config.constants import (
+from asyncflow.config.constants import NodesResourcesDefaults
+from asyncflow.config.enums import (
     LbAlgorithmsName,
-    NodesResourcesDefaults,
     SystemNodes,
 )
 from asyncflow.schemas.topology.endpoint import Endpoint

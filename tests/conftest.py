@@ -5,13 +5,14 @@ import simpy
 from numpy.random import Generator as NpGenerator
 from numpy.random import default_rng
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     Distribution,
     EventMetricName,
     SampledMetricName,
     SamplePeriods,
     TimeDefaults,
 )
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
@@ -21,7 +22,6 @@ from asyncflow.schemas.topology.nodes import (
     Client,
     TopologyNodes,
 )
-from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 # ============================================================================
 # STANDARD CONFIGURATION FOR INPUT VARIABLES
@@ -90,16 +90,15 @@ def sim_settings(
 
 
 @pytest.fixture
-def rqs_input() -> RqsGenerator:
+def arrivals_gen() -> ArrivalsGenerator:
     """
     One active user issuing two requests per minute—sufficient to
     exercise the entire request-generator pipeline with minimal overhead.
     """
-    return RqsGenerator(
+    return ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users=RVConfig(mean=1.0),
-        avg_request_per_minute_per_user=RVConfig(mean=2.0),
-        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
+        lambda_rps=20,
+        model=Distribution.POISSON,
     )
 
 
@@ -135,11 +134,7 @@ def topology_minimal() -> TopologyGraph:
 
 
 @pytest.fixture
-def payload_base(
-    rqs_input: RqsGenerator,
-    sim_settings: SimulationSettings,
-    topology_minimal: TopologyGraph,
-) -> SimulationPayload:
+def payload_base() -> SimulationPayload:
     """
     End-to-end payload used by integration tests and FastAPI endpoint tests.
 
@@ -147,9 +142,9 @@ def payload_base(
     by the simulation engine.
     """
     return SimulationPayload(
-        rqs_input=rqs_input,
-        topology_graph=topology_minimal,
-        sim_settings=sim_settings,
+        arrivals=arrivals_gen(),
+        topology_graph=topology_minimal(),
+        sim_settings=sim_settings(),
 
     )
 

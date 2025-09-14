@@ -9,7 +9,7 @@ from typing import (
 
 import simpy
 
-from asyncflow.config.constants import SystemNodes
+from asyncflow.config.enums import SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.routing.lb_algorithms import LB_TABLE
 from asyncflow.schemas.topology.nodes import LoadBalancer

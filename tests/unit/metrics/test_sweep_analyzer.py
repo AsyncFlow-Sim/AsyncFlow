@@ -8,7 +8,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pytest
 
-from asyncflow.config.constants import LatencyKey
+from asyncflow.config.enums import LatencyKey
 from asyncflow.metrics.sweep_analyzer import SweepAnalyzer
 
 # Headless backend for CI

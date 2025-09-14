@@ -1,4 +1,4 @@
-"""Unit-tests for :pyclass:`app.runtime.simulation_runner.SimulationRunner`.
+"""Unit-tests for :class:`SimulationRunner`.
 
 Purpose
 -------
@@ -15,8 +15,9 @@ import simpy
 import yaml
 from tests.unit.helpers import make_min_ep
 
-from asyncflow.config.constants import Distribution, EventDescription
+from asyncflow.config.enums import Distribution, EventDescription
 from asyncflow.runner.simulation import SimulationRunner
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.payload import SimulationPayload
@@ -34,11 +35,10 @@ from asyncflow.schemas.topology.nodes import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from asyncflow.runtime.actors.arrivals_generator import (
+        ArrivalsGeneratorRuntime,
+    )
     from asyncflow.runtime.actors.client import ClientRuntime
-    from asyncflow.runtime.actors.rqs_generator import RqsGeneratorRuntime
-    from asyncflow.schemas.settings.simulation import SimulationSettings
-    from asyncflow.schemas.workload.rqs_generator import RqsGenerator
-
 
 
 # --------------------------------------------------------------------------- #
@@ -51,6 +51,25 @@ def env() -> simpy.Environment:
 
 
 @pytest.fixture
+def payload_base() -> SimulationPayload:
+    """Minimal SimulationPayload: arrivals + client, no servers."""
+    arrivals = ArrivalsGenerator(
+        id="gen",
+        lambda_rps=5.0,
+        model=Distribution.POISSON,
+    )
+    client = Client(id="cli")
+    nodes = TopologyNodes(servers=[], client=client, load_balancer=None)
+    graph = TopologyGraph(nodes=nodes, edges=[])
+    settings = SimulationSettings(total_simulation_time=5)
+    return SimulationPayload(
+        arrivals=arrivals,
+        topology_graph=graph,
+        sim_settings=settings,
+    )
+
+
+@pytest.fixture
 def runner(
     env: simpy.Environment,
     payload_base: SimulationPayload,
@@ -60,16 +79,16 @@ def runner(
 
 
 # --------------------------------------------------------------------------- #
-# Builder-level tests (original)                                              #
+# Builder-level tests                                                         #
 # --------------------------------------------------------------------------- #
-def test_build_rqs_generator_populates_dict(runner: SimulationRunner) -> None:
+def test_build_arrivals_populates_dict(runner: SimulationRunner) -> None:
     """_build_rqs_generator() must register one generator runtime."""
     runner._build_rqs_generator()  # noqa: SLF001
-    assert len(runner._rqs_runtime) == 1  # noqa: SLF001
-    gen_rt: RqsGeneratorRuntime = next(
-        iter(runner._rqs_runtime.values()),  # noqa: SLF001
+    assert len(runner._arrivals_runtime) == 1  # noqa: SLF001
+    gen_rt: ArrivalsGeneratorRuntime = next(
+        iter(runner._arrivals_runtime.values()), # noqa: SLF001
     )
-    assert gen_rt.rqs_generator_data.id == runner.rqs_generator.id
+    assert gen_rt.arrivals.id == runner.arrivals.id
 
 
 def test_build_client_populates_dict(runner: SimulationRunner) -> None:
@@ -77,7 +96,7 @@ def test_build_client_populates_dict(runner: SimulationRunner) -> None:
     runner._build_client()  # noqa: SLF001
     assert len(runner._client_runtime) == 1  # noqa: SLF001
     cli_rt: ClientRuntime = next(
-        iter(runner._client_runtime.values()),  # noqa: SLF001
+        iter(runner._client_runtime.values()), # noqa: SLF001
     )
     assert cli_rt.client_config.id == runner.client.id
     assert cli_rt.out_edge is None
@@ -100,14 +119,24 @@ def test_build_load_balancer_noop_when_absent(
 
 
 # --------------------------------------------------------------------------- #
-# Edges builder (original)                                                    #
+# Edges builder                                                               #
 # --------------------------------------------------------------------------- #
 def test_build_edges_with_stub_edge(runner: SimulationRunner) -> None:
     """
     `_build_edges()` must register exactly one `EdgeRuntime`, corresponding
-    to the single stub edge (generator → client) present in the minimal
-    topology fixture.
+    to a stub edge (generator → client). We inject that edge here.
     """
+    # Inject one stub edge into the payload graph.
+    arrivals_id = runner.arrivals.id
+    client_id = runner.client.id
+    stub_edge = Edge(
+        id="gen-cli",
+        source=arrivals_id,
+        target=client_id,
+        latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
+    )
+    runner.edges.append(stub_edge)
+
     runner._build_rqs_generator()  # noqa: SLF001
     runner._build_client()  # noqa: SLF001
     runner._build_edges()  # noqa: SLF001
@@ -115,17 +144,12 @@ def test_build_edges_with_stub_edge(runner: SimulationRunner) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# from_yaml utility (original)                                                #
+# from_yaml utility                                                           #
 # --------------------------------------------------------------------------- #
 def test_from_yaml_minimal(tmp_path: Path, env: simpy.Environment) -> None:
-    """from_yaml() parses YAML, validates via Pydantic and returns a runner."""
+    """from_yaml() parses YAML, validates and returns a runner."""
     yml_payload = {
-        "rqs_input": {
-            "id": "gen-yaml",
-            "avg_active_users": {"mean": 1},
-            "avg_request_per_minute_per_user": {"mean": 2},
-            "user_sampling_window": 10,
-        },
+        "arrivals": {"id": "gen-yaml", "lambda_rps": 3.0, "model": "poisson"},
         "topology_graph": {
             "nodes": {"client": {"id": "cli-yaml"}, "servers": []},
             "edges": [],
@@ -139,19 +163,23 @@ def test_from_yaml_minimal(tmp_path: Path, env: simpy.Environment) -> None:
     runner = SimulationRunner.from_yaml(env=env, yaml_path=yml_path)
 
     assert isinstance(runner, SimulationRunner)
-    assert runner.rqs_generator.id == "gen-yaml"
+    assert runner.arrivals.id == "gen-yaml"
     assert runner.client.id == "cli-yaml"
 
 
+# --------------------------------------------------------------------------- #
+# Helpers for richer payloads                                                 #
+# --------------------------------------------------------------------------- #
 def _payload_with_lb_one_server_and_edges(
     *,
-    rqs_input: RqsGenerator,
+    arrivals: ArrivalsGenerator,
     sim_settings: SimulationSettings,
 ) -> SimulationPayload:
     """Build a small payload with LB → server wiring and one net edge."""
     client = Client(id="client-1")
     server = Server(
-        id="srv-1", server_resources=NodesResources(),
+        id="srv-1",
+        server_resources=NodesResources(),
         endpoints=[make_min_ep()],
     )
     lb = LoadBalancer(id="lb-1")
@@ -159,7 +187,7 @@ def _payload_with_lb_one_server_and_edges(
 
     e_gen_lb = Edge(
         id="gen-lb",
-        source=rqs_input.id,
+        source=arrivals.id,
         target=lb.id,
         latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
     )
@@ -171,61 +199,71 @@ def _payload_with_lb_one_server_and_edges(
     )
     e_net = Edge(
         id="net-edge",
-        source=rqs_input.id,
+        source=arrivals.id,
         target=client.id,
         latency=RVConfig(mean=0.003, distribution=Distribution.POISSON),
     )
     graph = TopologyGraph(nodes=nodes, edges=[e_gen_lb, e_lb_srv, e_net])
 
     return SimulationPayload(
-        rqs_input=rqs_input,
+        arrivals=arrivals,
         topology_graph=graph,
         sim_settings=sim_settings,
     )
 
 
+# --------------------------------------------------------------------------- #
+# Additional builder tests                                                    #
+# --------------------------------------------------------------------------- #
 def test_make_inbox_bound_to_env_and_fifo(runner: SimulationRunner) -> None:
     """_make_inbox() binds to runner.env and behaves FIFO."""
     box = runner._make_inbox()  # noqa: SLF001
     assert isinstance(box, simpy.Store)
 
-    # Put two items and consume them in order using `run(until=...)`.
     env = runner.env
     env.run(until=box.put("first"))
     env.run(until=box.put("second"))
     got1 = env.run(until=box.get())
     got2 = env.run(until=box.get())
-    assert got1 == "first"
-    assert got2 == "second"
+    assert (got1, got2) == ("first", "second")
 
 
-def test_build_load_balancer_when_present(
-    env: simpy.Environment,
-    rqs_input: RqsGenerator,
-    sim_settings: SimulationSettings,
-) -> None:
+def test_build_load_balancer_when_present(env: simpy.Environment) -> None:
     """_build_load_balancer() should create `_lb_runtime` if LB exists."""
-    payload = _payload_with_lb_one_server_and_edges(
-        rqs_input=rqs_input, sim_settings=sim_settings,
+    arrivals = ArrivalsGenerator(
+        id="gen",
+        lambda_rps=5.0,
+        model=Distribution.POISSON,
     )
-    sr = SimulationRunner(env=env, simulation_input=payload)
+    settings = SimulationSettings(total_simulation_time=5)
+    payload = _payload_with_lb_one_server_and_edges(
+        arrivals=arrivals,
+        sim_settings=settings,
+    )
 
+    sr = SimulationRunner(env=env, simulation_input=payload)
     sr._build_load_balancer()  # noqa: SLF001
+
     assert sr._lb_runtime is not None  # noqa: SLF001
     assert sr._lb_runtime.lb_config.id == "lb-1"  # noqa: SLF001
 
 
 def test_build_edges_populates_lb_out_edges_and_sources(
     env: simpy.Environment,
-    rqs_input: RqsGenerator,
-    sim_settings: SimulationSettings,
 ) -> None:
     """_build_edges() wires generator→LB and populates `_lb_out_edges`."""
-    payload = _payload_with_lb_one_server_and_edges(
-        rqs_input=rqs_input, sim_settings=sim_settings,
+    arrivals = ArrivalsGenerator(
+        id="gen",
+        lambda_rps=5.0,
+        model=Distribution.POISSON,
     )
-    sr = SimulationRunner(env=env, simulation_input=payload)
+    settings = SimulationSettings(total_simulation_time=5)
+    payload = _payload_with_lb_one_server_and_edges(
+        arrivals=arrivals,
+        sim_settings=settings,
+    )
 
+    sr = SimulationRunner(env=env, simulation_input=payload)
     sr._build_rqs_generator()  # noqa: SLF001
     sr._build_client()  # noqa: SLF001
     sr._build_servers()  # noqa: SLF001
@@ -234,19 +272,23 @@ def test_build_edges_populates_lb_out_edges_and_sources(
 
     assert "lb-srv" in sr._lb_out_edges  # noqa: SLF001
     assert len(sr._edges_runtime) >= 2  # noqa: SLF001
-    gen_rt = next(iter(sr._rqs_runtime.values()))  # noqa: SLF001
+    gen_rt = next(iter(sr._arrivals_runtime.values()))  # noqa: SLF001
     assert gen_rt.out_edge is not None
 
 
-def test_build_events_attaches_shared_views(
-    env: simpy.Environment,
-    rqs_input: RqsGenerator,
-    sim_settings: SimulationSettings,
-) -> None:
-    """_build_events() attaches shared `edges_affected` and `edges_spike` views."""
-    payload = _payload_with_lb_one_server_and_edges(
-        rqs_input=rqs_input, sim_settings=sim_settings,
+def test_build_events_attaches_shared_views(env: simpy.Environment) -> None:
+    """_build_events() attaches shared `edges_affected` & `edges_spike`."""
+    arrivals = ArrivalsGenerator(
+        id="gen",
+        lambda_rps=5.0,
+        model=Distribution.POISSON,
     )
+    settings = SimulationSettings(total_simulation_time=5)
+    payload = _payload_with_lb_one_server_and_edges(
+        arrivals=arrivals,
+        sim_settings=settings,
+    )
+
     spike = EventInjection(
         event_id="ev-spike",
         target_id="net-edge",
@@ -274,11 +316,9 @@ def test_build_events_attaches_shared_views(
     sr._build_events()  # noqa: SLF001
 
     assert sr._events_runtime is not None  # noqa: SLF001
-    events_rt = sr._events_runtime # noqa: SLF001
+    events_rt = sr._events_runtime  # noqa: SLF001
 
     assert "net-edge" in events_rt.edges_affected
     for er in sr._edges_runtime.values():  # noqa: SLF001
         assert er.edges_spike is not None
         assert er.edges_affected is events_rt.edges_affected
-
-

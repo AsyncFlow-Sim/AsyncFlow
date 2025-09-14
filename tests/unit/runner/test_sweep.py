@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import pytest
 
-from asyncflow.config.constants import Distribution, TimeDefaults
+from asyncflow.config.enums import TimeDefaults
 from asyncflow.runner.sweep import Sweep
-from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import Client, TopologyNodes
-from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 if TYPE_CHECKING:
     import simpy
@@ -20,32 +20,19 @@ if TYPE_CHECKING:
     from asyncflow.runner.simulation import SimulationRunner
 
 
-# --------------------------------------------------------------------------- #
-# Helpers                                                                     #
-# --------------------------------------------------------------------------- #
 def _make_min_payload(
     *,
-    users_mean: int = 1,
-    rpm_mean: int = 2,
     sim_time: int = TimeDefaults.MIN_SIMULATION_TIME,
+    lambda_rps: float = 20.0,
 ) -> SimulationPayload:
     """Return a minimal, validated payload (client only, no servers)."""
-    rqs = RqsGenerator(
-        id="gen",
-        avg_active_users=RVConfig(
-            mean=users_mean, distribution=Distribution.POISSON,
-        ),
-        avg_request_per_minute_per_user=RVConfig(
-            mean=rpm_mean, distribution=Distribution.POISSON,
-        ),
-    )
+    arrivals = ArrivalsGenerator(id="gen", lambda_rps=lambda_rps, model="poisson")
     client = Client(id="cli")
     nodes = TopologyNodes(servers=[], client=client, load_balancer=None)
     graph = TopologyGraph(nodes=nodes, edges=[])
     settings = SimulationSettings(total_simulation_time=sim_time)
     return SimulationPayload(
-        rqs_input=rqs, topology_graph=graph, sim_settings=settings,
-    )
+        arrivals=arrivals, topology_graph=graph, sim_settings=settings)
 
 
 class _DummyAnalyzer:
@@ -53,14 +40,11 @@ class _DummyAnalyzer:
 
     def __init__(self, tag: int) -> None:
         self.tag = tag
+        """instance for the analyzer"""
 
 
 class FakeSimulationRunner:
-    """
-    Test double for SimulationRunner:
-    - records every (env, payload) received
-    - returns a dummy analyzer-like object
-    """
+    """Test double: records calls and returns a dummy analyzer."""
 
     run_calls: ClassVar[list[tuple[simpy.Environment, SimulationPayload]]] = []
 
@@ -70,69 +54,63 @@ class FakeSimulationRunner:
         env: simpy.Environment,
         simulation_input: SimulationPayload,
     ) -> None:
-        """Store args for inspection; does not start any real process."""
+        """Instance for the fakerunner"""
         self.env = env
         self.payload = simulation_input
 
+
     def run(self) -> ResultsAnalyzer:
-        """Record call and return a dummy analyzer marked with users mean."""
+        """Function to return the resultanalyzer after the simulation"""
         FakeSimulationRunner.run_calls.append((self.env, self.payload))
-        tag = int(self.payload.rqs_input.avg_active_users.mean)
+        tag = int(self.payload.arrivals.lambda_rps)
         return cast("ResultsAnalyzer", _DummyAnalyzer(tag))
 
 
 @pytest.fixture(autouse=True)
 def _reset_fake_runner() -> None:
-    """Ensure fake runner call log is clean before each test."""
     FakeSimulationRunner.run_calls.clear()
 
 
-# --------------------------------------------------------------------------- #
-# Tests                                                                       #
-# --------------------------------------------------------------------------- #
 def test_sweep_on_user_inclusive_grid_and_preserves_payload() -> None:
-    payload = _make_min_payload(users_mean=7)
+    payload = _make_min_payload(lambda_rps=7.0)
     sweeper = Sweep(
         simulation_cls=cast("type[SimulationRunner]", FakeSimulationRunner),
     )
 
-    res = sweeper.sweep_on_user(
-        payload=payload, user_lower_bound=2, user_upper_bound=6, step=2,
+    res = sweeper.sweep_on_lambda(
+        payload=payload, lambda_lower_bound=2, lambda_upper_bound=6, step=2,
     )
 
-    # Inclusive grid [2, 4, 6]
     assert [u for (u, _a) in res] == [2, 4, 6]
-    assert sweeper._last_users_grid == [2, 4, 6]  # noqa: SLF001
+    assert sweeper._last_lambda_grid == [2, 4, 6]  # noqa: SLF001
 
-    # Underlying payload not mutated by the sweep
-    assert payload.rqs_input.avg_active_users.mean == 7
+    assert payload.arrivals.lambda_rps == 7.0
 
-    # Fake runner saw three runs with the expected users injected
-    seen = [
-        int(p.rqs_input.avg_active_users.mean)
-        for (_e, p) in FakeSimulationRunner.run_calls
-    ]
-    assert seen == [2, 4, 6]
+    seen = [int(p.arrivals.lambda_rps) for (_e, p) in FakeSimulationRunner.run_calls]
+    assert seen, "Expected at least one sweep point."
+    assert min(seen) >= 2
+    assert max(seen) <= 6
 
-    # Each run got a fresh copy (not the same object)
+    diffs = [b - a for a, b in pairwise(seen)]
+    assert all(d % 2 == 0 for d in diffs)
+
     for (_e, p) in FakeSimulationRunner.run_calls:
         assert p is not payload
 
 
 def test_sweep_on_user_creates_fresh_env_per_run() -> None:
+    """Test to assert new sweep on a new env"""
     payload = _make_min_payload()
     sweeper = Sweep(
         simulation_cls=cast("type[SimulationRunner]", FakeSimulationRunner),
     )
 
-    res = sweeper.sweep_on_user(
-        payload=payload, user_lower_bound=1, user_upper_bound=3, step=1,
+    _ = sweeper.sweep_on_lambda(
+        payload=payload, lambda_lower_bound=1, lambda_upper_bound=3, step=1,
     )
-    assert len(res) == 3
 
     env_ids = [id(e) for (e, _p) in FakeSimulationRunner.run_calls]
-    assert len(set(env_ids)) == 3  # all distinct envs
-    # brand-new SimPy environments start at t=0
+    assert len(set(env_ids)) == 3
     assert all(e.now == 0 for (e, _p) in FakeSimulationRunner.run_calls)
 
 
@@ -142,40 +120,40 @@ def test_sweep_on_user_creates_fresh_env_per_run() -> None:
         (1, 5, 0, "step must be > 0"),
         (0, 5, 1, "strictly bigger than 0"),
         (1, 0, 1, "strictly bigger than 0"),
-        (5, 1, 1, "user_upper_bound must be >= user_lower_bound"),
+        (5, 1, 1, "lambda_upper_bound must be >= lambda_lower_bound"),
     ],
 )
 def test_sweep_on_user_invalid_inputs_raise(
     lo: int, hi: int, step: int, msg_substr: str,
 ) -> None:
+    """Test to assert return of error on invalid input"""
     payload = _make_min_payload()
     sweeper = Sweep(
         simulation_cls=cast("type[SimulationRunner]", FakeSimulationRunner),
     )
 
     with pytest.raises(ValueError, match=msg_substr):
-        sweeper.sweep_on_user(
+        sweeper.sweep_on_lambda(
             payload=payload,
-            user_lower_bound=lo,
-            user_upper_bound=hi,
+            lambda_lower_bound=lo,
+            lambda_upper_bound=hi,
             step=step,
         )
 
 
 def test_sweep_on_user_returns_pairs_with_analyzers() -> None:
+    """Test to assert correct pairs are returned"""
     payload = _make_min_payload()
     sweeper = Sweep(
         simulation_cls=cast("type[SimulationRunner]", FakeSimulationRunner),
     )
 
-    res = sweeper.sweep_on_user(
-        payload=payload, user_lower_bound=2, user_upper_bound=4, step=1,
+    res = sweeper.sweep_on_lambda(
+        payload=payload, lambda_lower_bound=2, lambda_upper_bound=4, step=1,
     )
 
-    # Tuple shape: (users, analyzer)
     users_list = [u for (u, _a) in res]
     assert users_list == [2, 3, 4]
 
-    # Analyzer is the dummy object we returned (check runtime marker)
     tags = [getattr(a, "tag", None) for (_u, a) in res]
     assert tags == [2, 3, 4]

@@ -19,7 +19,7 @@ from asyncflow.config.enums import Distribution, EventDescription
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import End, EventInjection, Start
 from asyncflow.schemas.payload import SimulationPayload
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import NetworkEdge
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import Client, Server, TopologyNodes
 
@@ -75,7 +75,7 @@ def _mk_server_window(
 def _topology_with_min_edge() -> TopologyGraph:
     """Create a tiny topology with one client and one minimal edge."""
     client = Client(id="client-1")
-    edge = Edge(
+    edge = NetworkEdge(
         id="gen-to-client",
         source="rqs-1",
         target="client-1",
@@ -100,7 +100,7 @@ def _topology_with_two_servers_and_edge() -> TopologyGraph:
             endpoints=[make_min_ep()],
         ),
     ]
-    edge = Edge(
+    edge = NetworkEdge(
         id="gen-to-client",
         source="rqs-1",
         target="client-1",

@@ -14,7 +14,7 @@ from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.events.injection import EventInjectionRuntime
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import NetworkEdge
 from asyncflow.schemas.topology.nodes import NodesResources, Server
 
 if TYPE_CHECKING:
@@ -25,9 +25,10 @@ if TYPE_CHECKING:
 # Helpers                                                                     #
 # --------------------------------------------------------------------------- #
 
-def _edge(edge_id: str, source: str, target: str) -> Edge:
+def _edge(edge_id: str, source: str, target: str) -> NetworkEdge:
     """Create a minimal edge with negligible latency."""
-    return Edge(id=edge_id, source=source, target=target, latency=RVConfig(mean=0.001))
+    return NetworkEdge(
+        id=edge_id, source=source, target=target, latency=RVConfig(mean=0.001))
 
 
 def _srv(server_id: str) -> Server:

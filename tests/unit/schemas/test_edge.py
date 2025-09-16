@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from asyncflow.config.constants import NetworkParameters
 from asyncflow.config.enums import SystemEdges
 from asyncflow.schemas.common.random_variables import RVConfig
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #
@@ -35,7 +35,7 @@ def _rv(mean: float, variance: float | None = None) -> RVConfig:
 
 def test_edge_minimal_construction_uses_default_edge_type() -> None:
     """Minimal valid Edge uses NETWORK_CONNECTION as default edge_type."""
-    e = Edge(
+    e = NetworkEdge(
         id="e1",
         source="a",
         target="b",
@@ -47,19 +47,19 @@ def test_edge_minimal_construction_uses_default_edge_type() -> None:
 def test_edge_requires_id_source_target() -> None:
     """Omitting required fields raises ValidationError."""
     with pytest.raises(ValidationError):
-        Edge(  # type: ignore[call-arg]
+        NetworkEdge(  # type: ignore[call-arg]
             source="a",
             target="b",
             latency=_rv(mean=0.01),
         )
     with pytest.raises(ValidationError):
-        Edge(  # type: ignore[call-arg]
+        NetworkEdge(  # type: ignore[call-arg]
             id="e1",
             target="b",
             latency=_rv(mean=0.01),
         )
     with pytest.raises(ValidationError):
-        Edge(  # type: ignore[call-arg]
+        NetworkEdge(  # type: ignore[call-arg]
             id="e1",
             source="a",
             latency=_rv(mean=0.01),
@@ -74,7 +74,7 @@ def test_edge_requires_id_source_target() -> None:
 def test_edge_source_equals_target_fails() -> None:
     """Validator forbids identical source and target."""
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="loop",
             source="x",
             target="x",
@@ -94,7 +94,7 @@ def test_edge_source_equals_target_fails() -> None:
 def test_edge_dropout_rate_out_of_bounds(bad_rate: float) -> None:
     """Dropout rate outside configured bounds is rejected."""
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="ed",
             source="a",
             target="b",
@@ -113,7 +113,7 @@ def test_edge_dropout_rate_out_of_bounds(bad_rate: float) -> None:
 )
 def test_edge_dropout_rate_in_bounds(ok_rate: float) -> None:
     """Boundary and mid-range dropout rates are accepted."""
-    e = Edge(
+    e = NetworkEdge(
         id="ed",
         source="a",
         target="b",
@@ -131,7 +131,7 @@ def test_edge_dropout_rate_in_bounds(ok_rate: float) -> None:
 @pytest.mark.parametrize("good_latency", [0.001, 0.1, 5.0])
 def test_edge_deterministic_latency_positivefloat_ok(good_latency: float) -> None:
     """Deterministic latency validates as PositiveFloat when > 0."""
-    e = Edge(
+    e = NetworkEdge(
         id="dt",
         source="a",
         target="b",
@@ -146,7 +146,7 @@ def test_edge_deterministic_latency_positivefloat_ok(good_latency: float) -> Non
 def test_edge_deterministic_latency_non_positive_fails(bad_latency: float) -> None:
     """Non-positive deterministic latency is rejected by PositiveFloat."""
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="dt-bad",
             source="a",
             target="b",
@@ -161,7 +161,7 @@ def test_edge_deterministic_latency_non_positive_fails(bad_latency: float) -> No
 
 def test_edge_rvconfig_latency_ok_with_zero_variance() -> None:
     """RVConfig with mean>0 and variance==0 is accepted."""
-    e = Edge(
+    e = NetworkEdge(
         id="rv0",
         source="a",
         target="b",
@@ -174,7 +174,7 @@ def test_edge_rvconfig_latency_ok_with_zero_variance() -> None:
 
 def test_edge_rvconfig_latency_ok_with_none_variance() -> None:
     """RVConfig with mean>0 and variance=None is accepted."""
-    e = Edge(
+    e = NetworkEdge(
         id="rvn",
         source="a",
         target="b",
@@ -189,7 +189,7 @@ def test_edge_rvconfig_latency_ok_with_none_variance() -> None:
 def test_edge_rvconfig_latency_non_positive_mean_fails(bad_mean: float) -> None:
     """RVConfig with non-positive mean is rejected by the field validator."""
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="rv-bad-mean",
             source="a",
             target="b",
@@ -200,9 +200,75 @@ def test_edge_rvconfig_latency_non_positive_mean_fails(bad_mean: float) -> None:
 def test_edge_rvconfig_latency_negative_variance_fails() -> None:
     """RVConfig with negative variance is rejected by the field validator."""
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="rv-bad-var",
             source="a",
             target="b",
             latency=_rv(mean=0.02, variance=-0.0001),
+        )
+
+# --------------------------------------------------------------------------- #
+# LinkEdge: required fields and defaults                                      #
+# --------------------------------------------------------------------------- #
+
+def test_link_edge_minimal_construction_uses_default_edge_type() -> None:
+    """Minimal LinkEdge uses LINK_CONNECTION as the default edge_type."""
+    e = LinkEdge(id="l1", source="a", target="b")
+    assert e.edge_type is SystemEdges.LINK_CONNECTION
+
+
+def test_link_edge_requires_id_source_target() -> None:
+    """Omitting required fields raises ValidationError."""
+    with pytest.raises(ValidationError):
+        LinkEdge(  # type: ignore[call-arg]
+            source="a",
+            target="b",
+        )
+    with pytest.raises(ValidationError):
+        LinkEdge(  # type: ignore[call-arg]
+            id="l1",
+            target="b",
+        )
+    with pytest.raises(ValidationError):
+        LinkEdge(  # type: ignore[call-arg]
+            id="l1",
+            source="a",
+        )
+
+# --------------------------------------------------------------------------- #
+# LinkEdge: source != target                                                  #
+# --------------------------------------------------------------------------- #
+
+def test_link_edge_source_equals_target_fails() -> None:
+    """Validator forbids identical source and target in LinkEdge."""
+    with pytest.raises(ValidationError):
+        LinkEdge(id="loop", source="x", target="x")
+
+# --------------------------------------------------------------------------- #
+# LinkEdge: edge_type must be LINK_CONNECTION                                 #
+# --------------------------------------------------------------------------- #
+
+def test_link_edge_wrong_edge_type_fails() -> None:
+    """Setting edge_type to anything other than LINK_CONNECTION is rejected."""
+    with pytest.raises(ValidationError):
+        LinkEdge(
+            id="lbad",
+            source="a",
+            target="b",
+            edge_type=SystemEdges.NETWORK_CONNECTION,  # invalid
+        )
+
+# --------------------------------------------------------------------------- #
+# NetworkEdge: edge_type must be NETWORK_CONNECTION                           #
+# --------------------------------------------------------------------------- #
+
+def test_network_edge_wrong_edge_type_fails() -> None:
+    """NetworkEdge rejects edge_type values other than NETWORK_CONNECTION."""
+    with pytest.raises(ValidationError):
+        NetworkEdge(
+            id="nbad",
+            source="a",
+            target="b",
+            latency=0.01,
+            edge_type=SystemEdges.LINK_CONNECTION,  # invalid
         )

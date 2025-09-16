@@ -16,7 +16,7 @@ from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import NetworkEdge
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
@@ -118,7 +118,7 @@ def topology_minimal() -> TopologyGraph:
     client = Client(id="client-1")
 
     # Stub edge: generator id comes from rqs_input fixture (“rqs-1”)
-    edge = Edge(
+    edge = NetworkEdge(
         id="gen-to-client",
         source="rqs-1",
         target="client-1",

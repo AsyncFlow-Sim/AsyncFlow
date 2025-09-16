@@ -31,7 +31,7 @@ import pytest
 import simpy
 
 from asyncflow import AsyncFlow
-from asyncflow.components import Client, Edge, Endpoint, LoadBalancer, Server
+from asyncflow.components import Client, Endpoint, LoadBalancer, NetworkEdge, Server
 from asyncflow.config.enums import Distribution, LatencyKey
 from asyncflow.runner.simulation import SimulationRunner
 from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
@@ -98,37 +98,37 @@ def _build_payload(*, with_events: bool) -> SimulationPayload:
 
     # Edges: generator→client, client→lb, lb→srv-{1,2}, srv-{1,2}→client.
     edges = [
-        Edge(
+        NetworkEdge(
             id="gen-client",
             source="rqs-1",
             target="client-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="client-lb",
             source="client-1",
             target="lb-1",
             latency={"mean": 0.002, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="lb-srv-1",
             source="lb-1",
             target="srv-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="lb-srv-2",
             source="lb-1",
             target="srv-2",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="srv1-client",
             source="srv-1",
             target="client-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="srv2-client",
             source="srv-2",
             target="client-1",

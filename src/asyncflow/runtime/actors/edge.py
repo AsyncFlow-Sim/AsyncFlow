@@ -20,7 +20,7 @@ from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.samplers.common_helpers import general_sampler
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
 
 if TYPE_CHECKING:
     from pydantic import PositiveFloat
@@ -35,7 +35,7 @@ class EdgeRuntime:
         self,
         *,
         env: simpy.Environment,
-        edge_config: Edge,
+        edge_config: NetworkEdge | LinkEdge,
 
         # ------------------------------------------------------------
         # ATTRIBUTES FROM THE OBJECT EVENTINJECTIONRUNTIME
@@ -75,9 +75,14 @@ class EdgeRuntime:
         # verify that each optional metric is active. For deafult metric settings
         # is not needed but as we will scale as explained above we will need it
 
-    def _deliver(self, state: RequestState) -> Generator[simpy.Event, None, None]:
+    def _deliver_network(
+        self,
+        state: RequestState,
+        ) -> Generator[simpy.Event, None, None]:
         """Function to deliver the state to the next node"""
         # extract the random variables defining the latency of the edge
+
+        assert isinstance(self.edge_config, NetworkEdge)
 
         uniform_variable = self.rng.uniform()
         if uniform_variable < self.edge_config.dropout_rate:
@@ -125,13 +130,30 @@ class EdgeRuntime:
         self._concurrent_connections -=1
         yield self.target_box.put(state)
 
+    def _deliver_link(self, state: RequestState) -> Generator[simpy.Event, None, None]:
+        """Function to deliver the state to the next node"""
+        state.record_hop(
+            SystemEdges.LINK_CONNECTION,
+            self.edge_config.id,
+            self.env.now,
+            )
+
+        # Advance to the next simulation event tick (zero-time delay) so that link
+        # deliveries are processed after the current event, preserving causal order
+        # and avoiding same-tick side effects.
+        yield self.env.timeout(0)
+        yield self.target_box.put(state)
+
 
     def transport(self, state: RequestState) -> simpy.Process:
         """
         Called by the upstream node. Immediately spins off a SimPy process
         that will handle drop + delay + delivery of `state`.
         """
-        return self.env.process(self._deliver(state))
+        if isinstance(self.edge_config, NetworkEdge):
+            return self.env.process(self._deliver_network(state))
+
+        return self.env.process(self._deliver_link(state))
 
     @property
     def enabled_metrics(self) -> dict[SampledMetricName, list[float | int]]:

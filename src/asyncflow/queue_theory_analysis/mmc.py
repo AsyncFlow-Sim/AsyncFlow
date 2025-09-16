@@ -17,6 +17,7 @@ from asyncflow.config.enums import (
 )
 from asyncflow.queue_theory_analysis.base import QueueTheoryBase
 from asyncflow.schemas.common.random_variables import RVConfig
+from asyncflow.schemas.topology.edges import LinkEdge
 
 if TYPE_CHECKING:
 
@@ -104,9 +105,6 @@ class MMcCompatServerRow(TypedDict):
 class MMc(QueueTheoryBase):
     """Analyzer for the M/M/c split model (Round-Robin), c>=1, with strict checks."""
 
-    # Upper bound for "negligible" deterministic network latency
-    MAX_EDGE_LATENCY_S: float = 1e-3  # 1 ms
-
     def __init__(self) -> None:
         """Track analyzers we've already processed; weak refs avoid leaks."""
         self._processed_ras: WeakSet[ResultsAnalyzer] = WeakSet()
@@ -139,24 +137,21 @@ class MMc(QueueTheoryBase):
         arrivals = payload.arrivals
         if arrivals.model not in {Distribution.POISSON, Distribution.EXPONENTIAL}:
             errs.append("arrivals.model must be 'poisson' or 'exponential'.")
-
-            errs.append("avg_active_users must be Poisson or exponential.")
         return errs
 
     def _check_edges(self, payload: SimulationPayload) -> list[str]:
         errs: list[str] = []
-        for edge in payload.topology_graph.edges:
-            latency = edge.latency
-            if isinstance(latency, RVConfig):
-                errs.append(
-                    f"edge '{edge.id}' latency must be deterministic (<=1ms), "
-                    "not a random variable.",
-                )
-                continue
-            if float(latency) > self.MAX_EDGE_LATENCY_S:
-                errs.append(
-                    f"edge '{edge.id}' deterministic latency must be <= 1 ms.",
-                )
+        if not payload.topology_graph.edges:
+            errs.append("topology must include at least one edge.")
+            return errs
+        # In pydantic we define edges to be only of type Network or Link
+        # The types are mutually exclusive hence we have to be sure only
+        # one edge is of the link type
+        edge = payload.topology_graph.edges[0]
+        if not isinstance(edge, LinkEdge):
+            errs.append(
+                "In MMc models edges are just connector, use link_edge as a type",
+            )
         return errs
 
     def _check_server_model(self, payload: SimulationPayload) -> list[str]:
@@ -428,7 +423,7 @@ class MMc(QueueTheoryBase):
         mu_hat = self._observed_mu_rate(results_analyzer)
         server_count = self._server_count(payload)
 
-        # Ŵ from latency stats (client-side); edges are constrained to ≤1ms.
+        # Ŵ from latency stats (client-side);
         lat_stats = results_analyzer.get_latency_stats()
         w_hat = float(lat_stats.get(LatencyKey.MEAN, 0.0))
 

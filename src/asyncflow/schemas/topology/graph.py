@@ -13,7 +13,7 @@ from pydantic import (
     model_validator,
 )
 
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
 from asyncflow.schemas.topology.nodes import TopologyNodes
 
 #-------------------------------------------------------------
@@ -28,7 +28,7 @@ class TopologyGraph(BaseModel):
     """
 
     nodes: TopologyNodes
-    edges: list[Edge]
+    edges: list[NetworkEdge] | list[LinkEdge]
 
     @model_validator(mode="after") # type: ignore[arg-type]
     def unique_ids(

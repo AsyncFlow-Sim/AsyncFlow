@@ -12,10 +12,10 @@ from asyncflow.schemas.common.random_variables import RVConfig
 
 #-------------------------------------------------------------
 # Definition of the edges structure for the graph representing
-# the topoogy of the system defined for the simulation
+# the topology of the system defined for the simulation
 #-------------------------------------------------------------
 
-class Edge(BaseModel):
+class NetworkEdge(BaseModel):
     """
     A directed connection in the topology graph.
 
@@ -28,9 +28,6 @@ class Edge(BaseModel):
     latency : RVConfig | PositiveFloat
         Random-variable configuration for network latency on this link or
         positive float value.
-    probability : float
-        Probability of taking this edge when there are multiple outgoing links.
-        Must be in [0.0, 1.0]. Defaults to 1.0 (always taken).
     edge_type : SystemEdges
         Category of the link (e.g. network, queue, stream).
 
@@ -87,11 +84,51 @@ class Edge(BaseModel):
 
 
     @model_validator(mode="after") # type: ignore[arg-type]
-    def check_src_trgt_different(cls, model: "Edge") -> "Edge": # noqa: N805
+    def check_src_trgt_different(cls, model: "NetworkEdge") -> "NetworkEdge": # noqa: N805
         """Ensure source is different from target"""
         if model.source == model.target:
             msg = "source and target must be different nodes"
             raise ValueError(msg)
         return model
 
+    @field_validator("edge_type", mode="after")
+    def ensure_edge_type_is_correct(cls, v: SystemEdges) -> SystemEdges: # noqa: N805
+        """
+        Ensure the type of an edge not representing the network is network_connection
+        useful for to test model where the network is not negligible
+        """
+        if v != SystemEdges.NETWORK_CONNECTION:
+            msg=f"The type of the edge must be {SystemEdges.NETWORK_CONNECTION}"
+            raise ValueError(msg)
+        return v
 
+
+class LinkEdge(BaseModel):
+    """
+    Edges without latency, they may be useful in situations where
+    it is not necessary to model the network
+    """
+
+    id: str
+    source: str
+    target: str
+    edge_type: SystemEdges = SystemEdges.LINK_CONNECTION
+
+    @field_validator("edge_type", mode="after")
+    def ensure_edge_type_is_correct(cls, v: SystemEdges) -> SystemEdges: # noqa: N805
+        """
+        Ensure the type of an edge not representing the network is link_connection
+        useful for to test model where the network is negligible
+        """
+        if v != SystemEdges.LINK_CONNECTION:
+            msg=f"The type of the edge must be {SystemEdges.LINK_CONNECTION}"
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode="after") # type: ignore[arg-type]
+    def check_src_trgt_different(cls, model: "LinkEdge") -> "LinkEdge": # noqa: N805
+        """Ensure source is different from target"""
+        if model.source == model.target:
+            msg = "source and target must be different nodes"
+            raise ValueError(msg)
+        return model

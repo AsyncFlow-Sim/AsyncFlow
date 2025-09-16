@@ -13,7 +13,7 @@ from asyncflow.config.enums import (
     SystemNodes,
 )
 from asyncflow.schemas.common.random_variables import RVConfig
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import NetworkEdge
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
@@ -141,7 +141,7 @@ def test_edge_source_equals_target_fails() -> None:
     """Edge with identical source/target raises ValidationError."""
     latency_cfg = RVConfig(mean=0.05)
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="edge-dup",
             source="same",
             target="same",
@@ -154,7 +154,7 @@ def test_edge_missing_id_raises() -> None:
     """Omitting mandatory ``id`` field raises ValidationError."""
     latency_cfg = RVConfig(mean=0.01)
     with pytest.raises(ValidationError):
-        Edge(  # type: ignore[call-arg]
+        NetworkEdge(  # type: ignore[call-arg]
             source="a",
             target="b",
             latency=latency_cfg,
@@ -168,7 +168,7 @@ def test_edge_missing_id_raises() -> None:
 def test_edge_dropout_rate_bounds(bad_rate: float) -> None:
     """Drop-out rate outside valid range triggers ValidationError."""
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="edge-bad-drop",
             source="n1",
             target="n2",
@@ -188,7 +188,7 @@ def _latency() -> RVConfig:
 
 def _topology_with_lb(
     cover: set[str],
-    extra_edges: list[Edge] | None = None,
+    extra_edges: list[NetworkEdge] | None = None,
 ) -> TopologyGraph:
     """Build a minimal graph with 1 client, 1 server and a load balancer."""
     nodes = _single_node_topology()
@@ -199,14 +199,14 @@ def _topology_with_lb(
         load_balancer=lb,
     )
 
-    edges: list[Edge] = [
-        Edge(  # client -> LB
+    edges: list[NetworkEdge] = [
+        NetworkEdge(  # client -> LB
             id="cli-lb",
             source="browser",
             target="lb-1",
             latency=_latency(),
         ),
-        Edge(  # LB -> server (may be removed in invalid tests)
+        NetworkEdge(  # LB -> server (may be removed in invalid tests)
             id="lb-srv",
             source="lb-1",
             target="svc-A",
@@ -221,7 +221,7 @@ def _topology_with_lb(
 def test_valid_topology_graph() -> None:
     """Happy-path graph passes validation."""
     nodes = _single_node_topology()
-    edge = Edge(
+    edge = NetworkEdge(
         id="edge-1",
         source="browser",
         target="svc-A",
@@ -234,7 +234,7 @@ def test_valid_topology_graph() -> None:
 def test_topology_graph_without_lb_still_valid() -> None:
     """Graph without load balancer validates just like before."""
     nodes = _single_node_topology()
-    edge = Edge(
+    edge = NetworkEdge(
         id="edge-1",
         source="browser",
         target="svc-A",
@@ -248,7 +248,7 @@ def test_topology_graph_without_lb_still_valid() -> None:
 def test_edge_refers_unknown_node() -> None:
     """Edge pointing to a non-existent node fails validation."""
     nodes = _single_node_topology()
-    bad_edge = Edge(
+    bad_edge = NetworkEdge(
         id="edge-ghost",
         source="browser",
         target="ghost-srv",
@@ -291,7 +291,7 @@ def test_lb_missing_edge_to_covered_server() -> None:
         load_balancer=lb,
     )
     edges = [
-        Edge(
+        NetworkEdge(
             id="cli-lb",
             source="browser",
             target="lb-1",

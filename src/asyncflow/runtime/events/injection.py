@@ -11,7 +11,7 @@ import simpy
 
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.schemas.events.injection import EventInjection
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
 from asyncflow.schemas.topology.nodes import Server
 
 # Helpers to distinguish when the event start and when the event finish
@@ -36,7 +36,7 @@ class EventInjectionRuntime:
         self,
         *,
         events: list[EventInjection] | None,
-        edges: list[Edge],
+        edges: list[NetworkEdge] | list[LinkEdge],
         env: simpy.Environment,
         servers: list[Server],
         # This is initiated in the simulation runner to understand
@@ -115,6 +115,20 @@ class EventInjectionRuntime:
         # Set for a fast lookup to fill the nested map and
         self._servers_ids = {server.id for server in self.servers}
         self._edges_ids = {edge.id for edge in self.edges}
+
+        # If any event targets an edge, we only need to inspect the first edge:
+        # the topology type is homogeneous by construction
+        # (list[NetworkEdge] | list[LinkEdge]),
+        # so checking one element determines the type of the entire list.
+        if self.events and self.edges and any(
+            ev.target_id in self._edges_ids for ev in self.events
+        ):
+            first_edge = self.edges[0]
+            if not isinstance(first_edge, NetworkEdge):
+                msg=("Edge events are present, but the topology uses LinkEdge. "
+                    "Edge-targeted events require NetworkEdge "
+                    "(network_connection) edges.")
+                raise ValueError(msg)
 
         for event in self.events:
             start_event = (

@@ -19,8 +19,8 @@ from asyncflow.analysis import MMc
 from asyncflow.components import (
     ArrivalsGenerator,
     Client,
-    Edge,
     Endpoint,
+    LinkEdge,
     LoadBalancer,
     Server,
 )
@@ -144,39 +144,33 @@ def _build_payload_mmc_split(
     )
 
     edges = [
-        Edge(
+        LinkEdge(
             id="gen-client",
             source="rqs-1",
             target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
         ),
-        Edge(
+        LinkEdge(
             id="client-lb",
             source="client-1",
             target="lb-1",
-            latency=0.00001,
-            dropout_rate=0,
+
         ),
     ]
 
     for s in servers:
         edges.append(
-            Edge(
+            LinkEdge(
                 id=f"lb-{s.id}",
                 source="lb-1",
                 target=s.id,
-                latency=0.00001,
-                dropout_rate=0,
+
             ),
         )
         edges.append(
-            Edge(
+            LinkEdge(
                 id=f"{s.id}-client",
                 source=s.id,
                 target="client-1",
-                latency=0.00001,
-                dropout_rate=0,
             ),
         )
 
@@ -241,8 +235,8 @@ def test_mmc_compare_matches_theory() -> None:
 
 def test_mmc_instability_returns_infinities() -> None:
     """If rho >= 1, closed-form KPIs must be +inf (W, Wq, L, Lq)."""
-    # c=2, mu=100 rps (service=0.01 s) -> capacity = 200 rps.
-    # For instability set lambda >= 200.
+    # c = 1, mu = 100 rps (service = 0.01 s) -> capacity = 100 rps.
+    # For instability set lambda >= 100.
 
     client = Client(id="client-1")
     endpoint = Endpoint(
@@ -258,17 +252,30 @@ def test_mmc_instability_returns_infinities() -> None:
         ],
     )  # 0.01 s -> mu = 100 rps
     srv = Server(
-        id="srv-1", server_resources=NodesResources(cpu_cores=2), endpoints=[endpoint],
+        id="srv-1",
+        server_resources=NodesResources(cpu_cores=2),
+        endpoints=[endpoint],
     )
-    nodes = TopologyNodes(servers=[srv], client=client, load_balancer=None)
-    graph = TopologyGraph(nodes=nodes, edges=[])
 
-    # λ = 200 rps (== capacity) -> rho = 1
-    arrivals = ArrivalsGenerator(id="gen", lambda_rps=200.0, model=Distribution.POISSON)
+    # Minimal LinkEdge topology (MMc expects LinkEdge, not NetworkEdge).
+    edges = [
+        LinkEdge(id="gen-client", source="gen", target="client-1"),
+        LinkEdge(id="client-srv", source="client-1", target="srv-1"),
+        LinkEdge(id="srv-client", source="srv-1", target="client-1"),
+    ]
+
+    nodes = TopologyNodes(servers=[srv], client=client, load_balancer=None)
+    graph = TopologyGraph(nodes=nodes, edges=edges)
+
+    # λ = 200 rps (>= capacity 100) -> rho >= 1
+    arrivals = ArrivalsGenerator(
+        id="gen", lambda_rps=200.0, model=Distribution.POISSON,
+    )
 
     settings = SimulationSettings(total_simulation_time=5)
     payload = SimulationPayload(
-        arrivals=arrivals, topology_graph=graph, sim_settings=settings)
+        arrivals=arrivals, topology_graph=graph, sim_settings=settings,
+    )
 
     mmc = MMc()
     res = mmc.evaluate(payload)
@@ -276,106 +283,6 @@ def test_mmc_instability_returns_infinities() -> None:
     assert res["rho"] >= 1.0
     for key in ("W", "Wq", "L", "Lq"):
         assert res[key] == float("inf")
-
-
-
-def test_mmc_incompatible_edge_latency_too_large() -> None:
-    """Latency must be deterministic and <= 1 ms."""
-    gen = ArrivalsGenerator(
-        id="rqs-1",
-        lambda_rps=20,
-        model="poisson",
-    )
-    client = Client(id="client-1")
-    endpoint = Endpoint(
-        endpoint_name="/api",
-        probability=1.0,
-        steps=[
-            {
-                "kind": "initial_parsing",
-                "step_operation": {
-                    "cpu_time": {"mean": 0.01, "distribution": "exponential"},
-                },
-            },
-        ],
-    )
-    srv1 = Server(
-        id="srv-1",
-        server_resources={"cpu_cores": 1, "ram_mb": 2048},
-        endpoints=[endpoint],
-    )
-    srv2 = Server(
-        id="srv-2",
-        server_resources={"cpu_cores": 1, "ram_mb": 2048},
-        endpoints=[endpoint],
-    )
-    lb = LoadBalancer(
-        id="lb-1",
-        algorithms="random",
-        server_covered={"srv-1", "srv-2"},
-    )
-    edges = [
-        Edge(
-            id="gen-client",
-            source="rqs-1",
-            target="client-1",
-            latency=0.005,  # 5 ms -> too large
-            dropout_rate=0,
-        ),
-        Edge(
-            id="client-lb",
-            source="client-1",
-            target="lb-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="lb-srv1",
-            source="lb-1",
-            target="srv-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="lb-srv2",
-            source="lb-1",
-            target="srv-2",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="srv1-client",
-            source="srv-1",
-            target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-        Edge(
-            id="srv2-client",
-            source="srv-2",
-            target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
-        ),
-    ]
-    settings = SimulationSettings(
-        total_simulation_time=60,
-        sample_period_s=0.05,
-    )
-    payload = (
-        AsyncFlow()
-        .add_arrivals_generator(gen)
-        .add_client(client)
-        .add_servers(srv1, srv2)
-        .add_load_balancer(lb)
-        .add_edges(*edges)
-        .add_simulation_settings(settings)
-    ).build_payload()
-
-    mmc = MMc()
-    assert not mmc.is_compatible(payload)
-    reasons = mmc.explain_incompatibilities(payload)
-    assert any("<= 1 ms" in r for r in reasons)
 
 
 def test_mmc_incompatible_server_model_requires_single_cpu_step() -> None:
@@ -436,47 +343,35 @@ def test_mmc_incompatible_server_model_requires_single_cpu_step() -> None:
         server_covered={"srv-1", "srv-2"},
     )
     edges = [
-        Edge(
+        LinkEdge(
             id="gen-client",
             source="rqs-1",
             target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
         ),
-        Edge(
+        LinkEdge(
             id="client-lb",
             source="client-1",
             target="lb-1",
-            latency=0.00001,
-            dropout_rate=0,
         ),
-        Edge(
+        LinkEdge(
             id="lb-srv1",
             source="lb-1",
             target="srv-1",
-            latency=0.00001,
-            dropout_rate=0,
         ),
-        Edge(
+        LinkEdge(
             id="lb-srv2",
             source="lb-1",
             target="srv-2",
-            latency=0.00001,
-            dropout_rate=0,
         ),
-        Edge(
+        LinkEdge(
             id="srv1-client",
             source="srv-1",
             target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
         ),
-        Edge(
+        LinkEdge(
             id="srv2-client",
             source="srv-2",
             target="client-1",
-            latency=0.00001,
-            dropout_rate=0,
         ),
     ]
     settings = SimulationSettings(

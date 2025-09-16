@@ -19,7 +19,7 @@ from asyncflow.config.enums import (
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.schemas.common.random_variables import RVConfig
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import NetworkEdge
 
 if TYPE_CHECKING:  # pragma: no cover
     import numpy as np
@@ -78,7 +78,7 @@ def _make_edge(
     rng = DummyRNG(uniform_value=uniform_value, exp_value=exp_value)
     store: simpy.Store = simpy.Store(env)
 
-    edge_cfg = Edge(
+    edge_cfg = NetworkEdge(
         id="edge-1",
         source="src",
         target="dst",

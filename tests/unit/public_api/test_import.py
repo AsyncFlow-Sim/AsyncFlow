@@ -20,10 +20,11 @@ from asyncflow.analysis import MMc, ResultsAnalyzer, SweepAnalyzer
 from asyncflow.components import (
     ArrivalsGenerator,
     Client,
-    Edge,
     Endpoint,
     EventInjection,
+    LinkEdge,
     LoadBalancer,
+    NetworkEdge,
     NodesResources,
     Server,
 )
@@ -144,10 +145,11 @@ def test_components_public_symbols() -> None:
     expected = [
         "ArrivalsGenerator",
         "Client",
-        "Edge",
         "Endpoint",
         "EventInjection",
+        "LinkEdge",
         "LoadBalancer",
+        "NetworkEdge",
         "NodesResources",
         "Server",
     ]
@@ -159,10 +161,11 @@ def test_components_symbols_are_importable_classes() -> None:
     for cls, name in [
         (ArrivalsGenerator, "ArrivalsGenerator"),
         (Client, "Client"),
-        (Edge, "Edge"),
         (Endpoint, "Endpoint"),
         (EventInjection, "EventInjection"),
+        (LinkEdge, "LinkEdge"),
         (LoadBalancer, "LoadBalancer"),
+        (NetworkEdge, "NetworkEdge"),
         (NodesResources, "NodesResources"),
         (Server, "Server"),
     ]:

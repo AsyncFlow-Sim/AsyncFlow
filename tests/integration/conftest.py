@@ -26,7 +26,7 @@ from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import NetworkEdge
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
@@ -144,12 +144,12 @@ class EdgeFactory(Protocol):
         tgt: str,
         mean: float,
         dist: Distribution = ...,
-    ) -> Edge:
+    ) -> NetworkEdge:
         """Return an `Edge` from ids and latency parameters."""
 
 
 @pytest.fixture
-def edge_factory() -> Callable[..., Edge]:
+def edge_factory() -> Callable[..., NetworkEdge]:
     """
     Build an edge with a latency RV. Defaults to Poisson(mean=1ms) to keep
     tests fast; pass another distribution/mean when needed.
@@ -161,8 +161,8 @@ def edge_factory() -> Callable[..., Edge]:
         tgt: str,
         mean: float = 0.001,
         dist: Distribution = Distribution.POISSON,
-    ) -> Edge:
-        return Edge(
+    ) -> NetworkEdge:
+        return NetworkEdge(
             id=eid,
             source=src,
             target=tgt,
@@ -197,7 +197,7 @@ class SingleServerBuilder(Protocol):
 @pytest.fixture
 def topology_two_servers(
     server_factory: Callable[[str, float | None], Server],
-    edge_factory: Callable[..., Edge],
+    edge_factory: Callable[..., NetworkEdge],
 ) -> Callable[..., TopologyGraph]:
     """Factory for a two-server topology with a load balancer"""
     def _make(*, service_time_s: float | None = 0.001,
@@ -225,7 +225,7 @@ def topology_two_servers(
 @pytest.fixture
 def topology_single_server(
     server_factory: Callable[[str, float | None], Server],
-    edge_factory: Callable[..., Edge],
+    edge_factory: Callable[..., NetworkEdge],
 ) -> Callable[..., TopologyGraph]:
     """Factory for a single-server topology with a load balancer in front"""
     def _make(*, service_time_s: float | None = 0.001,

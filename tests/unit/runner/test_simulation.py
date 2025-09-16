@@ -8,7 +8,7 @@ execution without relying on the full integration scenarios.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 import simpy
@@ -22,7 +22,7 @@ from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
@@ -121,27 +121,42 @@ def test_build_load_balancer_noop_when_absent(
 # --------------------------------------------------------------------------- #
 # Edges builder                                                               #
 # --------------------------------------------------------------------------- #
-def test_build_edges_with_stub_edge(runner: SimulationRunner) -> None:
-    """
-    `_build_edges()` must register exactly one `EdgeRuntime`, corresponding
-    to a stub edge (generator → client). We inject that edge here.
-    """
-    # Inject one stub edge into the payload graph.
+def test_build_edges_with_stub_network_edge(runner: SimulationRunner) -> None:
+    """Register exactly one EdgeRuntime for a NetworkEdge (gen → cli)."""
     arrivals_id = runner.arrivals.id
     client_id = runner.client.id
-    stub_edge = Edge(
+    stub_edge = NetworkEdge(
         id="gen-cli",
         source=arrivals_id,
         target=client_id,
         latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
     )
-    runner.edges.append(stub_edge)
+
+    # Tipizza esplicitamente la lista come list[NetworkEdge]
+    net_edges: list[NetworkEdge] = [stub_edge]
+    runner.edges = cast("list[NetworkEdge] | list[LinkEdge]", net_edges)
 
     runner._build_rqs_generator()  # noqa: SLF001
-    runner._build_client()  # noqa: SLF001
-    runner._build_edges()  # noqa: SLF001
+    runner._build_client()         # noqa: SLF001
+    runner._build_edges()          # noqa: SLF001
+
     assert len(runner._edges_runtime) == 1  # noqa: SLF001
 
+def test_build_edges_with_stub_link_edge(runner: SimulationRunner) -> None:
+    """Register exactly one EdgeRuntime for a LinkEdge (gen → cli)."""
+    arrivals_id = runner.arrivals.id
+    client_id = runner.client.id
+    stub_edge = LinkEdge(id="gen-cli", source=arrivals_id, target=client_id)
+
+    # Tipizza esplicitamente la lista come list[LinkEdge]
+    link_edges: list[LinkEdge] = [stub_edge]
+    runner.edges = cast("list[NetworkEdge] | list[LinkEdge]", link_edges)
+
+    runner._build_rqs_generator()  # noqa: SLF001
+    runner._build_client()         # noqa: SLF001
+    runner._build_edges()          # noqa: SLF001
+
+    assert len(runner._edges_runtime) == 1  # noqa: SLF001
 
 # --------------------------------------------------------------------------- #
 # from_yaml utility                                                           #
@@ -185,19 +200,19 @@ def _payload_with_lb_one_server_and_edges(
     lb = LoadBalancer(id="lb-1")
     nodes = TopologyNodes(servers=[server], client=client, load_balancer=lb)
 
-    e_gen_lb = Edge(
+    e_gen_lb = NetworkEdge(
         id="gen-lb",
         source=arrivals.id,
         target=lb.id,
         latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
     )
-    e_lb_srv = Edge(
+    e_lb_srv = NetworkEdge(
         id="lb-srv",
         source=lb.id,
         target=server.id,
         latency=RVConfig(mean=0.002, distribution=Distribution.POISSON),
     )
-    e_net = Edge(
+    e_net = NetworkEdge(
         id="net-edge",
         source=arrivals.id,
         target=client.id,
@@ -322,3 +337,4 @@ def test_build_events_attaches_shared_views(env: simpy.Environment) -> None:
     for er in sr._edges_runtime.values():  # noqa: SLF001
         assert er.edges_spike is not None
         assert er.edges_affected is events_rt.edges_affected
+

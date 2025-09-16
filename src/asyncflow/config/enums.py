@@ -162,6 +162,7 @@ class SystemEdges(StrEnum):
     """
 
     NETWORK_CONNECTION = "network_connection"
+    LINK_CONNECTION = "link_connection"
 
 # ======================================================================
 # CONSTANTS FOR THE EVENT TO INJECT IN THE SIMULATION

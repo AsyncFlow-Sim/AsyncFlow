@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
     from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
     from asyncflow.schemas.events.injection import EventInjection
-    from asyncflow.schemas.topology.edges import Edge
+    from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
     from asyncflow.schemas.topology.nodes import (
         Client,
         LoadBalancer,
@@ -73,7 +73,10 @@ class SimulationRunner:
         self.arrivals: ArrivalsGenerator = simulation_input.arrivals
         self.lb: LoadBalancer | None = None
         self.simulation_settings = simulation_input.sim_settings
-        self.edges: list[Edge] = simulation_input.topology_graph.edges
+        # Edges can be NetworkEdge or LinkEdge; TopologyGraph ensures homogeneity.
+        self.edges: list[NetworkEdge] | list[LinkEdge] = (
+            simulation_input.topology_graph.edges
+        )
         self.rng = np.random.default_rng()
 
         # Object needed to start the simulation

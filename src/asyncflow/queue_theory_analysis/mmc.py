@@ -5,6 +5,7 @@ Check if asyncflow under the hypothesis of a MMc queue
 
 from __future__ import annotations
 
+import math
 import sys
 from typing import TYPE_CHECKING, Literal, TextIO, TypedDict, cast
 from weakref import WeakSet
@@ -127,8 +128,8 @@ class MMc(QueueTheoryBase):
                 errs.append("for c=1 the load balancer must be absent.")
         elif lb is None:
             errs.append("for c>1 a load balancer is required.")
-        elif lb.algorithms != LbAlgorithmsName.RANDOM:
-            errs.append("only random is supported for the split M/M/c model.")
+        elif lb.algorithms not in {LbAlgorithmsName.RANDOM, LbAlgorithmsName.FCFS}:
+             errs.append("supported lb algorithms: RANDOM (split) or FCFS (pooled).")
 
         return errs
 
@@ -350,11 +351,14 @@ class MMc(QueueTheoryBase):
         )
 
     # ────────────────────────────────────────────────────────────────────
-    # Closed form (split RR): theory → MMcResults
+    # Closed form (Random): theory → MMcResults split model ( n parallel mm1)
     # ────────────────────────────────────────────────────────────────────
 
     def _theoretical_kpis_split(self, payload: SimulationPayload) -> MMcResults:
-        """Closed forms for RR split: λ_i=λ/c; Wq=rho/(μ-λ_i); W=1/μ+Wq; Lq=λWq; L=λW"""
+        """
+        Closed forms for Random split: λ_i=λ/c;
+        Wq=rho/(μ-λ_i); W=1/μ+Wq; Lq=λWq; L=λW
+        """
         self.validate_or_raise(payload)
         params = self._build_params(payload)
 
@@ -394,9 +398,67 @@ class MMc(QueueTheoryBase):
             Wq=wq,
         )
 
+
+    def _theoretical_mmc_erlang_c_kpis(
+        self,
+        lambda_rate: float,
+        mu_rate: float,
+        c: int,
+    ) -> MMcResults:
+        """Closed forms for pooled M/M/c (FCFS, Erlang-C)."""
+        rho = self._rho_from(lambda_rate, c, mu_rate)
+        if rho >= 1.0:
+            inf = float("inf")
+            return MMcResults(
+                lambda_rate=lambda_rate,
+                mu_rate=mu_rate,
+                c=c,
+                rho=rho,
+                L=inf, Lq=inf, W=inf, Wq=inf,
+            )
+
+        a = lambda_rate / mu_rate  # offered traffic
+        # P0
+        s = sum((a**n) / math.factorial(n) for n in range(c))
+        tail = (a**c) / math.factorial(c) * (1.0 / (1.0 - rho))
+        p0 = 1.0 / (s + tail)
+        pw = ((a**c) / math.factorial(c)) * (1.0 / (1.0 - rho)) * p0
+        lq = pw * (rho / (1.0 - rho))
+        wq = lq / lambda_rate
+        w = wq + 1.0 / mu_rate
+        lam = lambda_rate * w
+
+        return MMcResults(
+            lambda_rate=lambda_rate,
+            mu_rate=mu_rate,
+            c=c,
+            rho=rho,
+            L=lam,
+            Lq=lq,
+            W=w,
+            Wq=wq,
+        )
+
+    def _theoretical_kpis_pooled(self, payload: SimulationPayload) -> MMcResults:
+        """Closed forms for pooled M/M/c (LB=FCFS, central queue)."""
+        # riusa i builder che hai già
+        params = self._build_params(payload)
+        return self._theoretical_mmc_erlang_c_kpis(
+            lambda_rate=params["lambda_rate"],
+            mu_rate=params["mu_rate"],
+            c=params["c"],
+    )
+
+
     def evaluate(self, payload: SimulationPayload) -> MMcResults:
-        """Public entry-point: return closed-form KPIs for split RR."""
+        """Return closed-form KPIs: split (RR/RANDOM) or pooled (FCFS)."""
+        self.validate_or_raise(payload)
+        lb = payload.topology_graph.nodes.load_balancer
+        if (lb is not None) and (lb.algorithms == LbAlgorithmsName.FCFS):
+            return self._theoretical_kpis_pooled(payload)
+        # default: split (random/RR)
         return self._theoretical_kpis_split(payload)
+
 
     # ────────────────────────────────────────────────────────────────────
     # Observed KPIs → MMcResults (coerenti con definizioni sopra)
@@ -483,7 +545,12 @@ class MMc(QueueTheoryBase):
         """Build a table with theory vs observed and deltas."""
         self.validate_or_raise(payload)
 
-        theory = self._theoretical_kpis_split(payload)
+        lb = payload.topology_graph.nodes.load_balancer
+        if (lb is not None) and (lb.algorithms == LbAlgorithmsName.FCFS):
+            theory = self._theoretical_kpis_pooled(payload)
+        else:
+            theory = self._theoretical_kpis_split(payload)
+
         observed = self._observed_kpis(payload, results_analyzer)
 
         rows: list[MMcKPIRow] = []
@@ -514,16 +581,21 @@ class MMc(QueueTheoryBase):
 
         return rows
 
-
-    # --------------- PRETTY PRINT -------------------
-
     # ────────────────────────────────────────────────────────────────────
     # Pretty table (KPI):
     # ────────────────────────────────────────────────────────────────────
+    
+    def _title_for(self, payload: "SimulationPayload") -> str:
+        lb = payload.topology_graph.nodes.load_balancer
+        if lb is not None and lb.algorithms == LbAlgorithmsName.FCFS:
+            return "MMc (FCFS/Erlang-C) — Theory vs Observed"
+        # default to random split when no LB or non-FCFS
+        return "MMc (Random split) — Theory vs Observed"
+    
     @staticmethod
     def _format_kpi_table(
-        rows: list[MMcKPIRow],
-        title: str = "MMc (RR) — Theory vs Observed",
+        rows: list["MMcKPIRow"],
+        title: str = "MMc — Theory vs Observed",
     ) -> str:
         data = [
             (
@@ -536,12 +608,11 @@ class MMc(QueueTheoryBase):
             )
             for r in rows
         ]
-
         headers = ("sym", "metric", "theory", "observed", "abs", "rel%")
         w_sym = max(len(headers[0]), *(len(d[0]) for d in data))
         w_met = max(len(headers[1]), *(len(d[1]) for d in data))
-        w_th = max(len(headers[2]), *(len(d[2]) for d in data))
-        w_ob = max(len(headers[3]), *(len(d[3]) for d in data))
+        w_th  = max(len(headers[2]), *(len(d[2]) for d in data))
+        w_ob  = max(len(headers[3]), *(len(d[3]) for d in data))
         w_abs = max(len(headers[4]), *(len(d[4]) for d in data))
         w_rel = max(len(headers[5]), *(len(d[5]) for d in data))
 
@@ -564,12 +635,12 @@ class MMc(QueueTheoryBase):
 
     def compare_and_format(
         self,
-        payload: SimulationPayload,
-        results_analyzer: ResultsAnalyzer,
+        payload: "SimulationPayload",
+        results_analyzer: "ResultsAnalyzer",
     ) -> str:
-        """Return a formatted KPI table for theory vs observed."""
         rows = self.compare_against_run(payload, results_analyzer)
-        return self._format_kpi_table(rows)
+        title = self._title_for(payload)
+        return self._format_kpi_table(rows, title=title)
 
     def print_comparison(
         self,

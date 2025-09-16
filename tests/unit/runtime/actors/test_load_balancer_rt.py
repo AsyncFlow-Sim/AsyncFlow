@@ -129,3 +129,65 @@ def test_no_edges_is_noop(env: simpy.Environment) -> None:
     lb.start()
     # No events in the env; this should simply return without error.
     env.run()
+
+
+def test_fcfs_sends_to_first_free_server(env: simpy.Environment) -> None:
+    """When multiple servers exist, FCFS must pick the first free one."""
+    edge0, edge1 = DummyEdge("srv-0"), DummyEdge("srv-1")
+    lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [edge0, edge1])
+
+    # First request → edge0 (first in order)
+    lb.lb_box.put(DummyState())
+    env.run(until=1)
+
+    assert edge0.received, "First request must go to the first server"
+    assert not edge1.received
+
+
+def test_fcfs_waits_until_server_is_free(env: simpy.Environment) -> None:
+    """If all servers are busy, the LB must hold the request until one frees up"""
+    edge = DummyEdge("srv-0")
+    lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [edge])
+
+    # Mark server busy before sending the request
+    lb.mark_busy("srv-0")
+    lb.lb_box.put(DummyState())
+
+    # Run for a bit: request should NOT be forwarded yet
+    env.run(until=1)
+    assert not edge.received, "Request must wait while server is busy"
+
+    # Free the server: request should be forwarded
+    lb.mark_free("srv-0")
+    env.run(until=2)
+    assert edge.received, "Request must be sent once server is free"
+
+
+def test_fcfs_multiple_requests_queued(env: simpy.Environment) -> None:
+    """
+    Multiple requests arriving while all servers are busy must be queued
+    and dispatched in order once servers free up.
+    """
+    edge0, edge1 = DummyEdge("srv-0"), DummyEdge("srv-1")
+    lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [edge0, edge1])
+
+    # Mark both servers busy
+    lb.mark_busy("srv-0")
+    lb.mark_busy("srv-1")
+
+    # Put two requests while servers are busy
+    lb.lb_box.put(DummyState())
+    lb.lb_box.put(DummyState())
+    env.run(until=1)
+
+    assert not edge0.received
+    assert not edge1.received, "Requests must be queued"
+
+    # Free server 0, then server 1
+    lb.mark_free("srv-0")
+    env.run(until=2)
+    assert len(edge0.received) == 1, "First request should go to server 0"
+
+    lb.mark_free("srv-1")
+    env.run(until=3)
+    assert len(edge1.received) == 1, "Second request should go to server 1"

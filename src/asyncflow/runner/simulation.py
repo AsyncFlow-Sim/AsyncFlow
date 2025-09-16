@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from functools import partial
 from itertools import chain
 from pathlib import Path
 from types import MappingProxyType
@@ -12,6 +13,7 @@ import numpy as np
 import simpy
 import yaml
 
+from asyncflow.config.enums import LbAlgorithmsName
 from asyncflow.metrics.collector import SampledMetricCollector
 from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
 from asyncflow.resources.registry import ResourcesRuntime
@@ -229,7 +231,9 @@ class SimulationRunner:
                 msg = f"Unknown runtime for {edge.target!r}"
                 raise TypeError(msg)
 
-
+            # prepare a dict of edges runtime with unique key as a tuple
+            # once all are ready we have to assign each one to the source node
+            # to allow the transport of the state through the edge
             self._edges_runtime[(edge.source, edge.target)] = (
                 EdgeRuntime(
                     env=self.env,
@@ -251,10 +255,31 @@ class SimulationRunner:
                     edge.source,
                     edge.target)
                 ]
+
+            # since multiple edges fan out from the LB we use a dict
+            # to have access in o(1) and assign the correct Edge runtime
             elif isinstance(source_object, LoadBalancerRuntime):
                 self._lb_out_edges[edge.id] = (
                     self._edges_runtime[(edge.source, edge.target)]
                 )
+                if isinstance(target_object, ServerRuntime) and (
+                    source_object.lb_config.algorithms == LbAlgorithmsName.FCFS
+                    ):
+                    # if the target is a server we pass the callback to comunicate
+                    # to the Lb that the server is free
+
+                    assert self._lb_runtime is not None
+                    lb_rt = self._lb_runtime
+                    edge_id = edge.id
+
+                    # We use functools.partial here to "pre-bind" the edge_id argument
+                    # of LoadBalancerRuntime.mark_free.
+                    # This turns it into a zero-argument
+                    # callable, so the ServerRuntime can simply
+                    # call notify_server_free()
+                    # when done, without needing to know its own edge_id.
+                    target_object.notify_server_free = partial(lb_rt.mark_free, edge_id)
+
             else:
                 msg =  f"Unknown runtime for {edge.source!r}"
                 raise TypeError(msg)

@@ -8,7 +8,7 @@ from typing import cast
 import numpy as np
 import pytest
 
-from asyncflow.config.enums import Distribution
+from asyncflow.config.constants import Distribution
 from asyncflow.samplers.common_helpers import (
     exponential_variable_generator,
     general_sampler,
@@ -164,6 +164,13 @@ def test_general_sampler_uniform_path() -> None:
     dummy = cast("np.random.Generator", DummyRNG(uniform_value=0.42))
     cfg = RVConfig(mean=1.0, distribution=Distribution.UNIFORM)
     assert general_sampler(cfg, dummy) == 0.42
+
+
+def test_general_sampler_normal_path() -> None:
+    """Normal branch applies truncation logic (negative → 0)."""
+    dummy = cast("np.random.Generator", DummyRNG(normal_value=-1.2))
+    cfg = RVConfig(mean=0.0, variance=1.0, distribution=Distribution.NORMAL)
+    assert general_sampler(cfg, dummy) == 0.0
 
 
 def test_general_sampler_poisson_path() -> None:

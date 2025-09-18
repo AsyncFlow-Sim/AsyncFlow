@@ -6,26 +6,21 @@ drop probability, and optional connection-pool contention—by exposing a
 waits the sampled delay (and any resource wait) before delivering the
 message to the target node's inbox.
 """
-
-
 from collections.abc import Container, Generator, Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
 import simpy
 
-from asyncflow.config.enums import SampledMetricName, SystemEdges
+from asyncflow.config.constants import SampledMetricName, SystemEdges
 from asyncflow.metrics.edge import build_edge_metrics
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.samplers.common_helpers import general_sampler
-from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
+from asyncflow.schemas.topology.edges import Edge
 
 if TYPE_CHECKING:
-    from pydantic import PositiveFloat
-
-
+    from asyncflow.schemas.common.random_variables import RVConfig
 
 
 class EdgeRuntime:
@@ -35,7 +30,7 @@ class EdgeRuntime:
         self,
         *,
         env: simpy.Environment,
-        edge_config: NetworkEdge | LinkEdge,
+        edge_config: Edge,
 
         # ------------------------------------------------------------
         # ATTRIBUTES FROM THE OBJECT EVENTINJECTIONRUNTIME
@@ -75,14 +70,10 @@ class EdgeRuntime:
         # verify that each optional metric is active. For deafult metric settings
         # is not needed but as we will scale as explained above we will need it
 
-    def _deliver_network(
-        self,
-        state: RequestState,
-        ) -> Generator[simpy.Event, None, None]:
+    def _deliver(self, state: RequestState) -> Generator[simpy.Event, None, None]:
         """Function to deliver the state to the next node"""
         # extract the random variables defining the latency of the edge
-
-        assert isinstance(self.edge_config, NetworkEdge)
+        random_variable: RVConfig = self.edge_config.latency
 
         uniform_variable = self.rng.uniform()
         if uniform_variable < self.edge_config.dropout_rate:
@@ -94,15 +85,9 @@ class EdgeRuntime:
             )
             return
 
-        # latency
-        latency: RVConfig | PositiveFloat = self.edge_config.latency
-
         self._concurrent_connections +=1
 
-        if isinstance(latency, RVConfig):
-            transit_time = general_sampler(latency, self.rng)
-        else:
-            transit_time = latency
+        transit_time = general_sampler(random_variable, self.rng)
 
 
         # Logic to add if exists the event injection for the given edge
@@ -130,30 +115,13 @@ class EdgeRuntime:
         self._concurrent_connections -=1
         yield self.target_box.put(state)
 
-    def _deliver_link(self, state: RequestState) -> Generator[simpy.Event, None, None]:
-        """Function to deliver the state to the next node"""
-        state.record_hop(
-            SystemEdges.LINK_CONNECTION,
-            self.edge_config.id,
-            self.env.now,
-            )
-
-        # Advance to the next simulation event tick (zero-time delay) so that link
-        # deliveries are processed after the current event, preserving causal order
-        # and avoiding same-tick side effects.
-        yield self.env.timeout(0)
-        yield self.target_box.put(state)
-
 
     def transport(self, state: RequestState) -> simpy.Process:
         """
         Called by the upstream node. Immediately spins off a SimPy process
         that will handle drop + delay + delivery of `state`.
         """
-        if isinstance(self.edge_config, NetworkEdge):
-            return self.env.process(self._deliver_network(state))
-
-        return self.env.process(self._deliver_link(state))
+        return self.env.process(self._deliver(state))
 
     @property
     def enabled_metrics(self) -> dict[SampledMetricName, list[float | int]]:

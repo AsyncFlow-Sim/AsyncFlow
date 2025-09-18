@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
-    from asyncflow.config.enums import SystemEdges, SystemNodes
+    from asyncflow.config.constants import SystemEdges, SystemNodes
 
 
 class Hop(NamedTuple):

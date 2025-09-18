@@ -1,0 +1,15 @@
+rqs_input:
+  id: gen-1
+  avg_active_users: { mean: 1 }
+  avg_request_per_minute_per_user: { mean: 10 }
+
+topology_graph:
+  nodes:
+    client: { id: cli }
+    servers: []
+  edges:
+    - id: bad-lat
+      source: gen-1
+      target: cli
+      latency: { mean: -0.001 }   
+sim_settings: { total_simulation_time: 5 }

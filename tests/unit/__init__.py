@@ -1,1 +1,1 @@
-"""package to ensure smooth import"""
+"""Unit tests."""

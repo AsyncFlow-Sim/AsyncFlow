@@ -34,14 +34,14 @@ import pytest
 import simpy
 
 from asyncflow import AsyncFlow
-from asyncflow.components import Client, Endpoint, NetworkEdge, Server
-from asyncflow.config.enums import Distribution, LatencyKey
-from asyncflow.runner.simulation import SimulationRunner
-from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
+from asyncflow.components import Client, Edge, Endpoint, Server
+from asyncflow.config.constants import LatencyKey
+from asyncflow.runtime.simulation_runner import SimulationRunner
 from asyncflow.settings import SimulationSettings
+from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
-    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
+    from asyncflow.metrics.analyzer import ResultsAnalyzer
     from asyncflow.schemas.payload import SimulationPayload
 
 pytestmark = [
@@ -69,10 +69,11 @@ def _seed_all(seed: int = SEED) -> None:
 def _build_payload(*, with_spike: bool) -> SimulationPayload:
     """Build a single-server payload; optionally inject an edge spike."""
     # Workload: ~26.7 rps (80 users * 20 rpm / 60).
-    gen = ArrivalsGenerator(
+    gen = RqsGenerator(
         id="rqs-1",
-        lambda_rps=20,
-        model=Distribution.POISSON,
+        avg_active_users={"mean": 80},
+        avg_request_per_minute_per_user={"mean": 20},
+        user_sampling_window=60,
     )
     client = Client(id="client-1")
 
@@ -92,19 +93,19 @@ def _build_payload(*, with_spike: bool) -> SimulationPayload:
 
     # Edges: baseline exponential latencies around a few milliseconds.
     edges = [
-        NetworkEdge(
+        Edge(
             id="gen-client",
             source="rqs-1",
             target="client-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        NetworkEdge(
+        Edge(
             id="client-srv",
             source="client-1",
             target="srv-1",
             latency={"mean": 0.002, "distribution": "exponential"},
         ),
-        NetworkEdge(
+        Edge(
             id="srv-client",
             source="srv-1",
             target="client-1",
@@ -127,7 +128,7 @@ def _build_payload(*, with_spike: bool) -> SimulationPayload:
 
     flow = (
         AsyncFlow()
-        .add_arrivals_generator(gen)
+        .add_generator(gen)
         .add_client(client)
         .add_servers(srv)
         .add_edges(*edges)

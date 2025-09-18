@@ -4,14 +4,14 @@ This covers, for example, deterministic network latency spikes on edges and
 scheduled server outages over a defined time window.
 """
 from collections import OrderedDict
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import cast
 
 import simpy
 
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.schemas.events.injection import EventInjection
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
 from asyncflow.schemas.topology.nodes import Server
 
 # Helpers to distinguish when the event start and when the event finish
@@ -32,16 +32,19 @@ class EventInjectionRuntime:
     event effects during the simulation.
     """
 
-    def __init__(
+    def __init__( # noqa: PLR0913
         self,
         *,
         events: list[EventInjection] | None,
-        edges: list[Edge],
+        edges: list[NetworkEdge] | list[LinkEdge],
         env: simpy.Environment,
         servers: list[Server],
         # This is initiated in the simulation runner to understand
         # the process there are extensive comments in that file
         lb_out_edges: OrderedDict[str, EdgeRuntime],
+
+        #notify the lb when a server is back up and running
+        on_edge_added: Callable[[str], None] | None = None,
     ) -> None:
         """
         Definition of the attributes of the instance for
@@ -54,6 +57,10 @@ class EventInjectionRuntime:
             servers (list[Server]): input data of the server
             lb_out_edges: OrderedDict[str, EdgeRuntime]:
             ordered dict to handle server events
+            on_edge_added: callback from the load balancer runtim
+            useful if the routing algo is fcfs and a server is removed
+            when the server is back up, is becoming available again
+            for the lb to route a request to a server
 
         """
         self.events = events
@@ -61,6 +68,7 @@ class EventInjectionRuntime:
         self.env = env
         self.servers = servers
         self.lb_out_edges = lb_out_edges
+        self._on_edge_added = on_edge_added
 
         # Nested mapping for edge spikes:
         # edges_events: Dict[event_id, Dict[edge_id, float]]
@@ -115,6 +123,20 @@ class EventInjectionRuntime:
         # Set for a fast lookup to fill the nested map and
         self._servers_ids = {server.id for server in self.servers}
         self._edges_ids = {edge.id for edge in self.edges}
+
+        # If any event targets an edge, we only need to inspect the first edge:
+        # the topology type is homogeneous by construction
+        # (list[NetworkEdge] | list[LinkEdge]),
+        # so checking one element determines the type of the entire list.
+        if self.events and self.edges and any(
+            ev.target_id in self._edges_ids for ev in self.events
+        ):
+            first_edge = self.edges[0]
+            if not isinstance(first_edge, NetworkEdge):
+                msg=("Edge events are present, but the topology uses LinkEdge. "
+                    "Edge-targeted events require NetworkEdge "
+                    "(network_connection) edges.")
+                raise ValueError(msg)
 
         for event in self.events:
             start_event = (
@@ -224,6 +246,9 @@ class EventInjectionRuntime:
                 # policy to move it at the end
                 self.lb_out_edges[edge_id] = edge_runtime
                 self.lb_out_edges.move_to_end(edge_id)
+
+                if self._on_edge_added is not None:
+                    self._on_edge_added(edge_id)
 
 
 

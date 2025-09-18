@@ -11,8 +11,8 @@ from typing import TypedDict
 
 import simpy
 
-from asyncflow.config.constants import ServerResourceName
-from asyncflow.schemas.topology.nodes import ServerResources
+from asyncflow.config.enums import ServerResourceName
+from asyncflow.schemas.topology.nodes import NodesResources
 
 # ==============================================================
 # DICT FOR THE REGISTRY TO INITIALIZE RESOURCES FOR EACH SERVER
@@ -33,12 +33,12 @@ class ServerContainers(TypedDict):
 # Central funcrion to initialize  the dictionary with ram and cpu container
 def build_containers(
     env: simpy.Environment,
-    spec: ServerResources,
+    spec: NodesResources,
     ) -> ServerContainers:
     """
     Construct and return a mapping of SimPy Containers for a server's CPU and RAM.
 
-    Given a SimPy environment and a validated ServerResources spec, this function
+    Given a SimPy environment and a validated NodesResources spec, this function
     initializes one simpy.Container for CPU (with capacity equal to cpu_cores)
     and one for RAM (with capacity equal to ram_mb), then returns them in a
     ServerContainers TypedDict keyed by "CPU" and "RAM".
@@ -47,7 +47,7 @@ def build_containers(
     ----------
     env : simpy.Environment
         The simulation environment in which the Containers will be created.
-    spec : ServerResources
+    spec : NodesResources
         A Pydantic model instance defining the server's cpu_cores and ram_mb.
 
     Returns

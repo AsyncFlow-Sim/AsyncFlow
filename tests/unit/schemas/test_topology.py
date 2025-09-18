@@ -1,27 +1,26 @@
-"""Unit-tests for topology schemas (Client, ServerResources, Edge, …)"""
+"""Unit-tests for topology schemas (Client, NodesResources, Edge, …)"""
 
 from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
 
-from asyncflow.config.constants import (
+from asyncflow.config.constants import NetworkParameters, NodesResourcesDefaults
+from asyncflow.config.enums import (
     EndpointStepCPU,
-    NetworkParameters,
-    ServerResourcesDefaults,
     StepOperation,
     SystemEdges,
     SystemNodes,
 )
 from asyncflow.schemas.common.random_variables import RVConfig
-from asyncflow.schemas.topology.edges import Edge
+from asyncflow.schemas.topology.edges import NetworkEdge
 from asyncflow.schemas.topology.endpoint import Endpoint, Step
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
     LoadBalancer,
+    NodesResources,
     Server,
-    ServerResources,
     TopologyNodes,
 )
 
@@ -43,22 +42,22 @@ def test_invalid_client_type() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# ServerResources                                                             #
+# NodesResources                                                             #
 # --------------------------------------------------------------------------- #
 
 
 def test_server_resources_defaults() -> None:
     """All defaults match constant table."""
-    res = ServerResources()
-    assert res.cpu_cores == ServerResourcesDefaults.CPU_CORES
-    assert res.ram_mb == ServerResourcesDefaults.RAM_MB
-    assert res.db_connection_pool is ServerResourcesDefaults.DB_CONNECTION_POOL
+    res = NodesResources()
+    assert res.cpu_cores == NodesResourcesDefaults.CPU_CORES
+    assert res.ram_mb == NodesResourcesDefaults.RAM_MB
+    assert res.db_connection_pool is NodesResourcesDefaults.DB_CONNECTION_POOL
 
 
 def test_server_resources_min_constraints() -> None:
     """Values below minimum trigger validation failure."""
     with pytest.raises(ValidationError):
-        ServerResources(cpu_cores=0, ram_mb=128)  # too small
+        NodesResources(cpu_cores=0, ram_mb=128)  # too small
 
 
 # --------------------------------------------------------------------------- #
@@ -80,7 +79,7 @@ def test_valid_server() -> None:
     srv = Server(
         id="api-1",
         type=SystemNodes.SERVER,
-        server_resources=ServerResources(cpu_cores=2, ram_mb=1024),
+        server_resources=NodesResources(cpu_cores=2, ram_mb=1024),
         endpoints=[_dummy_endpoint()],
     )
     assert srv.id == "api-1"
@@ -92,7 +91,7 @@ def test_invalid_server_type() -> None:
         Server(
             id="bad-srv",
             type=SystemNodes.CLIENT,
-            server_resources=ServerResources(),
+            server_resources=NodesResources(),
             endpoints=[_dummy_endpoint()],
         )
 
@@ -118,7 +117,7 @@ def _single_node_topology() -> TopologyNodes:
     """Helper returning one server + one client topology."""
     srv = Server(
         id="svc-A",
-        server_resources=ServerResources(),
+        server_resources=NodesResources(),
         endpoints=[_dummy_endpoint()],
     )
     cli = Client(id="browser")
@@ -142,7 +141,7 @@ def test_edge_source_equals_target_fails() -> None:
     """Edge with identical source/target raises ValidationError."""
     latency_cfg = RVConfig(mean=0.05)
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="edge-dup",
             source="same",
             target="same",
@@ -155,7 +154,7 @@ def test_edge_missing_id_raises() -> None:
     """Omitting mandatory ``id`` field raises ValidationError."""
     latency_cfg = RVConfig(mean=0.01)
     with pytest.raises(ValidationError):
-        Edge(  # type: ignore[call-arg]
+        NetworkEdge(  # type: ignore[call-arg]
             source="a",
             target="b",
             latency=latency_cfg,
@@ -169,7 +168,7 @@ def test_edge_missing_id_raises() -> None:
 def test_edge_dropout_rate_bounds(bad_rate: float) -> None:
     """Drop-out rate outside valid range triggers ValidationError."""
     with pytest.raises(ValidationError):
-        Edge(
+        NetworkEdge(
             id="edge-bad-drop",
             source="n1",
             target="n2",
@@ -189,7 +188,7 @@ def _latency() -> RVConfig:
 
 def _topology_with_lb(
     cover: set[str],
-    extra_edges: list[Edge] | None = None,
+    extra_edges: list[NetworkEdge] | None = None,
 ) -> TopologyGraph:
     """Build a minimal graph with 1 client, 1 server and a load balancer."""
     nodes = _single_node_topology()
@@ -200,14 +199,14 @@ def _topology_with_lb(
         load_balancer=lb,
     )
 
-    edges: list[Edge] = [
-        Edge(  # client -> LB
+    edges: list[NetworkEdge] = [
+        NetworkEdge(  # client -> LB
             id="cli-lb",
             source="browser",
             target="lb-1",
             latency=_latency(),
         ),
-        Edge(  # LB -> server (may be removed in invalid tests)
+        NetworkEdge(  # LB -> server (may be removed in invalid tests)
             id="lb-srv",
             source="lb-1",
             target="svc-A",
@@ -222,7 +221,7 @@ def _topology_with_lb(
 def test_valid_topology_graph() -> None:
     """Happy-path graph passes validation."""
     nodes = _single_node_topology()
-    edge = Edge(
+    edge = NetworkEdge(
         id="edge-1",
         source="browser",
         target="svc-A",
@@ -235,7 +234,7 @@ def test_valid_topology_graph() -> None:
 def test_topology_graph_without_lb_still_valid() -> None:
     """Graph without load balancer validates just like before."""
     nodes = _single_node_topology()
-    edge = Edge(
+    edge = NetworkEdge(
         id="edge-1",
         source="browser",
         target="svc-A",
@@ -249,7 +248,7 @@ def test_topology_graph_without_lb_still_valid() -> None:
 def test_edge_refers_unknown_node() -> None:
     """Edge pointing to a non-existent node fails validation."""
     nodes = _single_node_topology()
-    bad_edge = Edge(
+    bad_edge = NetworkEdge(
         id="edge-ghost",
         source="browser",
         target="ghost-srv",
@@ -292,7 +291,7 @@ def test_lb_missing_edge_to_covered_server() -> None:
         load_balancer=lb,
     )
     edges = [
-        Edge(
+        NetworkEdge(
             id="cli-lb",
             source="browser",
             target="lb-1",

@@ -5,21 +5,21 @@ from __future__ import annotations
 import pytest
 import simpy
 
-from asyncflow.config.constants import ServerResourceName
+from asyncflow.config.enums import ServerResourceName
 from asyncflow.resources.registry import ResourcesRuntime
 from asyncflow.schemas.topology.endpoint import Endpoint
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
+    NodesResources,
     Server,
-    ServerResources,
     TopologyNodes,
 )
 
 
 def _minimal_server(server_id: str, cores: int, ram: int) -> Server:
     """Create a Server with a dummy endpoint and resource spec."""
-    res = ServerResources(cpu_cores=cores, ram_mb=ram)
+    res = NodesResources(cpu_cores=cores, ram_mb=ram)
     dummy_ep = Endpoint(endpoint_name="/ping", steps=[])
     return Server(id=server_id, server_resources=res, endpoints=[dummy_ep])
 

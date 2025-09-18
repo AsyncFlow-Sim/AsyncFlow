@@ -3,26 +3,19 @@ Define the property of the edges of the system representing
 links between different nodes
 """
 
-from pydantic import (
-    BaseModel,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, Field, PositiveFloat, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from asyncflow.config.constants import (
-    NetworkParameters,
-    SystemEdges,
-)
+from asyncflow.config.constants import NetworkParameters
+from asyncflow.config.enums import SystemEdges
 from asyncflow.schemas.common.random_variables import RVConfig
 
 #-------------------------------------------------------------
 # Definition of the edges structure for the graph representing
-# the topoogy of the system defined for the simulation
+# the topology of the system defined for the simulation
 #-------------------------------------------------------------
 
-class Edge(BaseModel):
+class NetworkEdge(BaseModel):
     """
     A directed connection in the topology graph.
 
@@ -32,11 +25,9 @@ class Edge(BaseModel):
         Identifier of the source node (where the request comes from).
     target : str
         Identifier of the destination node (where the request goes to).
-    latency : RVConfig
-        Random-variable configuration for network latency on this link.
-    probability : float
-        Probability of taking this edge when there are multiple outgoing links.
-        Must be in [0.0, 1.0]. Defaults to 1.0 (always taken).
+    latency : RVConfig | PositiveFloat
+        Random-variable configuration for network latency on this link or
+        positive float value.
     edge_type : SystemEdges
         Category of the link (e.g. network, queue, stream).
 
@@ -45,7 +36,7 @@ class Edge(BaseModel):
     id: str
     source: str
     target: str
-    latency: RVConfig
+    latency: RVConfig | PositiveFloat
     edge_type: SystemEdges = SystemEdges.NETWORK_CONNECTION
     dropout_rate: float = Field(
         NetworkParameters.DROPOUT_RATE,
@@ -66,10 +57,13 @@ class Edge(BaseModel):
     @field_validator("latency", mode="after")
     def ensure_latency_is_non_negative(
         cls, # noqa: N805
-        v: RVConfig,
+        v: RVConfig | PositiveFloat,
         info: ValidationInfo,
-        ) -> RVConfig:
+        ) -> RVConfig | PositiveFloat:
         """Ensures that the latency's mean and variance are positive."""
+        if not isinstance(v, RVConfig):
+            return v
+
         mean = v.mean
         variance = v.variance
 
@@ -79,9 +73,10 @@ class Edge(BaseModel):
         if mean <= 0:
             msg = f"The mean latency of the edge '{edge_id}' must be positive"
             raise ValueError(msg)
+
         if variance is not None and variance < 0: # Variance can be zero
             msg = (
-                f"The variance of the latency of the edge {edge_id}"
+                f"The variance of the latency of the edge {edge_id} "
                 "must be non negative"
             )
             raise ValueError(msg)
@@ -89,11 +84,51 @@ class Edge(BaseModel):
 
 
     @model_validator(mode="after") # type: ignore[arg-type]
-    def check_src_trgt_different(cls, model: "Edge") -> "Edge": # noqa: N805
+    def check_src_trgt_different(cls, model: "NetworkEdge") -> "NetworkEdge": # noqa: N805
         """Ensure source is different from target"""
         if model.source == model.target:
             msg = "source and target must be different nodes"
             raise ValueError(msg)
         return model
 
+    @field_validator("edge_type", mode="after")
+    def ensure_edge_type_is_correct(cls, v: SystemEdges) -> SystemEdges: # noqa: N805
+        """
+        Ensure the type of an edge not representing the network is network_connection
+        useful for to test model where the network is not negligible
+        """
+        if v != SystemEdges.NETWORK_CONNECTION:
+            msg=f"The type of the edge must be {SystemEdges.NETWORK_CONNECTION}"
+            raise ValueError(msg)
+        return v
 
+
+class LinkEdge(BaseModel):
+    """
+    Edges without latency, they may be useful in situations where
+    it is not necessary to model the network
+    """
+
+    id: str
+    source: str
+    target: str
+    edge_type: SystemEdges = SystemEdges.LINK_CONNECTION
+
+    @field_validator("edge_type", mode="after")
+    def ensure_edge_type_is_correct(cls, v: SystemEdges) -> SystemEdges: # noqa: N805
+        """
+        Ensure the type of an edge not representing the network is link_connection
+        useful for to test model where the network is negligible
+        """
+        if v != SystemEdges.LINK_CONNECTION:
+            msg=f"The type of the edge must be {SystemEdges.LINK_CONNECTION}"
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode="after") # type: ignore[arg-type]
+    def check_src_trgt_different(cls, model: "LinkEdge") -> "LinkEdge": # noqa: N805
+        """Ensure source is different from target"""
+        if model.source == model.target:
+            msg = "source and target must be different nodes"
+            raise ValueError(msg)
+        return model

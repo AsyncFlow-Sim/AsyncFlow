@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 
-from asyncflow.config.constants import SampledMetricName
+from asyncflow.config.enums import SampledMetricName
 
 # Initialize one time outside the function all possible metrics
 # related to the edges, the idea of this structure is to

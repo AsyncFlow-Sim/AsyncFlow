@@ -9,7 +9,9 @@ from typing import NamedTuple
 class RqsClock(NamedTuple):
     """
     structure to register time of generation and
-    time of elaboration for each request
+    time of elaboration for each request during
+    all the cycle of elaboration starting and ending
+    with the client
     """
 
     start: float

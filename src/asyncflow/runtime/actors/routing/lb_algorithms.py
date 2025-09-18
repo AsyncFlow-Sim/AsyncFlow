@@ -1,9 +1,9 @@
 """algorithms to simulate the load balancer during the simulation"""
-
+import random
 from collections import OrderedDict
 from collections.abc import Callable
 
-from asyncflow.config.constants import LbAlgorithmsName
+from asyncflow.config.enums import LbAlgorithmsName
 from asyncflow.runtime.actors.edge import EdgeRuntime
 
 
@@ -35,11 +35,23 @@ def round_robin(
 
     return value
 
+def random_choice(
+    edges: OrderedDict[str, EdgeRuntime],
+) -> EdgeRuntime:
+    """Pick a random outgoing edge uniformly"""
+    idx = random.randrange(len(edges)) # noqa: S311
+    for i, edge in enumerate(edges.values()):
+        if i == idx:
+            return edge
+
+    return next(iter(edges.values()))
 
 LB_TABLE: dict[LbAlgorithmsName,
                Callable[[OrderedDict[str, EdgeRuntime]], EdgeRuntime]] = {
     LbAlgorithmsName.LEAST_CONNECTIONS: least_connections,
     LbAlgorithmsName.ROUND_ROBIN: round_robin,
+    LbAlgorithmsName.RANDOM: random_choice,
 }
+
 
 

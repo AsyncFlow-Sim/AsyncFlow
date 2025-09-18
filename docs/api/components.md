@@ -17,7 +17,7 @@ These classes are Pydantic models with strict validation and are the
 from asyncflow.components import (
     Client,
     Server,
-    ServerResources,
+    NodesResources,
     LoadBalancer,
     Endpoint,
     Edge,
@@ -32,7 +32,7 @@ from asyncflow.enums import Distribution
 
 ```python
 from asyncflow.components import (
-    Client, Server, ServerResources, LoadBalancer, Endpoint, Edge
+    Client, Server, NodesResources, LoadBalancer, Endpoint, Edge
 )
 
 # Nodes
@@ -49,7 +49,7 @@ endpoint = Endpoint(
 
 server = Server(
     id="srv-1",
-    server_resources=ServerResources(cpu_cores=2, ram_mb=2048),
+    server_resources=NodesResources(cpu_cores=2, ram_mb=2048),
     endpoints=[endpoint],
 )
 
@@ -103,10 +103,10 @@ Client(id: str)
 
 ---
 
-### `ServerResources`
+### `NodesResources`
 
 ```python
-ServerResources(
+NodesResources(
     cpu_cores: int = 1,          # ≥ 1 NOW MUST BE FIXED TO ONE
     ram_mb: int = 1024,          # ≥ 256
     db_connection_pool: int | None = None,
@@ -114,7 +114,7 @@ ServerResources(
 ```
 
 * Server capacity knobs used by the runtime (CPU tokens, RAM reservoir, optional DB pool).
-* You may pass a **dict** instead of `ServerResources`; Pydantic will coerce it.
+* You may pass a **dict** instead of `NodesResources`; Pydantic will coerce it.
 
 **Bounds & defaults**
 
@@ -166,7 +166,7 @@ Each step is a dict with **exactly one** operation:
 ```python
 Server(
     id: str,
-    server_resources: ServerResources | dict,
+    server_resources: NodesResources | dict,
     endpoints: list[Endpoint],
 )
 ```
@@ -234,7 +234,7 @@ Edge(
 ## Type coercion & enums
 
 * You may pass strings for enums (`kind`, `distribution`, etc.); they will be validated against the allowed values.
-* For `ServerResources` and `Edge.latency` you can pass dictionaries; Pydantic will coerce them to typed models.
+* For `NodesResources` and `Edge.latency` you can pass dictionaries; Pydantic will coerce them to typed models.
 * If you prefer, you can import and use the enums:
 
   ```python

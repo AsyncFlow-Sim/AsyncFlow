@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from asyncflow.config.constants import (
+from asyncflow.config.enums import (
     EventMetricName,
     SampledMetricName,
     SamplePeriods,
@@ -32,6 +32,10 @@ class SimulationSettings(BaseModel):
     enabled_event_metrics: set[EventMetricName] = Field(
         default_factory=lambda: {
             EventMetricName.RQS_CLOCK,
+            EventMetricName.RQS_SERVER_CLOCK,
+            EventMetricName.SERVICE_TIME,
+            EventMetricName.IO_TIME,
+            EventMetricName.WAITING_TIME,
         },
         description="Which per-event KPIs to collect by default.",
     )

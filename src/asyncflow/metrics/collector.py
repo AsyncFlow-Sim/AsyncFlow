@@ -4,7 +4,7 @@ from collections.abc import Generator
 
 import simpy
 
-from asyncflow.config.constants import SampledMetricName
+from asyncflow.config.enums import SampledMetricName
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.server import ServerRuntime
 from asyncflow.schemas.settings.simulation import SimulationSettings

@@ -31,14 +31,14 @@ import pytest
 import simpy
 
 from asyncflow import AsyncFlow
-from asyncflow.components import Client, Edge, Endpoint, LoadBalancer, Server
-from asyncflow.config.constants import LatencyKey
-from asyncflow.runtime.simulation_runner import SimulationRunner
+from asyncflow.components import Client, Endpoint, LoadBalancer, NetworkEdge, Server
+from asyncflow.config.enums import Distribution, LatencyKey
+from asyncflow.runner.simulation import SimulationRunner
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.settings import SimulationSettings
-from asyncflow.workload import RqsGenerator
 
 if TYPE_CHECKING:
-    from asyncflow.metrics.analyzer import ResultsAnalyzer
+    from asyncflow.metrics.simulation_analyzer import ResultsAnalyzer
     from asyncflow.schemas.payload import SimulationPayload
 
 pytestmark = [
@@ -68,11 +68,10 @@ def _seed_all(seed: int = SEED) -> None:
 def _build_payload(*, with_events: bool) -> SimulationPayload:
     """Build payload for client + LB + two servers; optionally add events."""
     # Workload: ~26.7 rps (80 users * 20 rpm / 60).
-    gen = RqsGenerator(
+    gen = ArrivalsGenerator(
         id="rqs-1",
-        avg_active_users={"mean": 80},
-        avg_request_per_minute_per_user={"mean": 20},
-        user_sampling_window=60,
+        lambda_rps=20,
+        model=Distribution.POISSON,
     )
     client = Client(id="client-1")
     lb = LoadBalancer(id="lb-1", algorithm="round_robin")
@@ -99,37 +98,37 @@ def _build_payload(*, with_events: bool) -> SimulationPayload:
 
     # Edges: generator→client, client→lb, lb→srv-{1,2}, srv-{1,2}→client.
     edges = [
-        Edge(
+        NetworkEdge(
             id="gen-client",
             source="rqs-1",
             target="client-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="client-lb",
             source="client-1",
             target="lb-1",
             latency={"mean": 0.002, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="lb-srv-1",
             source="lb-1",
             target="srv-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="lb-srv-2",
             source="lb-1",
             target="srv-2",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="srv1-client",
             source="srv-1",
             target="client-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
-        Edge(
+        NetworkEdge(
             id="srv2-client",
             source="srv-2",
             target="client-1",
@@ -151,7 +150,7 @@ def _build_payload(*, with_events: bool) -> SimulationPayload:
 
     flow = (
         AsyncFlow()
-        .add_generator(gen)
+        .add_arrivals_generator(gen)
         .add_client(client)
         .add_load_balancer(lb)
         .add_servers(srv1, srv2)

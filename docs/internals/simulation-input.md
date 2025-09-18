@@ -114,15 +114,15 @@ class Client(BaseModel):
     # validator: type must equal SystemNodes.CLIENT
 ```
 
-#### `ServerResources`
+#### `NodesResources`
 
 ```python
-class ServerResources(BaseModel):
-    cpu_cores: PositiveInt = Field(ServerResourcesDefaults.CPU_CORES,
-                                   ge=ServerResourcesDefaults.MINIMUM_CPU_CORES)
-    db_connection_pool: PositiveInt | None = Field(ServerResourcesDefaults.DB_CONNECTION_POOL)
-    ram_mb: PositiveInt = Field(ServerResourcesDefaults.RAM_MB,
-                                ge=ServerResourcesDefaults.MINIMUM_RAM_MB)
+class NodesResources(BaseModel):
+    cpu_cores: PositiveInt = Field(NodesResourcesDefaults.CPU_CORES,
+                                   ge=NodesResourcesDefaults.MINIMUM_CPU_CORES)
+    db_connection_pool: PositiveInt | None = Field(NodesResourcesDefaults.DB_CONNECTION_POOL)
+    ram_mb: PositiveInt = Field(NodesResourcesDefaults.RAM_MB,
+                                ge=NodesResourcesDefaults.MINIMUM_RAM_MB)
 ```
 
 Each attribute maps directly to a SimPy primitive (core tokens, RAM container, optional DB pool).
@@ -164,7 +164,7 @@ Canonical lowercase names avoid accidental duplicates by case.
 class Server(BaseModel):
     id: str
     type: SystemNodes = SystemNodes.SERVER
-    server_resources: ServerResources
+    server_resources: NodesResources
     endpoints: list[Endpoint]
     # validator: type must equal SystemNodes.SERVER
 ```
@@ -302,7 +302,7 @@ class SimulationSettings(BaseModel):
 ### Nodes
 
 * `Client.type == client`, `Server.type == server`, `LoadBalancer.type == load_balancer` (enforced).
-* `ServerResources` obey lower bounds: `cpu_cores ≥ 1`, `ram_mb ≥ 256`.
+* `NodesResources` obey lower bounds: `cpu_cores ≥ 1`, `ram_mb ≥ 256`.
 * `TopologyNodes` contains **unique ids** across `client`, `servers[]`, and (optional) `load_balancer`. Duplicates → `ValueError`.
 * `TopologyNodes` forbids unknown fields (`extra="forbid"`).
 

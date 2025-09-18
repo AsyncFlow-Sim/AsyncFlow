@@ -6,23 +6,6 @@ from collections.abc import Callable, Mapping
 from asyncflow.config.enums import LbAlgorithmsName
 from asyncflow.runtime.actors.edge import EdgeRuntime
 
-
-def fcfs_picker(
-    edges: OrderedDict[str, EdgeRuntime],
-    busy: Mapping[str, int],
-) -> tuple[str, EdgeRuntime] | None:
-    """
-    Return the first *free* edge in insertion order (busy == 0).
-    Pure function: it does NOT mutate `edges`.
-
-    It is intentionally a *picker* (not a mutator), so the LB can manage
-    waiting and mark busy/free transitions without hidden side effects here.
-    """
-    for edge_id, edge_rt in edges.items():
-        if busy.get(edge_id, 0) == 0:
-            return edge_id, edge_rt
-    return None
-
 def least_connections(
     edges: OrderedDict[str, EdgeRuntime],
     ) -> EdgeRuntime:

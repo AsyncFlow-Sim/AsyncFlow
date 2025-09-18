@@ -221,7 +221,7 @@ def test_mmc_compare_matches_theory() -> None:
     assert mmc.is_compatible(payload), "Payload should be MMc-compatible."
 
     rows = mmc.compare_against_run(payload, cast("ResultsAnalyzer", ra))
-    assert len(rows) == 8, "Expected 8 KPI rows."
+    assert len(rows) == 7, "Expected 7 KPI rows."
 
     # All absolute deltas should be 0.000000 (printed as strings).
     zero = pytest.approx(0.0, abs=1e-9)
@@ -408,7 +408,7 @@ def test_mmc_compare_and_format_smoke() -> None:
     )
     mmc = MMc()
     table = mmc.compare_and_format(payload, cast("ResultsAnalyzer", ra))
-    assert "MMc (RR) — Theory vs Observed" in table
+    assert "MMc (Random split) — Theory vs Observed" in table
     assert "Arrival rate" in table
     assert "Mean waiting (s)" in table
 

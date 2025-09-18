@@ -1,11 +1,9 @@
 """Definition of the node represented by the LB in the simulation"""
 
 
-from collections import OrderedDict, defaultdict
-from collections.abc import Generator
-from typing import (
-    TYPE_CHECKING,
-)
+from collections import OrderedDict
+from collections.abc import Generator, Sequence
+from typing import TYPE_CHECKING, cast
 
 import simpy
 
@@ -13,7 +11,6 @@ from asyncflow.config.enums import LbAlgorithmsName, SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.routing.lb_algorithms import (
     LB_TABLE,
-    fcfs_picker,
 )
 from asyncflow.schemas.topology.nodes import LoadBalancer
 
@@ -58,64 +55,106 @@ class LoadBalancerRuntime:
         self.lb_out_edges = lb_out_edges
         self.lb_box = lb_box
 
-        # we need to keep track of the server that are busy
-        # right now we don't have multiprocess so each server has
-        # one core, to handle multiprocess in the feature we would
-        # have to add a new structure called capacity
-        self._busy: dict[str, int] = defaultdict(int)
+        # FIFO of free edges connecting to ready servers
+        self._free_edges = simpy.Store(env)
 
-        # In the case of a FCFS algo or similar if no servers
-        # are available we need to wait before starting the algo
-        self._wait_ev: simpy.Event | None = None
+        # Global collection of LB waiting times (FCFS only).
+        # We store one value per request that actually waited at the LB.
+        # This is aggregate-only: we do NOT track per-request IDs here.
+        # We need it to compare simulated and theoretical results of
+        # queue theory
+        self._lb_waiting_time: list[float] = []
+
 
     # Helpers FCFS
-    # We manage here the logic for this algo because we need to be carefull
-    # to dont have collision with eventinjectionruntime, that's why we are
-    # not popping and rotating from the ordered dict with key edge_id and
-    # value edge runtime, but we manage adding an extra structure to know
-    # the state of the servers through the edges connecting them with the LB
-    def mark_busy(self, edge_id: str) -> None:
-        """Helper to manage the state of the available server"""
-        self._busy[edge_id] += 1
+
+    def on_edge_added(self, edge_id: str) -> None:
+        """
+        Called when EventInjection re-enables an edge.
+        We push one token so the edge becomes immediately eligible.
+        """
+        if edge_id in self.lb_out_edges:
+            self._free_edges.put(edge_id)
+
+
+    def _prime_free_edges(self) -> None:
+        """Prepare initial edges in the FIFO"""
+        for edge_id in self.lb_out_edges:
+            self._free_edges.put(edge_id)
+
 
     def mark_free(self, edge_id: str) -> None:
-        """Helper to manage the state of the available server"""
-        b = self._busy.get(edge_id, 0)
-        if b > 0:
-            self._busy[edge_id] = b - 1
-        if self._wait_ev is not None and not self._wait_ev.triggered:
-            self._wait_ev.succeed()
+        """
+        Put the token if and only if the edges is still
+        available, the event injection might remove temporary
+        a server by removing its connection with the LB
+        """
+        if edge_id in self.lb_out_edges:
+            self._free_edges.put(edge_id)
+
 
     def _forwarder(self) -> Generator[simpy.Event, None, None]:
         """Updtate the state before passing it to another node"""
         while True:
             state: RequestState = yield self.lb_box.get()  # type: ignore[assignment]
 
-            state.record_hop(
-                    SystemNodes.LOAD_BALANCER,
-                    self.lb_config.id,
-                    self.env.now,
-                )
-
             if self.lb_config.algorithms == LbAlgorithmsName.FCFS:
-                # FCFS: wait for an edge to be free
-                pick = fcfs_picker(self.lb_out_edges, self._busy)
-                while pick is None:
-                    if self._wait_ev is None or self._wait_ev.triggered:
-                        self._wait_ev = self.env.event()
-                    yield self._wait_ev
-                    pick = fcfs_picker(self.lb_out_edges, self._busy)
 
-                edge_id, edge_rt = pick
-                # mark the server as occupied
-                self.mark_busy(edge_id)
-                # transport the request
+                hist = getattr(state, "history", None)
+                if hist:
+                    last = hist[-1]
+                    t_arrival = getattr(last, "timestamp", float(self.env.now))
+                else:
+                    t_arrival = float(self.env.now)
+
+
+                state.record_hop(
+                        SystemNodes.LOAD_BALANCER,
+                        self.lb_config.id,
+                        self.env.now,
+                    )
+
+            # The idea is the following: when a request arrives and the algorithm
+            # is FCFS, we maintain a FIFO of available edges. If an edge connected
+            # to a server is ready, the loop continues and (assuming no event injection
+            # has removed the server) the waiting time should be 0. If no edge is
+            # available, the request waits until the server notifies the LB via the
+            # `mark_free` callback. At that point, the edge is released and we can
+            # compute the waiting time.
+            #
+            # The check on the OrderedDict is important because an event injection
+            # may temporarily remove a server by cutting its edge from the load
+            # balancer. In such cases, the loop restarts until a valid edge is found.
+
+                while True:
+                    edge_id = cast("str", (yield self._free_edges.get()))
+                    # if event injection remove the edge,
+                    # discard the token and wait
+                    if edge_id in self.lb_out_edges:
+                        break
+                    # token stale → loop and take the next
+
+                waiting_time = self.env.now - t_arrival
+                if waiting_time >= 0:
+                    self._lb_waiting_time.append(waiting_time)
+
+                edge_rt = self.lb_out_edges[edge_id]
                 edge_rt.transport(state)
             else:
-                # Algo different from FCFS
+                state.record_hop(
+                SystemNodes.LOAD_BALANCER,
+                self.lb_config.id,
+                self.env.now,
+            )
                 edge_rt = LB_TABLE[self.lb_config.algorithms](self.lb_out_edges)
                 edge_rt.transport(state)
 
     def start(self) -> simpy.Process:
-        """Initialization of the simpy process for the LB"""
+        """Start the process and populate FIFO"""
+        self._prime_free_edges()
         return self.env.process(self._forwarder())
+
+    @property
+    def lb_waiting_times(self) -> Sequence[float]:
+        """Read-only view of LB FCFS waiting times (one per waited request)."""
+        return tuple(self._lb_waiting_time)

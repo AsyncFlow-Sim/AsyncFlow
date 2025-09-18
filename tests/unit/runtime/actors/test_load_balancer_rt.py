@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import OrderedDict
 from typing import TYPE_CHECKING, cast
 
@@ -12,6 +13,8 @@ from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
 from asyncflow.schemas.topology.nodes import LoadBalancer
 
 if TYPE_CHECKING:
+    from collections.abc import Generator as TypingGenerator
+
     from asyncflow.runtime.actors.edge import EdgeRuntime
 
 
@@ -131,63 +134,119 @@ def test_no_edges_is_noop(env: simpy.Environment) -> None:
     env.run()
 
 
-def test_fcfs_sends_to_first_free_server(env: simpy.Environment) -> None:
-    """When multiple servers exist, FCFS must pick the first free one."""
-    edge0, edge1 = DummyEdge("srv-0"), DummyEdge("srv-1")
-    lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [edge0, edge1])
 
-    # First request → edge0 (first in order)
-    lb.lb_box.put(DummyState())
-    env.run(until=1)
+# --------------------------------------------------------------------------- #
+# New FCFS (FIFO tokens) tests                                                #
+# --------------------------------------------------------------------------- #
 
-    assert edge0.received, "First request must go to the first server"
-    assert not edge1.received
-
-
-def test_fcfs_waits_until_server_is_free(env: simpy.Environment) -> None:
-    """If all servers are busy, the LB must hold the request until one frees up"""
-    edge = DummyEdge("srv-0")
+def test_fcfs_immediate_edge_means_zero_wait(env: simpy.Environment) -> None:
+    """If an edge is already available, no waiting time is recorded (only >0)."""
+    edge = DummyEdge("srv-A")
     lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [edge])
 
-    # Mark server busy before sending the request
-    lb.mark_busy("srv-0")
+    # Immediate request: token is already primed, so Wq=0 (not recorded)
     lb.lb_box.put(DummyState())
+    env.run()
 
-    # Run for a bit: request should NOT be forwarded yet
-    env.run(until=1)
-    assert not edge.received, "Request must wait while server is busy"
-
-    # Free the server: request should be forwarded
-    lb.mark_free("srv-0")
-    env.run(until=2)
-    assert edge.received, "Request must be sent once server is free"
+    assert len(edge.received) == 1
+    # LB only records times > 0: no wait ⇒ no entry
+    assert list(lb.lb_waiting_times) == [0.0]
 
 
-def test_fcfs_multiple_requests_queued(env: simpy.Environment) -> None:
+def test_fcfs_wait_until_edge_added(env: simpy.Environment) -> None:
     """
-    Multiple requests arriving while all servers are busy must be queued
-    and dispatched in order once servers free up.
+    No edge at startup: the request waits until we add an edge,
+    then LB measures Wq ≈ Δt.
     """
-    edge0, edge1 = DummyEdge("srv-0"), DummyEdge("srv-1")
-    lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [edge0, edge1])
+    lb_cfg = LoadBalancer(
+        id="lb-1",
+        algorithms=LbAlgorithmsName.FCFS,
+        server_covered=set(),
+    )
+    inbox: simpy.Store = simpy.Store(env)
 
-    # Mark both servers busy
-    lb.mark_busy("srv-0")
-    lb.mark_busy("srv-1")
+    # Start with no edges
+    od: OrderedDict[str, EdgeRuntime] = cast(
+        "OrderedDict[str, EdgeRuntime]",
+        OrderedDict(),  # initially empty
+    )
 
-    # Put two requests while servers are busy
+    lb = LoadBalancerRuntime(
+        env=env,
+        lb_config=lb_cfg,
+        lb_out_edges=od,
+        lb_box=inbox,
+    )
+    lb.start()
+
+    # One request arrives at t=0
+    inbox.put(DummyState())
+
+    # After 5s we add an edge and notify LB
+    edge = DummyEdge("srv-A")
+
+    def add_edge_after_5s() -> TypingGenerator[simpy.events.Event, None, None]:
+        yield env.timeout(5.0)
+        lb.lb_out_edges["srv-A"] = cast("EdgeRuntime", edge)
+        lb.on_edge_added("srv-A")
+
+    env.process(add_edge_after_5s())
+    env.run()
+
+    assert len(edge.received) == 1
+    waits = list(lb.lb_waiting_times)
+    assert len(waits) == 1
+    assert math.isclose(waits[0], 5.0, rel_tol=1e-6, abs_tol=1e-6)
+
+
+def test_fcfs_stale_token_is_discarded(env: simpy.Environment) -> None:
+    """
+    If a token exists but the edge is removed before a request arrives,
+    that token becomes stale and must be discarded. The request waits until
+    a valid edge is re-added and notified.
+    """
+    # Start with one edge (it will be removed, leaving a stale token in the FIFO)
+    first_edge = DummyEdge("srv-old")
+    lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [first_edge])
+
+    # Remove the edge before the request arrives (stale token left behind)
+    lb.lb_out_edges.pop("srv-old", None)
+
+    # Request arrives at t=0 → consumes stale token (discarded)
+    lb.lb_box.put(DummyState())
+
+    # At t=7s add a new edge and notify LB
+    new_edge = DummyEdge("srv-new")
+
+    def readd_after_7s() -> TypingGenerator[simpy.events.Event, None, None]:
+        yield env.timeout(7.0)
+        lb.lb_out_edges["srv-new"] = cast("EdgeRuntime", new_edge)
+        lb.on_edge_added("srv-new")
+
+    env.process(readd_after_7s())
+    env.run()
+
+    assert len(new_edge.received) == 1
+    waits = list(lb.lb_waiting_times)
+    assert len(waits) == 1
+    # The waiting time should be ~7s
+    assert math.isclose(waits[0], 7.0, rel_tol=1e-6, abs_tol=1e-6)
+
+
+def test_fcfs_fifo_order_preserved(env: simpy.Environment) -> None:
+    """
+    With two initial edges, two requests must use the tokens in the
+    same order as insertion (FIFO).
+    """
+    e0 = DummyEdge("srv-0")
+    e1 = DummyEdge("srv-1")
+    # OrderedDict in make_lb_runtime preserves order: srv-0, then srv-1
+    lb = make_lb_runtime(env, LbAlgorithmsName.FCFS, [e0, e1])
+
     lb.lb_box.put(DummyState())
     lb.lb_box.put(DummyState())
-    env.run(until=1)
+    env.run()
 
-    assert not edge0.received
-    assert not edge1.received, "Requests must be queued"
-
-    # Free server 0, then server 1
-    lb.mark_free("srv-0")
-    env.run(until=2)
-    assert len(edge0.received) == 1, "First request should go to server 0"
-
-    lb.mark_free("srv-1")
-    env.run(until=3)
-    assert len(edge1.received) == 1, "Second request should go to server 1"
+    # First request → first edge, second request → second edge
+    assert len(e0.received) == 1
+    assert len(e1.received) == 1

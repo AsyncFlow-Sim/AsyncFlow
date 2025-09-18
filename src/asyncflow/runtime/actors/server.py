@@ -104,7 +104,10 @@ class ServerRuntime:
         self._server_enabled_metrics = build_server_metrics(
             settings.enabled_sample_metrics,
         )
-
+        
+        # Per-request metrics are keyed by request_id (int), not by RequestState object:
+        # - ints are stable, lightweight, and hash/GC-friendly
+        # - avoids holding strong refs to RequestState (no memory leaks)
         self._server_rqs_clock: defaultdict[int, MetricBucket]
         self._server_rqs_clock = defaultdict(self._new_metric_bucket)
         # we need to comunicate when a server is free again to the LB

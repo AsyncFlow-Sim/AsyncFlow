@@ -227,6 +227,8 @@ class SimulationRunner:
                 target_box = target_object.client_box
             elif isinstance(target_object, LoadBalancerRuntime):
                 target_box = target_object.lb_box
+
+
             else:
                 msg = f"Unknown runtime for {edge.target!r}"
                 raise TypeError(msg)
@@ -243,6 +245,7 @@ class SimulationRunner:
                     settings=self.simulation_settings,
                 )
             )
+
             # Here we assign the outer edges to all nodes
             source_object = all_nodes[edge.source]
 
@@ -262,6 +265,7 @@ class SimulationRunner:
                 self._lb_out_edges[edge.id] = (
                     self._edges_runtime[(edge.source, edge.target)]
                 )
+
                 if isinstance(target_object, ServerRuntime) and (
                     source_object.lb_config.algorithms == LbAlgorithmsName.FCFS
                     ):
@@ -301,6 +305,12 @@ class SimulationRunner:
             env=self.env,
             servers=self.servers,
             lb_out_edges=self._lb_out_edges,
+            on_edge_added=(
+            self._lb_runtime.on_edge_added
+            if (self._lb_runtime is not None
+                and self._lb_runtime.lb_config.algorithms == LbAlgorithmsName.FCFS)
+            else None
+        ),
         )
 
         # container only readable
@@ -398,6 +408,7 @@ class SimulationRunner:
             servers=list(self._servers_runtime.values()),
             edges=list(self._edges_runtime.values()),
             settings=self.simulation_settings,
+            lb=self._lb_runtime,
         )
 
     # ------------------------------------------------------------------ #

@@ -489,15 +489,22 @@ class MMc(QueueTheoryBase):
         lat_stats = results_analyzer.get_latency_stats()
         w_hat = float(lat_stats.get(LatencyKey.MEAN, 0.0))
 
-        # Wq̂ from per-server arrays (aggregate across servers)
-        arrays_map = results_analyzer.get_server_event_arrays()
-        wait_sum: float = 0.0
-        wait_count: int = 0
-        for arrays in arrays_map.values():
-            vals = arrays.get("waiting_time") or []
-            wait_sum += float(sum(vals))
-            wait_count += len(vals)
-        wq_hat = (wait_sum / wait_count) if wait_count > 0 else 0.0
+        lb = payload.topology_graph.nodes.load_balancer
+        is_fcfs = (lb is not None) and (lb.algorithms == LbAlgorithmsName.FCFS)
+
+        # Collect waiting time from LB if the algo is FCFS
+        if is_fcfs:
+            lb_waits = list(results_analyzer.get_lb_waiting_times())
+            wq_hat = (sum(lb_waits) / len(lb_waits)) if lb_waits else 0.0
+        else:
+            arrays_map = results_analyzer.get_server_event_arrays()
+            wait_sum = 0.0
+            wait_count = 0
+            for arrays in arrays_map.values():
+                vals = arrays.get("waiting_time") or []
+                wait_sum += float(sum(vals))
+                wait_count += len(vals)
+            wq_hat = (wait_sum / wait_count) if wait_count > 0 else 0.0
 
         l_hat = lambda_hat * w_hat
         lq_hat = lambda_hat * wq_hat
@@ -572,7 +579,6 @@ class MMc(QueueTheoryBase):
 
         add("λ", "Arrival rate (1/s)", "lambda_rate")
         add("μ", "Service rate (1/s)", "mu_rate")
-        add("c", "Servers", "c")
         add("rho", "Utilization", "rho")
         add("L", "Mean items in sys", "L")
         add("Lq", "Mean items in queue", "Lq")
@@ -584,17 +590,17 @@ class MMc(QueueTheoryBase):
     # ────────────────────────────────────────────────────────────────────
     # Pretty table (KPI):
     # ────────────────────────────────────────────────────────────────────
-    
-    def _title_for(self, payload: "SimulationPayload") -> str:
+
+    def _title_for(self, payload: SimulationPayload) -> str:
         lb = payload.topology_graph.nodes.load_balancer
         if lb is not None and lb.algorithms == LbAlgorithmsName.FCFS:
             return "MMc (FCFS/Erlang-C) — Theory vs Observed"
         # default to random split when no LB or non-FCFS
         return "MMc (Random split) — Theory vs Observed"
-    
+
     @staticmethod
     def _format_kpi_table(
-        rows: list["MMcKPIRow"],
+        rows: list[MMcKPIRow],
         title: str = "MMc — Theory vs Observed",
     ) -> str:
         data = [
@@ -635,9 +641,10 @@ class MMc(QueueTheoryBase):
 
     def compare_and_format(
         self,
-        payload: "SimulationPayload",
-        results_analyzer: "ResultsAnalyzer",
+        payload: SimulationPayload,
+        results_analyzer: ResultsAnalyzer,
     ) -> str:
+        """Compare theoretical and simulated results"""
         rows = self.compare_against_run(payload, results_analyzer)
         title = self._title_for(payload)
         return self._format_kpi_table(rows, title=title)

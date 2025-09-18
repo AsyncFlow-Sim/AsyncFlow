@@ -23,13 +23,14 @@ from asyncflow.metrics.server import ServerClock
 
 if TYPE_CHECKING:
     # Standard library typing imports in type-checking block (TC003).
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     from matplotlib.axes import Axes
     from matplotlib.lines import Line2D
 
     from asyncflow.runtime.actors.client import ClientRuntime
     from asyncflow.runtime.actors.edge import EdgeRuntime
+    from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
     from asyncflow.runtime.actors.server import ServerRuntime
     from asyncflow.schemas.settings.simulation import SimulationSettings
 
@@ -72,12 +73,14 @@ class ResultsAnalyzer:
         servers: list[ServerRuntime],
         edges: list[EdgeRuntime],
         settings: SimulationSettings,
+        lb: LoadBalancerRuntime | None = None,
     ) -> None:
         """Initialize with the runtime objects and original settings."""
         self._client = client
         self._servers = servers
         self._edges = edges
         self._settings = settings
+        self.lb = lb
 
         # Lazily computed caches
         self.latencies: list[float] | None = None
@@ -363,6 +366,17 @@ class ResultsAnalyzer:
         vals = series_map.get(entity_id, [])
         times = (np.arange(len(vals)) * self._settings.sample_period_s).tolist()
         return times, vals
+
+    def get_lb_waiting_times(self) -> Sequence[float]:
+        """
+        Return LB waiting times (FCFS). If LB missing or property absent, return empty
+        useful when the routing algo is fcfs
+        """
+        try:
+            return () if self.lb is None else self.lb.lb_waiting_times
+        except AttributeError:
+            return ()
+
 
     # ─────────────────────────────────────────────
     # Plotting helpers

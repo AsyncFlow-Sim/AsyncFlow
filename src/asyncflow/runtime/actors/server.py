@@ -4,7 +4,7 @@ during the simulation
 """
 
 from collections import defaultdict
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator, Mapping
 from types import MappingProxyType
 from typing import cast
 
@@ -105,8 +105,14 @@ class ServerRuntime:
             settings.enabled_sample_metrics,
         )
 
+        # Per-request metrics are keyed by request_id (int), not by RequestState object:
+        # - ints are stable, lightweight, and hash/GC-friendly
+        # - avoids holding strong refs to RequestState (no memory leaks)
         self._server_rqs_clock: defaultdict[int, MetricBucket]
         self._server_rqs_clock = defaultdict(self._new_metric_bucket)
+        # we need to comunicate when a server is free again to the LB
+        # for algorithms like FCFS
+        self.notify_server_free: Callable[[], None] | None = None
 
     # ------------------------------------------------------------------
     # HELPERS
@@ -427,6 +433,13 @@ class ServerRuntime:
         bucket = self._server_rqs_clock[state.id]
         clock = cast("ServerClock", bucket[EventMetricName.RQS_SERVER_CLOCK])
         clock.finish = self.env.now
+
+        # callable to comunicate with the LB that a server is free throgh their
+        # connecting edge, it is useful for algo like FCFS, the wiring is done
+        # in the simulation_runner
+        server_free = self.notify_server_free
+        if server_free is not None:
+            server_free()
 
         assert self.out_edge is not None
         self.out_edge.transport(state)

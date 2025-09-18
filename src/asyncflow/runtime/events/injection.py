@@ -4,7 +4,7 @@ This covers, for example, deterministic network latency spikes on edges and
 scheduled server outages over a defined time window.
 """
 from collections import OrderedDict
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import cast
 
 import simpy
@@ -32,7 +32,7 @@ class EventInjectionRuntime:
     event effects during the simulation.
     """
 
-    def __init__(
+    def __init__( # noqa: PLR0913
         self,
         *,
         events: list[EventInjection] | None,
@@ -42,6 +42,9 @@ class EventInjectionRuntime:
         # This is initiated in the simulation runner to understand
         # the process there are extensive comments in that file
         lb_out_edges: OrderedDict[str, EdgeRuntime],
+
+        #notify the lb when a server is back up and running
+        on_edge_added: Callable[[str], None] | None = None,
     ) -> None:
         """
         Definition of the attributes of the instance for
@@ -54,6 +57,10 @@ class EventInjectionRuntime:
             servers (list[Server]): input data of the server
             lb_out_edges: OrderedDict[str, EdgeRuntime]:
             ordered dict to handle server events
+            on_edge_added: callback from the load balancer runtim
+            useful if the routing algo is fcfs and a server is removed
+            when the server is back up, is becoming available again
+            for the lb to route a request to a server
 
         """
         self.events = events
@@ -61,6 +68,7 @@ class EventInjectionRuntime:
         self.env = env
         self.servers = servers
         self.lb_out_edges = lb_out_edges
+        self._on_edge_added = on_edge_added
 
         # Nested mapping for edge spikes:
         # edges_events: Dict[event_id, Dict[edge_id, float]]
@@ -238,6 +246,9 @@ class EventInjectionRuntime:
                 # policy to move it at the end
                 self.lb_out_edges[edge_id] = edge_runtime
                 self.lb_out_edges.move_to_end(edge_id)
+
+                if self._on_edge_added is not None:
+                    self._on_edge_added(edge_id)
 
 
 

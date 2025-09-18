@@ -14,7 +14,7 @@ AsyncFlow is a discrete-event simulator for Python async backends (FastAPI/Uvico
 ## Public API (stable surface)
 
 * **[High-Level API](api/high-level.md)** — The two entry points you’ll use most: `AsyncFlow` (builder) and `SimulationRunner` (orchestrator).
-* **[Components](api/components.md)** — Public Pydantic models for topology: `Client`, `Server`, `Endpoint`, `Edge`, `LoadBalancer`, `NodesResources`.
+* **[Components](api/components.md)** — Public Pydantic models for topology: `Client`, `Server`, `Endpoint`, `Edge`, `LoadBalancer`, `ServerResources`.
 * **[Workload](api/workload.md)** — Traffic inputs: `RqsGenerator` and `RVConfig` (random variables).
 * **[Settings](api/settings.md)** — Global controls: `SimulationSettings` (duration, sampling cadence, metrics).
 * **[Enums](api/enums.md)** — Optional importable enums: distributions, step kinds/ops, metric names, node/edge types, LB algorithms.

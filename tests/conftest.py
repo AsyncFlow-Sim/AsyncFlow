@@ -5,23 +5,23 @@ import simpy
 from numpy.random import Generator as NpGenerator
 from numpy.random import default_rng
 
-from asyncflow.config.enums import (
+from asyncflow.config.constants import (
     Distribution,
     EventMetricName,
     SampledMetricName,
     SamplePeriods,
     TimeDefaults,
 )
-from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import NetworkEdge
+from asyncflow.schemas.topology.edges import Edge
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
     TopologyNodes,
 )
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 # ============================================================================
 # STANDARD CONFIGURATION FOR INPUT VARIABLES
@@ -90,15 +90,16 @@ def sim_settings(
 
 
 @pytest.fixture
-def arrivals_gen() -> ArrivalsGenerator:
+def rqs_input() -> RqsGenerator:
     """
     One active user issuing two requests per minute—sufficient to
     exercise the entire request-generator pipeline with minimal overhead.
     """
-    return ArrivalsGenerator(
+    return RqsGenerator(
         id="rqs-1",
-        lambda_rps=20,
-        model=Distribution.POISSON,
+        avg_active_users=RVConfig(mean=1.0),
+        avg_request_per_minute_per_user=RVConfig(mean=2.0),
+        user_sampling_window=TimeDefaults.USER_SAMPLING_WINDOW,
     )
 
 
@@ -118,7 +119,7 @@ def topology_minimal() -> TopologyGraph:
     client = Client(id="client-1")
 
     # Stub edge: generator id comes from rqs_input fixture (“rqs-1”)
-    edge = NetworkEdge(
+    edge = Edge(
         id="gen-to-client",
         source="rqs-1",
         target="client-1",
@@ -134,7 +135,11 @@ def topology_minimal() -> TopologyGraph:
 
 
 @pytest.fixture
-def payload_base() -> SimulationPayload:
+def payload_base(
+    rqs_input: RqsGenerator,
+    sim_settings: SimulationSettings,
+    topology_minimal: TopologyGraph,
+) -> SimulationPayload:
     """
     End-to-end payload used by integration tests and FastAPI endpoint tests.
 
@@ -142,9 +147,9 @@ def payload_base() -> SimulationPayload:
     by the simulation engine.
     """
     return SimulationPayload(
-        arrivals=arrivals_gen(),
-        topology_graph=topology_minimal(),
-        sim_settings=sim_settings(),
+        rqs_input=rqs_input,
+        topology_graph=topology_minimal,
+        sim_settings=sim_settings,
 
     )
 
@@ -155,4 +160,3 @@ def payload_base() -> SimulationPayload:
 def env() -> simpy.Environment:
     """Return a fresh SimPy environment per test."""
     return simpy.Environment()
-

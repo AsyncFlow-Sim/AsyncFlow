@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from asyncflow.config.enums import Distribution
+from asyncflow.config.constants import Distribution
 from asyncflow.schemas.common.random_variables import RVConfig
 
 
@@ -73,6 +73,11 @@ def general_sampler(random_variable: RVConfig, rng: np.random.Generator) -> floa
             # β (scale) == mean ; nothing else required
             assert var is None
             return exponential_variable_generator(mean, rng)
+
+        # ── Distributions that *do* need a variance parameter ───────────
+        case Distribution.NORMAL:
+            assert var is not None
+            return truncated_gaussian_generator(mean, var, rng)
 
         case Distribution.LOG_NORMAL:
             assert var is not None

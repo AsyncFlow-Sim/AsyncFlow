@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from typing import Self
 
-from asyncflow.config.enums import EventDescription, SystemEdges
-from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
+from asyncflow.config.constants import EventDescription
 from asyncflow.schemas.events.injection import End, EventInjection, Start
 from asyncflow.schemas.payload import SimulationPayload
 from asyncflow.schemas.settings.simulation import SimulationSettings
-from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
+from asyncflow.schemas.topology.edges import Edge
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import (
     Client,
@@ -17,6 +16,7 @@ from asyncflow.schemas.topology.nodes import (
     Server,
     TopologyNodes,
 )
+from asyncflow.schemas.workload.rqs_generator import RqsGenerator
 
 
 class AsyncFlow:
@@ -24,25 +24,20 @@ class AsyncFlow:
 
     def __init__(self) -> None:
         """Instance attributes necessary to define the simulation payload"""
-        self._arrivals: ArrivalsGenerator | None = None
+        self._generator: RqsGenerator | None = None
         self._client: Client | None = None
         self._servers: list[Server] | None = None
-        self._net_edges: list[NetworkEdge] | None = None
-        self._link_edges: list[LinkEdge] | None = None
+        self._edges: list[Edge] | None = None
         self._sim_settings: SimulationSettings | None = None
         self._load_balancer: LoadBalancer | None = None
         self._events: list[EventInjection] = []
-        self._edges_kind: SystemEdges | None = None
 
-    def add_arrivals_generator(
-        self,
-        arrivals: ArrivalsGenerator,
-        ) -> Self:
+    def add_generator(self, rqs_generator: RqsGenerator) -> Self:
         """Method to instantiate the generator"""
-        if not isinstance(arrivals, ArrivalsGenerator):
-            msg = "You must add a ArrivalsGenerator instance"
+        if not isinstance(rqs_generator, RqsGenerator):
+            msg = "You must add a RqsGenerator instance"
             raise TypeError(msg)
-        self._arrivals = arrivals
+        self._generator = rqs_generator
         return self
 
     def add_client(self, client: Client) -> Self:
@@ -66,47 +61,17 @@ class AsyncFlow:
             self._servers.append(server)
         return self
 
-    def add_edges(self, *edges: NetworkEdge | LinkEdge) -> Self:
-        """Add edges; enforces homogeneous type (all NetworkEdge or all LinkEdge)."""
-        if not edges:
-            return self
+    def add_edges(self, *edges: Edge) -> Self:
+        """Method to instantiate the list of edges"""
+        if self._edges is None:
+            self._edges = []
 
-        if self._edges_kind is None:
-            first = edges[0]
-            if isinstance(first, NetworkEdge):
-                self._edges_kind = SystemEdges.NETWORK_CONNECTION
-                self._net_edges = []
-            elif isinstance(first, LinkEdge):
-                self._edges_kind = SystemEdges.LINK_CONNECTION
-                self._link_edges = []
-            else:
-                msg = "Edges must be NetworkEdge or LinkEdge."
+        for edge in edges:
+            if not isinstance(edge, Edge):
+                msg = "All the instances must be of the type Edge"
                 raise TypeError(msg)
-
-        assert self._edges_kind is not None
-
-        if self._edges_kind == SystemEdges.NETWORK_CONNECTION:
-            assert self._net_edges is not None
-            if any(not isinstance(e, NetworkEdge) for e in edges):
-                msg = "Cannot mix LinkEdge with NetworkEdge."
-                raise TypeError(msg)
-            # ⬇️ Build a typed batch so mypy is happy
-            net_batch: list[NetworkEdge] = [
-                e for e in edges if isinstance(e, NetworkEdge)
-            ]
-            self._net_edges.extend(net_batch)
-        else:
-            assert self._link_edges is not None
-            if any(not isinstance(e, LinkEdge) for e in edges):
-                msg = "Cannot mix NetworkEdge with LinkEdge."
-                raise TypeError(msg)
-            # ⬇️ Typed batch for LinkEdge
-            link_batch: list[LinkEdge] = [e for e in edges if isinstance(e, LinkEdge)]
-            self._link_edges.extend(link_batch)
-
+            self._edges.append(edge)
         return self
-
-
 
     def add_simulation_settings(self, sim_settings: SimulationSettings) -> Self:
         """Method to instantiate the settings for the simulation"""
@@ -177,8 +142,8 @@ class AsyncFlow:
 
     def build_payload(self) -> SimulationPayload:
         """Method to build the payload for the simulation"""
-        if self._arrivals is None:
-            msg = "The arrivals generator must be instantiated before the simulation"
+        if self._generator is None:
+            msg = "The generator input must be instantiated before the simulation"
             raise ValueError(msg)
         if self._client is None:
             msg = "The client input must be instantiated before the simulation"
@@ -186,23 +151,9 @@ class AsyncFlow:
         if not self._servers:
             msg = "You must instantiate at least one server before the simulation"
             raise ValueError(msg)
-        if self._edges_kind is None:
-            msg = "You must instantiate edges before the simulation."
+        if not self._edges:
+            msg = "You must instantiate edges before the simulation"
             raise ValueError(msg)
-
-        # mypy facilitator
-        edges_u: list[NetworkEdge] | list[LinkEdge]
-        if self._edges_kind == SystemEdges.NETWORK_CONNECTION:
-            if not self._net_edges:
-                msg = "You must instantiate edges before the simulation."
-                raise ValueError(msg)
-            edges_u = self._net_edges
-        else:
-            if not self._link_edges:
-                msg = "You must instantiate edges before the simulation."
-                raise ValueError(msg)
-            edges_u = self._link_edges
-
         if self._sim_settings is None:
             msg = "The simulation settings must be instantiated before the simulation"
             raise ValueError(msg)
@@ -215,11 +166,11 @@ class AsyncFlow:
 
         graph = TopologyGraph(
             nodes = nodes,
-            edges=edges_u,
+            edges=self._edges,
         )
 
         return SimulationPayload.model_validate({
-            "arrivals": self._arrivals,
+            "rqs_input": self._generator,
             "topology_graph": graph,
             "sim_settings": self._sim_settings,
             "events": self._events or None,

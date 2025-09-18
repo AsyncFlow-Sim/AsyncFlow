@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from asyncflow.config.enums import EventDescription
+from asyncflow.config.constants import EventDescription
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.events.injection import (
     END_MARK,
@@ -16,7 +16,7 @@ from asyncflow.runtime.events.injection import (
 )
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import EventInjection
-from asyncflow.schemas.topology.edges import LinkEdge, NetworkEdge
+from asyncflow.schemas.topology.edges import Edge
 
 if TYPE_CHECKING:
     import simpy
@@ -24,10 +24,9 @@ if TYPE_CHECKING:
 
 # ----------------------------- Helpers ------------------------------------- #
 
-def _edge(edge_id: str, source: str, target: str) -> NetworkEdge:
+def _edge(edge_id: str, source: str, target: str) -> Edge:
     """Minimal edge with negligible latency."""
-    return NetworkEdge(
-        id=edge_id, source=source, target=target, latency=RVConfig(mean=0.001))
+    return Edge(id=edge_id, source=source, target=target, latency=RVConfig(mean=0.001))
 
 
 def _spike_event(
@@ -295,44 +294,3 @@ def test_zero_time_batch_draining_makes_first_event_visible(
     env.step()
     assert env.now == pytest.approx(1.0)
     assert inj.edges_spike[e.id] == pytest.approx(0.1)
-
-def _link_edge(edge_id: str, source: str, target: str) -> LinkEdge:
-    """Minimal LinkEdge without latency."""
-    return LinkEdge(id=edge_id, source=source, target=target)
-
-
-def _spike_event_on_edge(edge_id: str) -> EventInjection:
-    """Simple spike event targeting the given edge."""
-    return EventInjection(
-        event_id="ev-link",
-        target_id=edge_id,
-        start={
-            "kind": EventDescription.NETWORK_SPIKE_START,
-            "t_start": 1.0,
-            "spike_s": 0.2,
-        },
-        end={
-            "kind": EventDescription.NETWORK_SPIKE_END,
-            "t_end": 2.0,
-        },
-    )
-
-
-def test_edge_events_rejected_for_linkedge_topology(
-    env: simpy.Environment,
-    ) -> None:
-    """
-    If any event targets an edge, but edges are LinkEdge,
-    a ValueError must be raised.
-    """
-    edges = [_link_edge("link-1", "A", "B")]
-    ev = _spike_event_on_edge("link-1")
-
-    with pytest.raises(ValueError, match="Edge events are present.*NetworkEdge"):
-        EventInjectionRuntime(
-            events=[ev],
-            edges=edges,
-            env=env,
-            servers=[],
-            lb_out_edges=OrderedDict[str, EdgeRuntime](),
-        )

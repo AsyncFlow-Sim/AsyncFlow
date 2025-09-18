@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, cast
 from asyncflow.config.enums import LbAlgorithmsName
 from asyncflow.runtime.actors.routing.lb_algorithms import (
     LB_TABLE,
-    fcfs_picker,
     least_connections,
     random_choice,
     round_robin,
@@ -40,36 +39,6 @@ class _DummyEdge:
 def _mk_edges(pairs: list[tuple[str, int]]) -> OrderedDict[str, _DummyEdge]:
     """Build an OrderedDict of dummy edges from (key, concurrent_conns)."""
     return OrderedDict((k, _DummyEdge(cc)) for k, cc in pairs)
-
-
-# ------------------------------- FCFS picker -------------------------------- #
-
-def test_fcfs_picker_returns_first_free_without_mutation() -> None:
-    """FCFS picker must return first *free* edge and not mutate the dict."""
-    od = _mk_edges([("a", 2), ("b", 1), ("c", 3)])
-    edges = cast("OrderedDict[str, EdgeRuntime]", od)
-
-    # a busy, b free, c busy
-    busy = {"a": 1, "b": 0, "c": 2}
-
-    pick = fcfs_picker(edges, busy)
-    assert pick is not None
-    edge_id, edge_rt = pick
-    assert edge_id == "b"
-    assert cast("_DummyEdge", edge_rt) is od["b"]
-
-    # Ensure no mutation of the original OrderedDict order/size
-    assert list(od.keys()) == ["a", "b", "c"]
-
-
-def test_fcfs_picker_all_busy_returns_none() -> None:
-    """FCFS picker should return None if no edges are free."""
-    od = _mk_edges([("a", 0), ("b", 0)])
-    edges = cast("OrderedDict[str, EdgeRuntime]", od)
-
-    busy = {"a": 1, "b": 3}
-    pick = fcfs_picker(edges, busy)
-    assert pick is None
 
 
 # ----------------------------- Other algorithms ----------------------------- #

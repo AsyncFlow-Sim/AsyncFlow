@@ -1,10 +1,11 @@
 """algorithms to simulate the load balancer during the simulation"""
 import random
 from collections import OrderedDict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 
 from asyncflow.config.enums import LbAlgorithmsName
 from asyncflow.runtime.actors.edge import EdgeRuntime
+
 
 def least_connections(
     edges: OrderedDict[str, EdgeRuntime],

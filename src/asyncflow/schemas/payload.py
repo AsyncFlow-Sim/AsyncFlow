@@ -17,6 +17,50 @@ class SimulationPayload(BaseModel):
     sim_settings: SimulationSettings
     events: list[EventInjection] | None = None
 
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def ensure_edges_reference_known_nodes(
+        cls,  # noqa: N805
+        model: "SimulationPayload",
+    ) -> "SimulationPayload":
+        """
+        Ensure that every edge references a known endpoint.
+
+        Valid endpoints are:
+        - all server IDs declared in the topology,
+        - the client ID,
+        - the load balancer ID (if present),
+        - the arrivals generator ID (model.arrivals.id), which lives
+            outside TopologyNodes.
+        """
+        topo = model.topology_graph
+        nodes = topo.nodes
+
+        valid_ids = {s.id for s in nodes.servers}
+        valid_ids.add(nodes.client.id)
+        if nodes.load_balancer is not None:
+            valid_ids.add(nodes.load_balancer.id)
+
+        # Include the arrivals generator (lives outside TopologyNodes).
+        valid_ids.add(model.arrivals.id)
+
+        for e in topo.edges:
+            if e.source not in valid_ids:
+                msg = (
+                    f"Edge {e.id} references unknown source node "
+                    f"'{e.source}'."
+                )
+                raise ValueError(msg)
+            if e.target not in valid_ids:
+                msg = (
+                    f"Edge {e.id} references unknown target node "
+                    f"'{e.target}'."
+                )
+                raise ValueError(msg)
+
+        return model
+
+
+
     @field_validator("events", mode="after")
     def ensure_event_id_is_unique(
         cls, # noqa: N805

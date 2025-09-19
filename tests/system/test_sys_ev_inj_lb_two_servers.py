@@ -123,15 +123,15 @@ def _build_payload(*, with_events: bool) -> SimulationPayload:
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
         NetworkEdge(
-            id="srv1-client",
+            id="srv1-gen",
             source="srv-1",
-            target="client-1",
+            target="rqs-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
         NetworkEdge(
-            id="srv2-client",
+            id="srv2-gen",
             source="srv-2",
-            target="client-1",
+            target="rqs-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
     ]

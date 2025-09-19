@@ -245,19 +245,6 @@ def test_topology_graph_without_lb_still_valid() -> None:
 
 
 
-def test_edge_refers_unknown_node() -> None:
-    """Edge pointing to a non-existent node fails validation."""
-    nodes = _single_node_topology()
-    bad_edge = NetworkEdge(
-        id="edge-ghost",
-        source="browser",
-        target="ghost-srv",
-        latency=_latency(),
-    )
-    with pytest.raises(ValidationError):
-        TopologyGraph(nodes=nodes, edges=[bad_edge])
-
-
 # --------------------------------------------------------------------------- #
 # 2) LB is valid                                                                #
 # --------------------------------------------------------------------------- #

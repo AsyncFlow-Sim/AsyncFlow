@@ -11,8 +11,8 @@ from asyncflow.runtime.actors.arrivals_generator import ArrivalsGeneratorRuntime
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterator
-
     from numpy.random import Generator as NpGenerator
+
 
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.runtime.rqs_state import RequestState
@@ -39,17 +39,28 @@ def _make_runtime(
     edge: _DummyEdgeRuntime,
     arrivals: ArrivalsGenerator,
     sim_settings: SimulationSettings,
+    arrivals_generator_box: simpy.Store | None = None,
+    completed_box: simpy.Store | None = None,
     *,
     seed: int = 0,
 ) -> ArrivalsGeneratorRuntime:
     """Factory returning a fully wired :class:`ArrivalsGeneratorRuntime`."""
     rng: NpGenerator = np.random.default_rng(seed)
+
+   
+    if arrivals_generator_box is None:
+        arrivals_generator_box = simpy.Store(env)
+    if completed_box is None:
+        completed_box = simpy.Store(env)
+
     return ArrivalsGeneratorRuntime(
         env=env,
         out_edge=cast("EdgeRuntime", edge),
         arrivals=arrivals,
         sim_settings=sim_settings,
         rng=rng,
+        arrivals_generator_box=arrivals_generator_box,
+        completed_box=completed_box,
     )
 
 
@@ -117,7 +128,7 @@ def test_start_returns_process_and_runs(
     runtime = _make_runtime(env, edge, arrivals_gen, sim_settings)
 
     proc = runtime.start()
-    assert isinstance(proc, simpy.events.Process)
+    assert proc is None
 
     env.run(until=sum(gaps) + 0.01)
     assert len(edge.received) == 1

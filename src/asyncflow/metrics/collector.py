@@ -67,9 +67,9 @@ class SampledMetricCollector:
 
 
 
-    def start(self) -> simpy.Process:
+    def start(self) -> None:
         """Definition of the process to collect sampled metrics"""
-        return self.env.process(self._build_time_series())
+        self.env.process(self._build_time_series())
 
 
 

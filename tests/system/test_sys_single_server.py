@@ -90,9 +90,9 @@ def _build_payload() -> SimulationPayload:
             latency={"mean": 0.002, "distribution": "exponential"},
         ),
         NetworkEdge(
-            id="srv-client",
+            id="srv-genn",
             source="srv-1",
-            target="client-1",
+            target="rqs-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
     ]

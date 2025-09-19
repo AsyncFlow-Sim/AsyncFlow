@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.lines import Line2D
 
-    from asyncflow.runtime.actors.client import ClientRuntime
+    from asyncflow.runtime.actors.arrivals_generator import ArrivalsGeneratorRuntime
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
     from asyncflow.runtime.actors.server import ServerRuntime
@@ -69,14 +69,14 @@ class ResultsAnalyzer:
     def __init__(
         self,
         *,
-        client: ClientRuntime,
+        generator: ArrivalsGeneratorRuntime,
         servers: list[ServerRuntime],
         edges: list[EdgeRuntime],
         settings: SimulationSettings,
         lb: LoadBalancerRuntime | None = None,
     ) -> None:
         """Initialize with the runtime objects and original settings."""
-        self._client = client
+        self._generator = generator
         self._servers = servers
         self._edges = edges
         self._settings = settings
@@ -103,8 +103,8 @@ class ResultsAnalyzer:
     # ─────────────────────────────────────────────
     def process_all_metrics(self) -> None:
         """Compute all aggregated and sampled metrics if not already done."""
-        # Client-side: end-to-end latencies + 1s throughput
-        if self.latency_stats is None and self._client.rqs_clock:
+        # generator-side: end-to-end latencies + 1s throughput
+        if self.latency_stats is None and self._generator.rqs_clock:
             self._process_event_metrics()
 
         # Sampled time series from servers/edges (RAM, queues, etc.)
@@ -209,7 +209,7 @@ class ResultsAnalyzer:
         # 1) Latencies
         self.latencies = [
             clock.finish - clock.start
-            for clock in self._client.rqs_clock
+            for clock in self._generator.rqs_clock
         ]
 
         # 2) Summary stats
@@ -229,7 +229,7 @@ class ResultsAnalyzer:
             self.latency_stats = {}
 
         # 3) Throughput per 1s window (cached)
-        completion_times = sorted(clock.finish for clock in self._client.rqs_clock)
+        completion_times = sorted(clock.finish for clock in self._generator.rqs_clock)
         end_time = self._settings.total_simulation_time
 
         timestamps: list[float] = []
@@ -320,7 +320,7 @@ class ResultsAnalyzer:
             return self.throughput_series or ([], [])
 
         # Recompute with a custom window size.
-        completion_times = sorted(clock.finish for clock in self._client.rqs_clock)
+        completion_times = sorted(clock.finish for clock in self._generator.rqs_clock)
         end_time = self._settings.total_simulation_time
 
         timestamps: list[float] = []

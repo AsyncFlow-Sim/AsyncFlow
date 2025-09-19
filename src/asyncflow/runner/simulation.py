@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 class Startable(Protocol):
     """A protocol for runtime actors that can be started."""
 
-    def start(self) -> simpy.Process:
+    def start(self) -> None:
         """Starts the main process loop for the actor."""
         ...
 
@@ -141,6 +141,9 @@ class SimulationRunner:
             arrivals=self.arrivals,
             sim_settings=self.simulation_settings,
             rng=self.rng,
+            arrivals_generator_box=self._make_inbox(),
+            completed_box=self._make_inbox(),
+
         )
 
 
@@ -155,7 +158,6 @@ class SimulationRunner:
         self._client_runtime[self.client.id] = ClientRuntime(
             env=self.env,
             out_edge=None,
-            completed_box=self._make_inbox(),
             client_box=self._make_inbox(),
             client_config=self.client,
         )
@@ -227,6 +229,8 @@ class SimulationRunner:
                 target_box = target_object.client_box
             elif isinstance(target_object, LoadBalancerRuntime):
                 target_box = target_object.lb_box
+            elif isinstance(target_object, ArrivalsGeneratorRuntime):
+                target_box = target_object.arrivals_generator_box
 
 
             else:
@@ -404,7 +408,7 @@ class SimulationRunner:
         self.env.run(until=self.simulation_settings.total_simulation_time)
 
         return ResultsAnalyzer(
-            client=next(iter(self._client_runtime.values())),
+            generator=next(iter(self._arrivals_runtime.values())),
             servers=list(self._servers_runtime.values()),
             edges=list(self._edges_runtime.values()),
             settings=self.simulation_settings,

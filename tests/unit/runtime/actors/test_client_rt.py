@@ -37,7 +37,6 @@ def _setup(
     env: simpy.Environment,
 ) -> tuple[simpy.Store, simpy.Store, DummyEdgeRuntime]:
     inbox: simpy.Store = simpy.Store(env)
-    completed: simpy.Store = simpy.Store(env)
     edge_rt = DummyEdgeRuntime(env)
     cli_cfg = Client(id="cli-1")
 
@@ -45,11 +44,10 @@ def _setup(
         env=env,
         out_edge=edge_rt,  # type: ignore[arg-type]
         client_box=inbox,
-        completed_box=completed,
         client_config=cli_cfg,
     )
     client.start()  # start the forwarder
-    return inbox, completed, edge_rt
+    return inbox, edge_rt
 
 
 # --------------------------------------------------------------------------- #
@@ -60,7 +58,7 @@ def _setup(
 def test_outbound_is_forwarded() -> None:
     """First visit ⇒ forwarded; completed store remains empty."""
     env = simpy.Environment()
-    inbox, completed, edge_rt = _setup(env)
+    inbox, edge_rt = _setup(env)
 
     req = RequestState(id=1, initial_time=0.0)
     req.record_hop(SystemNodes.GENERATOR, "gen-1", env.now)
@@ -69,27 +67,7 @@ def test_outbound_is_forwarded() -> None:
     env.run()
 
     assert len(edge_rt.forwarded) == 1
-    assert len(completed.items) == 0
     assert req.history[-1].component_type is SystemNodes.CLIENT
     assert req.finish_time is None
 
 
-def test_inbound_is_completed() -> None:
-    """Second visit ⇒ request stored in *completed_box* and not re-forwarded."""
-    env = simpy.Environment()
-    inbox, completed, edge_rt = _setup(env)
-
-    req = RequestState(id=2, initial_time=0.0)
-    req.record_hop(SystemNodes.GENERATOR, "gen-1", env.now)
-    req.record_hop(SystemEdges.NETWORK_CONNECTION, "edge-X", env.now)
-    req.record_hop(SystemNodes.CLIENT, "cli-1", env.now)  # simulate return
-
-    inbox.put(req)
-    env.run()
-
-    assert len(edge_rt.forwarded) == 0
-    assert len(completed.items) == 1
-
-    done = completed.items[0]
-    assert done.finish_time is not None
-    assert done.history[-1].component_type is SystemNodes.CLIENT

@@ -189,9 +189,9 @@ class ServerRuntime:
             # Spawn a new, independent process to handle this request
             self.env.process(self._handle_request(request_state))
 
-    def start(self) -> simpy.Process:
+    def start(self) -> None:
         """Generate the process to simulate the server inside simpy env"""
-        return self.env.process(self._dispatcher())
+        self.env.process(self._dispatcher())
 
     # right now we disable the warnings but a refactor will be done soon
     def _handle_request( # noqa: PLR0915, PLR0912, C901

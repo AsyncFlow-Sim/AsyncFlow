@@ -79,7 +79,7 @@ def test_smoke_minimal_runs(runner: SimulationRunner) -> None:
 
     # ── 5) Post-processing — everything must be empty ────────────────────
     results: ResultsAnalyzer = ResultsAnalyzer(
-        client=cli_rt,
+        generator=gen_rt,
         servers=[],  # none built
         edges=[],  # none built
         settings=runner.simulation_settings,

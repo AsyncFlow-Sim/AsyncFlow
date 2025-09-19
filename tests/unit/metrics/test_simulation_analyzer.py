@@ -24,7 +24,7 @@ from asyncflow.enums import SampledMetricName
 from asyncflow.metrics.server import ServerClock
 
 if TYPE_CHECKING:
-    from asyncflow.runtime.actors.client import ClientRuntime
+    from asyncflow.runtime.actors.arrivals_generator import ArrivalsGeneratorRuntime
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.runtime.actors.server import ServerRuntime
     from asyncflow.schemas.settings.simulation import SimulationSettings
@@ -42,11 +42,11 @@ class DummyClock:
         self.finish = finish
 
 
-class DummyClient:
-    """Emulates ``ClientRuntime`` by exposing ``rqs_clock``."""
+class DummyGenerator:
+    """Emula ArrivalsGeneratorRuntime esponendo rqs_clock."""
 
     def __init__(self, clocks: list[DummyClock]) -> None:
-        """Attach a list of dummy clocks to the stub client."""
+        """Set the generator"""
         self.rqs_clock = clocks
 
 
@@ -113,7 +113,7 @@ def analyzer_with_metrics(sim_settings: SimulationSettings) -> ResultsAnalyzer:
     """
     sim_settings.total_simulation_time = 3
     sim_settings.sample_period_s = 1.0
-    client = DummyClient([DummyClock(0.0, 1.0), DummyClock(0.0, 2.0)])
+    gen = DummyGenerator([DummyClock(0.0, 1.0), DummyClock(0.0, 2.0)])
     server = DummyServer(
         "srvX",
         {
@@ -124,7 +124,7 @@ def analyzer_with_metrics(sim_settings: SimulationSettings) -> ResultsAnalyzer:
     )
     edge = DummyEdge("edgeX", {})
     return ResultsAnalyzer(
-        client=cast("ClientRuntime", client),
+        generator=cast("ArrivalsGeneratorRuntime", gen),
         servers=[cast("ServerRuntime", server)],
         edges=[cast("EdgeRuntime", edge)],
         settings=sim_settings,
@@ -149,12 +149,12 @@ def test_list_server_ids_preserves_topology_order(
 ) -> None:
     """Verify that server IDs are returned in topology order."""
     sim_settings.total_simulation_time = 1
-    client = DummyClient([])
+    gen=DummyGenerator([])
     s1 = DummyServer("s1", {})
     s2 = DummyServer("s2", {})
     s3 = DummyServer("s3", {})
     an = ResultsAnalyzer(
-        client=cast("ClientRuntime", client),
+        generator=cast("ArrivalsGeneratorRuntime", gen),
         servers=[
             cast("ServerRuntime", s1),
             cast("ServerRuntime", s2),
@@ -204,10 +204,10 @@ def test_get_series_respects_sample_period(
     """Confirm that series time base honors ``sample_period_s``."""
     sim_settings.total_simulation_time = 5
     sim_settings.sample_period_s = 1.5
-    client = DummyClient([])
+    gen=DummyGenerator([])
     server = DummyServer("srv1", {"ready_queue_len": [3, 4, 5]})
     an = ResultsAnalyzer(
-        client=cast("ClientRuntime", client),
+        generator=cast("ArrivalsGeneratorRuntime", gen),
         servers=[cast("ServerRuntime", server)],
         edges=[],
         settings=sim_settings,
@@ -315,7 +315,7 @@ def test_get_server_event_arrays_extracts_fields(
     sim_settings.total_simulation_time = 2
     sim_settings.sample_period_s = 0.5
 
-    client = DummyClient([])
+    gen=DummyGenerator([])
 
     srv = DummyServer("srvA", {
         "ready_queue_len": [0, 0],
@@ -329,7 +329,7 @@ def test_get_server_event_arrays_extracts_fields(
     }
 
     an = ResultsAnalyzer(
-        client=cast("ClientRuntime", client),
+        generator=cast("ArrivalsGeneratorRuntime", gen),
         servers=[cast("ServerRuntime", srv)],
         edges=[],
         settings=sim_settings,
@@ -352,7 +352,7 @@ def test_get_server_throughput_series_per_server(
     """Throughput per-server should count completions within each fixed window."""
     sim_settings.total_simulation_time = 3
     sim_settings.sample_period_s = 0.5
-    client = DummyClient([])
+    gen=DummyGenerator([])
 
     srv = DummyServer("srvT", {})
     # Three completions at 0.8s, 1.2s, 2.6s
@@ -363,7 +363,7 @@ def test_get_server_throughput_series_per_server(
     }
 
     an = ResultsAnalyzer(
-        client=cast("ClientRuntime", client),
+        generator=cast("ArrivalsGeneratorRuntime", gen),
         servers=[cast("ServerRuntime", srv)],
         edges=[],
         settings=sim_settings,
@@ -386,7 +386,7 @@ def test_plot_server_event_metrics_dashboard_smoke_and_legends(
 ) -> None:
     """Dashboard (latency/service/io/wait) should set titles and show a legend."""
     sim_settings.total_simulation_time = 1
-    client = DummyClient([])
+    gen=DummyGenerator([])
 
     srv = DummyServer("srvZ", {})
     srv.server_rqs_clock = {
@@ -396,7 +396,7 @@ def test_plot_server_event_metrics_dashboard_smoke_and_legends(
     }
 
     an = ResultsAnalyzer(
-        client=cast("ClientRuntime", client),
+        generator=cast("ArrivalsGeneratorRuntime", gen),
         servers=[cast("ServerRuntime", srv)],
         edges=[],
         settings=sim_settings,

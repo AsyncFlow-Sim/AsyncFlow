@@ -149,10 +149,10 @@ class LoadBalancerRuntime:
                 edge_rt = LB_TABLE[self.lb_config.algorithms](self.lb_out_edges)
                 edge_rt.transport(state)
 
-    def start(self) -> simpy.Process:
+    def start(self) -> None:
         """Start the process and populate FIFO"""
         self._prime_free_edges()
-        return self.env.process(self._forwarder())
+        self.env.process(self._forwarder())
 
     @property
     def lb_waiting_times(self) -> Sequence[float]:

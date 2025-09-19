@@ -47,7 +47,7 @@ class ClientRuntime:
 
             self.out_edge.transport(state)
 
-    def start(self) -> None:
+    def start(self) -> simpy.Process:
         """Initialization of the process"""
-        self.env.process(self._forwarder())
+        return self.env.process(self._forwarder())
 

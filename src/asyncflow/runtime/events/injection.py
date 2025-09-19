@@ -254,10 +254,11 @@ class EventInjectionRuntime:
 
 
 
-    def start(self) -> None:
+    def start(self) -> tuple[simpy.Process, simpy.Process]:
         """Start both edge-spike and server-outage timelines."""
-        self.env.process(self._assign_edges_spike())
-        self.env.process(self._assign_server_state())
+        p1 = self.env.process(self._assign_edges_spike())
+        p2 = self.env.process(self._assign_server_state())
+        return p1, p2
 
 
     @property

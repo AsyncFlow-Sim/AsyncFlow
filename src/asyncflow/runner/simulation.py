@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 class Startable(Protocol):
     """A protocol for runtime actors that can be started."""
 
-    def start(self) -> None:
+    def start(self) -> simpy.Process:
         """Starts the main process loop for the actor."""
         ...
 
@@ -368,8 +368,10 @@ class SimulationRunner:
     def _start_metric_collector(self) -> None:
         """One coroutine that snapshots RAM / queues / connections."""
         SampledMetricCollector(
+            arrivals=next(iter(self._arrivals_runtime.values())),
             edges=list(self._edges_runtime.values()),
             servers=list(self._servers_runtime.values()),
+            lb=self._lb_runtime,
             env=self.env,
             sim_settings=self.simulation_settings,
         ).start()

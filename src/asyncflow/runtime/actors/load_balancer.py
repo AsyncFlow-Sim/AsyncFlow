@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 import simpy
 
-from asyncflow.config.enums import LbAlgorithmsName, SystemNodes
+from asyncflow.config.enums import LbAlgorithmsName, SampledMetricName, SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.routing.lb_algorithms import (
     LB_TABLE,
@@ -65,6 +65,11 @@ class LoadBalancerRuntime:
         # queue theory
         self._lb_waiting_time: list[float] = []
 
+        # counter to collect when algo is fcfs lq to compare with queue theory
+        self._lq_lb: int = 0
+        # dict to collect the time series
+        self.enabled_metrics: dict[SampledMetricName, list[float]] = {}
+
 
     # Helpers FCFS
 
@@ -99,7 +104,7 @@ class LoadBalancerRuntime:
             state: RequestState = yield self.lb_box.get()  # type: ignore[assignment]
 
             if self.lb_config.algorithms == LbAlgorithmsName.FCFS:
-
+                self._lq_lb += 1
                 hist = getattr(state, "history", None)
                 if hist:
                     last = hist[-1]
@@ -139,6 +144,7 @@ class LoadBalancerRuntime:
                     self._lb_waiting_time.append(waiting_time)
 
                 edge_rt = self.lb_out_edges[edge_id]
+                self._lq_lb -= 1
                 edge_rt.transport(state)
             else:
                 state.record_hop(
@@ -149,12 +155,17 @@ class LoadBalancerRuntime:
                 edge_rt = LB_TABLE[self.lb_config.algorithms](self.lb_out_edges)
                 edge_rt.transport(state)
 
-    def start(self) -> None:
+    def start(self) -> simpy.Process:
         """Start the process and populate FIFO"""
         self._prime_free_edges()
-        self.env.process(self._forwarder())
+        return self.env.process(self._forwarder())
 
     @property
     def lb_waiting_times(self) -> Sequence[float]:
         """Read-only view of LB FCFS waiting times (one per waited request)."""
         return tuple(self._lb_waiting_time)
+
+    @property
+    def lq_lb(self) -> int:
+        """Readable version to sample the metric"""
+        return self._lq_lb

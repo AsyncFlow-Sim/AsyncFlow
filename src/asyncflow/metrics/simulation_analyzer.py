@@ -10,6 +10,7 @@ import numpy as np
 from asyncflow.config.enums import (
     EventMetricName,
     LatencyKey,
+    LbAlgorithmsName,
     SampledMetricName,
 )
 from asyncflow.config.plot_constants import (
@@ -262,6 +263,17 @@ class ResultsAnalyzer:
             eid = edge.edge_config.id
             for name, values in edge.enabled_metrics.items():
                 metrics[name.value][eid] = values
+
+        for name, values in self._generator.enabled_metrics.items():
+            aid = self._generator.arrivals.id
+            metrics[name.value][aid] = values
+
+        if (self.lb is not None and
+            self.lb.lb_config.algorithms == LbAlgorithmsName.FCFS):
+            lb_id = self.lb.lb_config.id
+            for name, values in self.lb.enabled_metrics.items():
+                # es. SampledMetricName.LQ_LB → “lq_lb”
+                metrics[name.value][lb_id] = values
 
         self.sampled_metrics = metrics
 
@@ -559,7 +571,7 @@ class ResultsAnalyzer:
         """Plot Ready queue with mean/min/max lines and a single legend box with
         values. No trend/ewma, no legend entry for the main series.
         """
-        times, vals = self.get_series(SampledMetricName.READY_QUEUE_LEN, server_id)
+        times, vals = self.get_series(SampledMetricName.LQ_SERVER, server_id)
         if not vals:
             ax.text(0.5, 0.5, SERVER_QUEUES_PLOT.no_data, ha="center", va="center")
             return
@@ -617,7 +629,7 @@ class ResultsAnalyzer:
         """Plot I/O queue with mean/min/max lines and a single legend box with
         values. No trend/ewma, no legend entry for the main series.
         """
-        times, vals = self.get_series(SampledMetricName.EVENT_LOOP_IO_SLEEP, server_id)
+        times, vals = self.get_series(SampledMetricName.LQ_IO, server_id)
         if not vals:
             ax.text(0.5, 0.5, SERVER_QUEUES_PLOT.no_data, ha="center", va="center")
             return

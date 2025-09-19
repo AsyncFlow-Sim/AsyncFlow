@@ -47,7 +47,7 @@ def rng() -> NpGenerator:
 def enabled_sample_metrics() -> set[SampledMetricName]:
     """Default time-series KPIs collected in most tests."""
     return {
-        SampledMetricName.READY_QUEUE_LEN,
+        SampledMetricName.LQ_SERVER,
         SampledMetricName.RAM_IN_USE,
     }
 

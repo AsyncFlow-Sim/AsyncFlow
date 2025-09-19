@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import simpy
 
-from asyncflow.config.enums import SystemEdges, SystemNodes
+from asyncflow.config.enums import SystemNodes
 from asyncflow.runtime.actors.client import ClientRuntime
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.schemas.topology.nodes import Client
@@ -35,7 +35,7 @@ class DummyEdgeRuntime:
 
 def _setup(
     env: simpy.Environment,
-) -> tuple[simpy.Store, simpy.Store, DummyEdgeRuntime]:
+) -> tuple[simpy.Store, DummyEdgeRuntime]:
     inbox: simpy.Store = simpy.Store(env)
     edge_rt = DummyEdgeRuntime(env)
     cli_cfg = Client(id="cli-1")

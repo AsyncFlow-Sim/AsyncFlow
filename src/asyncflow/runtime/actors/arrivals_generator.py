@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     import simpy
 
+    from asyncflow.config.enums import SampledMetricName
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
     from asyncflow.schemas.settings.simulation import SimulationSettings
@@ -62,7 +63,14 @@ class ArrivalsGeneratorRuntime:
         self.arrivals_generator_box = arrivals_generator_box
         self.completed_box = completed_box
         self.id_counter = 0
+
+
+        # necessary to collect metrics (global throughput and latency)
         self._rqs_clock: list[RqsClock] = []
+        # necessary to collect simultaneous rqs in the system
+        self._l_system: int = 0
+        # dict for the collector to have the time series
+        self.enabled_metrics: dict[SampledMetricName, list[float]] = {}
 
 
     def _next_id(self) -> int:
@@ -93,6 +101,7 @@ class ArrivalsGeneratorRuntime:
                 self.arrivals.id,
                 self.env.now,
             )
+            self._l_system += 1
             # transport is a method of the edge runtime
             # which define the step of how the state is moving
             # from one node to another
@@ -109,17 +118,22 @@ class ArrivalsGeneratorRuntime:
                 finish=state.finish_time,
             )
             self._rqs_clock.append(clock_data)
+            self._l_system -= 1
             yield self.completed_box.put(state)
 
 
     def start(self) -> simpy.Process:
-        """Passing the structure as a simpy process"""
-        self.env.process(self._event_arrival())
+        """Start the simpy processes"""
+        p_arr = self.env.process(self._event_arrival())
         self.env.process(self._collector())
-
-
+        return p_arr
 
     @property
     def rqs_clock(self) -> list[RqsClock]:
         """Readable version to compute aggregate metrics"""
         return self._rqs_clock
+
+    @property
+    def l_system(self) -> int:
+        """Readable version to sample the metric"""
+        return self._l_system

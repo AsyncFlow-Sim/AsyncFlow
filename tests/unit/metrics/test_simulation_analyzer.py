@@ -48,6 +48,7 @@ class DummyGenerator:
     def __init__(self, clocks: list[DummyClock]) -> None:
         """Set the generator"""
         self.rqs_clock = clocks
+        self.enabled_metrics = {}
 
 
 class DummyName:
@@ -188,7 +189,7 @@ def test_get_metric_map_accepts_enum_and_string(
 ) -> None:
     """Ensure metric retrieval works for enum and raw-string keys."""
     m_enum = analyzer_with_metrics.get_metric_map(
-        SampledMetricName.READY_QUEUE_LEN,
+        SampledMetricName.LQ_SERVER,
     )
     m_str = analyzer_with_metrics.get_metric_map("ready_queue_len")
 
@@ -212,7 +213,7 @@ def test_get_series_respects_sample_period(
         edges=[],
         settings=sim_settings,
     )
-    times, vals = an.get_series(SampledMetricName.READY_QUEUE_LEN, "srv1")
+    times, vals = an.get_series(SampledMetricName.LQ_SERVER, "srv1")
     assert vals == [3, 4, 5]
     assert times == [0.0, 1.5, 3.0]
 

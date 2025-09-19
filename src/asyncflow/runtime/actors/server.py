@@ -189,10 +189,6 @@ class ServerRuntime:
             # Spawn a new, independent process to handle this request
             self.env.process(self._handle_request(request_state))
 
-    def start(self) -> None:
-        """Generate the process to simulate the server inside simpy env"""
-        self.env.process(self._dispatcher())
-
     # right now we disable the warnings but a refactor will be done soon
     def _handle_request( # noqa: PLR0915, PLR0912, C901
         self,
@@ -444,6 +440,9 @@ class ServerRuntime:
         assert self.out_edge is not None
         self.out_edge.transport(state)
 
+    def start(self) -> simpy.Process:
+        """Generate the process to simulate the server inside simpy env"""
+        return self.env.process(self._dispatcher())
 
     # we need these accessor because we need to read these private attribute
     # in the sampled metric collector

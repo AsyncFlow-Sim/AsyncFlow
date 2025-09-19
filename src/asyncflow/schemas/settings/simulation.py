@@ -28,6 +28,7 @@ class SimulationSettings(BaseModel):
             SampledMetricName.EDGE_CONCURRENT_CONNECTION,
             SampledMetricName.L_SYSTEM,
             SampledMetricName.LQ_LB,
+            SampledMetricName.SERVER_UTILIZATION,
         },
         description="Which time-series KPIs to collect by default.",
     )

@@ -65,10 +65,14 @@ class LoadBalancerRuntime:
         # queue theory
         self._lb_waiting_time: list[float] = []
 
-        # counter to collect when algo is fcfs lq to compare with queue theory
-        self._lq_lb: int = 0
         # dict to collect the time series
         self.enabled_metrics: dict[SampledMetricName, list[float]] = {}
+        # initialize list
+        if self.lb_config.algorithms == LbAlgorithmsName.FCFS:
+            self.enabled_metrics[SampledMetricName.LQ_LB] = []
+
+        # track if LB is holding one request while waiting for a free edge
+        self._holding_waiting: bool = False
 
 
     # Helpers FCFS
@@ -104,7 +108,6 @@ class LoadBalancerRuntime:
             state: RequestState = yield self.lb_box.get()  # type: ignore[assignment]
 
             if self.lb_config.algorithms == LbAlgorithmsName.FCFS:
-                self._lq_lb += 1
                 hist = getattr(state, "history", None)
                 if hist:
                     last = hist[-1]
@@ -118,6 +121,9 @@ class LoadBalancerRuntime:
                         self.lb_config.id,
                         self.env.now,
                     )
+
+                # We're now holding one request while waiting for a free edge
+                self._holding_waiting = True
 
             # The idea is the following: when a request arrives and the algorithm
             # is FCFS, we maintain a FIFO of available edges. If an edge connected
@@ -144,7 +150,8 @@ class LoadBalancerRuntime:
                     self._lb_waiting_time.append(waiting_time)
 
                 edge_rt = self.lb_out_edges[edge_id]
-                self._lq_lb -= 1
+                self._holding_waiting = False
+
                 edge_rt.transport(state)
             else:
                 state.record_hop(
@@ -167,5 +174,8 @@ class LoadBalancerRuntime:
 
     @property
     def lq_lb(self) -> int:
-        """Readable version to sample the metric"""
-        return self._lq_lb
+        """
+        FCFS queue length at the LB: items still in lb_box plus the one
+        currently held by the LB while waiting for a free edge.
+        """
+        return len(self.lb_box.items) + (1 if self._holding_waiting else 0)

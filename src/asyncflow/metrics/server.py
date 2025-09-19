@@ -16,6 +16,7 @@ SERVER_METRICS = (
     SampledMetricName.LQ_SERVER,
     SampledMetricName.LQ_IO,
     SampledMetricName.RAM_IN_USE,
+    SampledMetricName.SERVER_UTILIZATION,
 )
 
 def build_server_metrics(

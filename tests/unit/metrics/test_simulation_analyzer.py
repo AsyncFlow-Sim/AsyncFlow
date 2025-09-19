@@ -48,7 +48,7 @@ class DummyGenerator:
     def __init__(self, clocks: list[DummyClock]) -> None:
         """Set the generator"""
         self.rqs_clock = clocks
-        self.enabled_metrics = {}
+        self.enabled_metrics: dict[SampledMetricName, float] = {}
 
 
 class DummyName:

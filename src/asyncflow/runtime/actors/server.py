@@ -95,6 +95,8 @@ class ServerRuntime:
         self._ram_in_use: int | float = 0
         # length of the queue of the I/O task of the vent loop
         self._el_io_queue_len: int = 0
+        # compute the time series of the server utilization
+        self._server_utilization: bool = False
 
         # Right now is not necessary but as we will introduce
         # non mandatory metrics we will need this structure to
@@ -110,6 +112,7 @@ class ServerRuntime:
         # - avoids holding strong refs to RequestState (no memory leaks)
         self._server_rqs_clock: defaultdict[int, MetricBucket]
         self._server_rqs_clock = defaultdict(self._new_metric_bucket)
+
         # we need to comunicate when a server is free again to the LB
         # for algorithms like FCFS
         self.notify_server_free: Callable[[], None] | None = None
@@ -358,6 +361,7 @@ class ServerRuntime:
                         waiting_cpu = False
                         self._el_ready_queue_len -= 1
 
+                    self._server_utilization = True
                     core_locked = True
 
                 cpu_time = self._compute_latency_cpu(
@@ -388,6 +392,7 @@ class ServerRuntime:
                     # release the core coming from a cpu step
                     yield self.server_resources[ServerResourceName.CPU.value].put(1)
                     core_locked = False
+                    self._server_utilization = False
 
                     if not is_in_io_queue:
                         is_in_io_queue = True
@@ -413,6 +418,7 @@ class ServerRuntime:
         if core_locked:
             yield self.server_resources[ServerResourceName.CPU.value].put(1)
             core_locked = False
+            self._server_utilization = False
 
         if is_in_io_queue:
             is_in_io_queue = False
@@ -455,6 +461,11 @@ class ServerRuntime:
     def io_queue_len(self) -> int:
         """Current length of the event-loop I/O queue for this server."""
         return self._el_io_queue_len
+
+    @property
+    def server_utilization(self) -> int:
+        """Time series of the server utilization."""
+        return int(self._server_utilization)
 
     @property
     def ram_in_use(self) -> int | float:

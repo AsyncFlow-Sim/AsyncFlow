@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from asyncflow.config.enums import SystemNodes
+from asyncflow.config.enums import SampledMetricName, SystemNodes
 from asyncflow.metrics.client import RqsClock
 from asyncflow.runtime.rqs_state import RequestState
 from asyncflow.samplers.arrivals import general_interarrivals
@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
     import simpy
 
-    from asyncflow.config.enums import SampledMetricName
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
     from asyncflow.schemas.settings.simulation import SimulationSettings
@@ -71,6 +70,7 @@ class ArrivalsGeneratorRuntime:
         self._l_system: int = 0
         # dict for the collector to have the time series
         self.enabled_metrics: dict[SampledMetricName, list[float]] = {}
+        self.enabled_metrics[SampledMetricName.L_SYSTEM] = []
 
 
     def _next_id(self) -> int:

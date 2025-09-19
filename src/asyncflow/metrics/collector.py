@@ -53,8 +53,9 @@ class SampledMetricCollector:
         self._ram_key = SampledMetricName.RAM_IN_USE
         self._io_key = SampledMetricName.LQ_IO
         self._ready_key = SampledMetricName.LQ_SERVER
-        self._l_system = SampledMetricName.L_SYSTEM
-        self._lq_lb = SampledMetricName.LQ_LB
+        self._l_system_key = SampledMetricName.L_SYSTEM
+        self._lq_lb_key = SampledMetricName.LQ_LB
+        self._server_utilization_key = SampledMetricName.SERVER_UTILIZATION
 
 
     def _build_time_series(self) -> Generator[simpy.Event, None, None]:
@@ -74,16 +75,18 @@ class SampledMetricCollector:
                     server.enabled_metrics[self._ram_key].append(server.ram_in_use)
                     server.enabled_metrics[self._io_key].append(server.io_queue_len)
                     server.enabled_metrics[self._ready_key].append(server.ready_queue_len)
+                    server.enabled_metrics[
+                        self._server_utilization_key
+                        ].append(server.server_utilization)
 
-            if self._l_system in self.arrivals.enabled_metrics:
-                self.arrivals.enabled_metrics[self._l_system].append(
+            if self._l_system_key in self.arrivals.enabled_metrics:
+                self.arrivals.enabled_metrics[self._l_system_key].append(
                     float(self.arrivals.l_system),
                 )
 
             if (self.lb is not None and
-                self.lb is not None and
                 self.lb.lb_config.algorithms == LbAlgorithmsName.FCFS):
-                self.lb.enabled_metrics[self._lq_lb].append(self.lb.lq_lb)
+                self.lb.enabled_metrics[self._lq_lb_key].append(self.lb.lq_lb)
 
 
 

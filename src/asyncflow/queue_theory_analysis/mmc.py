@@ -15,6 +15,7 @@ from asyncflow.config.enums import (
     EndpointStepCPU,
     LatencyKey,
     LbAlgorithmsName,
+    SampledMetricName,
 )
 from asyncflow.queue_theory_analysis.base import QueueTheoryBase
 from asyncflow.schemas.common.random_variables import RVConfig
@@ -474,10 +475,12 @@ class MMc(QueueTheoryBase):
         - λ̂: mean throughput
         - μ̂: 1 / mean(service_time)
         - Ŵ: mean client latency
-        - Wq̂: mean waiting_time (server arrays)
-        - L̂: λ̂ * Ŵ
-        - Lq̂: λ̂ * Wq̂
-        - rhô: λ̂ / (c μ̂)
+        - Wq̂: FCFS -> mean LB waits; else -> mean server waiting_time
+        - L̂: FCFS -> mean L_SYSTEM; else -> λ̂ * Ŵ
+        - Lq̂: FCFS -> mean LQ_LB; else -> λ̂ * Wq̂
+        - rho: FCFS -> mean SERVER_UTILIZATION; else -> λ̂ / (c μ̂)
+        all computations are independent: we calculate each
+        variable in a separate way
         """
         self._ensure_metrics_processed(results_analyzer)
 
@@ -485,7 +488,7 @@ class MMc(QueueTheoryBase):
         mu_hat = self._observed_mu_rate(results_analyzer)
         server_count = self._server_count(payload)
 
-        # Ŵ from latency stats (client-side);
+        # Ŵ from latency stats (generator-side);
         lat_stats = results_analyzer.get_latency_stats()
         w_hat = float(lat_stats.get(LatencyKey.MEAN, 0.0))
 
@@ -494,8 +497,42 @@ class MMc(QueueTheoryBase):
 
         # Collect waiting time from LB if the algo is FCFS
         if is_fcfs:
+            # --- L̂: mean L_SYSTEM timeseries (fallback λ̂·Ŵ) ---
+            lsys_map = results_analyzer.get_metric_map(SampledMetricName.L_SYSTEM)
+            aid = payload.arrivals.id
+            lsys_series = lsys_map.get(aid, [])
+            l_hat = (
+                (sum(lsys_series) / len(lsys_series))
+                if lsys_series else (lambda_hat * w_hat)
+            )
+
+            # --- Wq̂: keep LB waiting times ---
             lb_waits = list(results_analyzer.get_lb_waiting_times())
             wq_hat = (sum(lb_waits) / len(lb_waits)) if lb_waits else 0.0
+
+            # --- Lq̂: mean LQ_LB timeseries (fallback λ̂·Wq̂) ---
+            lq_map = results_analyzer.get_metric_map(SampledMetricName.LQ_LB)
+            lb_id = lb.id if lb is not None else None
+            lq_series = lq_map.get(lb_id, []) if lb_id is not None else []
+            lq_hat = (
+                (sum(lq_series) / len(lq_series))
+                if lq_series else (lambda_hat * wq_hat)
+            )
+
+            # ---- rho  mean SERVER_UTILIZATION timeseries (fallback λ̂/(cμ̂)) ---
+            util_map = (
+                results_analyzer.get_metric_map(SampledMetricName.SERVER_UTILIZATION)
+            )
+            total_busy = 0.0
+            total_samples = 0
+            for series in util_map.values():
+                total_busy += float(sum(series))
+                total_samples += len(series)
+            rho_hat = (total_busy / total_samples) if total_samples > 0 else (
+                lambda_hat / (server_count * mu_hat)
+                if mu_hat not in (0.0, float("inf")) else 0.0
+        )
+
         else:
             arrays_map = results_analyzer.get_server_event_arrays()
             wait_sum = 0.0
@@ -506,12 +543,12 @@ class MMc(QueueTheoryBase):
                 wait_count += len(vals)
             wq_hat = (wait_sum / wait_count) if wait_count > 0 else 0.0
 
-        l_hat = lambda_hat * w_hat
-        lq_hat = lambda_hat * wq_hat
-        rho_hat = (
-            lambda_hat / (server_count * mu_hat)
-            if mu_hat not in (0.0, float("inf")) else 0.0
-        )
+            l_hat = lambda_hat * w_hat
+            lq_hat = lambda_hat * wq_hat
+            rho_hat = (
+                lambda_hat / (server_count * mu_hat)
+                if mu_hat not in (0.0, float("inf")) else 0.0
+            )
 
         return MMcResults(
             lambda_rate=lambda_hat,

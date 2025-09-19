@@ -195,6 +195,7 @@ class SampledMetricName(StrEnum):
   EDGE_CONCURRENT_CONNECTION = "edge_concurrent_connection"
   L_SYSTEM = "l_system"
   LQ_LB = "lq_lb"
+  SERVER_UTILIZATION = "server_utilization"
 
 
 

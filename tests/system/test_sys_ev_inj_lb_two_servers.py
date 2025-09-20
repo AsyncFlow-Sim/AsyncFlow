@@ -139,13 +139,6 @@ def _build_payload(*, with_events: bool) -> SimulationPayload:
     settings = SimulationSettings(
         total_simulation_time=100.0,  # >= 5 s
         sample_period_s=0.05,
-        enabled_sample_metrics=[
-            "ready_queue_len",
-            "event_loop_io_sleep",
-            "ram_in_use",
-            "edge_concurrent_connection",
-        ],
-        enabled_event_metrics=["rqs_clock"],
     )
 
     flow = (

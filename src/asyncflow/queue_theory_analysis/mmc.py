@@ -465,7 +465,7 @@ class MMc(QueueTheoryBase):
     # Observed KPIs → MMcResults (coerenti con definizioni sopra)
     # ────────────────────────────────────────────────────────────────────
 
-    def _observed_kpis(
+    def _observed_kpis( # noqa: PLR0915
         self,
         payload: SimulationPayload,
         results_analyzer: ResultsAnalyzer,
@@ -534,6 +534,8 @@ class MMc(QueueTheoryBase):
         )
 
         else:
+            # not FCFS → RANDOM
+            # Wq̂: mean server waiting_time (independent of Lq)
             arrays_map = results_analyzer.get_server_event_arrays()
             wait_sum = 0.0
             wait_count = 0
@@ -543,9 +545,37 @@ class MMc(QueueTheoryBase):
                 wait_count += len(vals)
             wq_hat = (wait_sum / wait_count) if wait_count > 0 else 0.0
 
-            l_hat = lambda_hat * w_hat
-            lq_hat = lambda_hat * wq_hat
-            rho_hat = (
+            # L̂: mean L_SYSTEM time-series (fallback to λ̂·Ŵ)
+            lsys_map = results_analyzer.get_metric_map(SampledMetricName.L_SYSTEM)
+            aid = payload.arrivals.id
+            lsys_series = lsys_map.get(aid, [])
+            l_hat = (
+                (sum(lsys_series) / len(lsys_series))
+                if lsys_series else (lambda_hat * w_hat)
+            )
+
+            # Lq̂: sum over servers of mean LQ_SERVER (fallback to λ̂·Wq̂)
+            lq_map = results_analyzer.get_metric_map(SampledMetricName.LQ_SERVER)
+            lq_hat = 0.0
+            have_any = False
+            for sid in results_analyzer.list_server_ids():
+                series = lq_map.get(sid, [])
+                if series:
+                    lq_hat += (sum(series) / len(series))
+                    have_any = True
+            if not have_any:
+                lq_hat = lambda_hat * wq_hat
+
+            # rho: mean SERVER_UTILIZATION across servers (fallback to λ̂/(c·μ̂))
+            util_map = (results_analyzer.get_metric_map(
+                SampledMetricName.SERVER_UTILIZATION)
+            )
+            total_busy = 0.0
+            total_samples = 0
+            for series in util_map.values():
+                total_busy += float(sum(series))
+                total_samples += len(series)
+            rho_hat = (total_busy / total_samples) if total_samples > 0 else (
                 lambda_hat / (server_count * mu_hat)
                 if mu_hat not in (0.0, float("inf")) else 0.0
             )

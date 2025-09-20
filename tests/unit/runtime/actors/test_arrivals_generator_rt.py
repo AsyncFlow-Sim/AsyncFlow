@@ -34,22 +34,33 @@ class _DummyEdgeRuntime:
         self.received.append(state)
 
 
-def _make_runtime(
+def _make_runtime(  # noqa: PLR0913
     env: simpy.Environment,
     edge: _DummyEdgeRuntime,
     arrivals: ArrivalsGenerator,
     sim_settings: SimulationSettings,
+    arrivals_generator_box: simpy.Store | None = None,
+    completed_box: simpy.Store | None = None,
     *,
     seed: int = 0,
 ) -> ArrivalsGeneratorRuntime:
     """Factory returning a fully wired :class:`ArrivalsGeneratorRuntime`."""
     rng: NpGenerator = np.random.default_rng(seed)
+
+
+    if arrivals_generator_box is None:
+        arrivals_generator_box = simpy.Store(env)
+    if completed_box is None:
+        completed_box = simpy.Store(env)
+
     return ArrivalsGeneratorRuntime(
         env=env,
         out_edge=cast("EdgeRuntime", edge),
         arrivals=arrivals,
         sim_settings=sim_settings,
         rng=rng,
+        arrivals_generator_box=arrivals_generator_box,
+        completed_box=completed_box,
     )
 
 

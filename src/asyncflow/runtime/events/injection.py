@@ -260,6 +260,7 @@ class EventInjectionRuntime:
         p2 = self.env.process(self._assign_server_state())
         return p1, p2
 
+
     @property
     def edges_spike(self) -> dict[str, float]:
         """

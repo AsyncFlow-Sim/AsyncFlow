@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 import simpy
 
-from asyncflow.config.enums import LbAlgorithmsName, SystemNodes
+from asyncflow.config.enums import LbAlgorithmsName, SampledMetricName, SystemNodes
 from asyncflow.runtime.actors.edge import EdgeRuntime
 from asyncflow.runtime.actors.routing.lb_algorithms import (
     LB_TABLE,
@@ -65,6 +65,15 @@ class LoadBalancerRuntime:
         # queue theory
         self._lb_waiting_time: list[float] = []
 
+        # dict to collect the time series
+        self.enabled_metrics: dict[SampledMetricName, list[float]] = {}
+        # initialize list
+        if self.lb_config.algorithms == LbAlgorithmsName.FCFS:
+            self.enabled_metrics[SampledMetricName.LQ_LB] = []
+
+        # track if LB is holding one request while waiting for a free edge
+        self._holding_waiting: bool = False
+
 
     # Helpers FCFS
 
@@ -99,7 +108,6 @@ class LoadBalancerRuntime:
             state: RequestState = yield self.lb_box.get()  # type: ignore[assignment]
 
             if self.lb_config.algorithms == LbAlgorithmsName.FCFS:
-
                 hist = getattr(state, "history", None)
                 if hist:
                     last = hist[-1]
@@ -113,6 +121,9 @@ class LoadBalancerRuntime:
                         self.lb_config.id,
                         self.env.now,
                     )
+
+                # We're now holding one request while waiting for a free edge
+                self._holding_waiting = True
 
             # The idea is the following: when a request arrives and the algorithm
             # is FCFS, we maintain a FIFO of available edges. If an edge connected
@@ -139,6 +150,8 @@ class LoadBalancerRuntime:
                     self._lb_waiting_time.append(waiting_time)
 
                 edge_rt = self.lb_out_edges[edge_id]
+                self._holding_waiting = False
+
                 edge_rt.transport(state)
             else:
                 state.record_hop(
@@ -158,3 +171,11 @@ class LoadBalancerRuntime:
     def lb_waiting_times(self) -> Sequence[float]:
         """Read-only view of LB FCFS waiting times (one per waited request)."""
         return tuple(self._lb_waiting_time)
+
+    @property
+    def lq_lb(self) -> int:
+        """
+        FCFS queue length at the LB: items still in lb_box plus the one
+        currently held by the LB while waiting for a free edge.
+        """
+        return len(self.lb_box.items) + (1 if self._holding_waiting else 0)

@@ -123,15 +123,15 @@ def _build_payload(*, with_events: bool) -> SimulationPayload:
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
         NetworkEdge(
-            id="srv1-client",
+            id="srv1-gen",
             source="srv-1",
-            target="client-1",
+            target="rqs-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
         NetworkEdge(
-            id="srv2-client",
+            id="srv2-gen",
             source="srv-2",
-            target="client-1",
+            target="rqs-1",
             latency={"mean": 0.003, "distribution": "exponential"},
         ),
     ]
@@ -139,13 +139,6 @@ def _build_payload(*, with_events: bool) -> SimulationPayload:
     settings = SimulationSettings(
         total_simulation_time=100.0,  # >= 5 s
         sample_period_s=0.05,
-        enabled_sample_metrics=[
-            "ready_queue_len",
-            "event_loop_io_sleep",
-            "ram_in_use",
-            "edge_concurrent_connection",
-        ],
-        enabled_event_metrics=["rqs_clock"],
     )
 
     flow = (

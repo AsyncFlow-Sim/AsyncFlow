@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 def test_lb_two_servers_with_events_end_to_end(
     env: simpy.Environment,
-     topology_two_servers: Callable[..., TopologyGraph],
+    topology_two_servers: Callable[..., TopologyGraph],
     make_payload: Callable[
         [ArrivalsGenerator, TopologyGraph, SimulationSettings,
          list[EventInjection] | None],

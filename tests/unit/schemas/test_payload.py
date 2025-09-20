@@ -10,23 +10,18 @@ This suite verifies:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pytest
 from tests.unit.helpers import make_min_ep
 
 from asyncflow.config.enums import Distribution, EventDescription
+from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
 from asyncflow.schemas.common.random_variables import RVConfig
 from asyncflow.schemas.events.injection import End, EventInjection, Start
 from asyncflow.schemas.payload import SimulationPayload
+from asyncflow.schemas.settings.simulation import SimulationSettings
 from asyncflow.schemas.topology.edges import NetworkEdge
 from asyncflow.schemas.topology.graph import TopologyGraph
 from asyncflow.schemas.topology.nodes import Client, Server, TopologyNodes
-
-if TYPE_CHECKING:
-    from asyncflow.schemas.arrivals.generator import ArrivalsGenerator
-    from asyncflow.schemas.settings.simulation import SimulationSettings
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -364,3 +359,89 @@ def test_server_outage_overlap_same_server_is_rejected(
             sim_settings=sim_settings,
             events=[ev_a, ev_b],
         )
+
+def _sim_settings() -> SimulationSettings:
+    return SimulationSettings(total_simulation_time=5.0, sample_period_s=0.1)
+
+def test_payload_accepts_server_to_generator_edge() -> None:
+    """Graph with gen->client and server->gen is valid at payload level."""
+    gen = ArrivalsGenerator(id="rqs-1", lambda_rps=10, model=Distribution.POISSON)
+    client = Client(id="client-1")
+    server = Server(
+        id="srv-1",
+        server_resources={"cpu_cores": 1, "ram_mb": 512},
+        endpoints=[make_min_ep()],
+    )
+
+    edges = [
+        NetworkEdge(
+            id="gen-client",
+            source="rqs-1",
+            target="client-1",
+            latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
+        ),
+        NetworkEdge(
+            id="srv-gen",
+            source="srv-1",
+            target="rqs-1",
+            latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
+        ),
+    ]
+
+    topo = TopologyGraph(
+        nodes=TopologyNodes(servers=[server], client=client), edges=edges)
+
+    _ = SimulationPayload(
+        arrivals=gen, topology_graph=topo, sim_settings=_sim_settings())
+
+
+def test_payload_rejects_edge_with_unknown_source() -> None:
+    """Edge con sorgente esterna non riconosciuta deve essere rifiutato dal payload."""
+    gen = ArrivalsGenerator(id="rqs-1", lambda_rps=5, model=Distribution.POISSON)
+    client = Client(id="client-1")
+    server = Server(
+        id="srv-1",
+        server_resources={"cpu_cores": 1, "ram_mb": 512},
+        endpoints=[make_min_ep()],
+    )
+
+    edges = [
+        NetworkEdge(
+            id="ghost-to-client",
+            source="ghost-src",
+            target="client-1",
+            latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
+        ),
+    ]
+    topo = TopologyGraph(
+        nodes=TopologyNodes(servers=[server], client=client), edges=edges)
+
+    with pytest.raises(ValueError, match=r"unknown source node"):
+        SimulationPayload(
+            arrivals=gen, topology_graph=topo, sim_settings=_sim_settings())
+
+
+def test_payload_rejects_edge_with_unknown_target() -> None:
+    """Edge con target esterno non riconosciuto deve essere rifiutato dal payload."""
+    gen = ArrivalsGenerator(id="rqs-1", lambda_rps=5, model=Distribution.POISSON)
+    client = Client(id="client-1")
+    server = Server(
+        id="srv-1",
+        server_resources={"cpu_cores": 1, "ram_mb": 512},
+        endpoints=[make_min_ep()],
+    )
+
+    edges = [
+        NetworkEdge(
+            id="srv-to-ghost",
+            source="srv-1",
+            target="ghost-tgt",
+            latency=RVConfig(mean=0.001, distribution=Distribution.POISSON),
+        ),
+    ]
+    topo = TopologyGraph(
+        nodes=TopologyNodes(servers=[server], client=client), edges=edges)
+
+    with pytest.raises(ValueError, match=r"unknown target node"):
+        SimulationPayload(
+            arrivals=gen, topology_graph=topo, sim_settings=_sim_settings())

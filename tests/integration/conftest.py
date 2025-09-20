@@ -212,8 +212,8 @@ def topology_two_servers(
             edge_factory("client-to-lb", "client-1", "lb-1", edge_mean),
             edge_factory("lb-to-srv1", "lb-1", "srv-1", edge_mean),
             edge_factory("lb-to-srv2", "lb-1", "srv-2", edge_mean),
-            edge_factory("srv1-to-client", "srv-1", "client-1", edge_mean),
-            edge_factory("srv2-to-client", "srv-2", "client-1", edge_mean),
+            edge_factory("srv1-to-gen", "srv-1", "rqs-1", edge_mean),
+            edge_factory("srv2-to-gen", "srv-2", "rqs-1", edge_mean),
         ]
         nodes = TopologyNodes(
             servers=[srv1, srv2], client=client, load_balancer=lb,
@@ -238,7 +238,7 @@ def topology_single_server(
             edge_factory("gen-to-client", "rqs-1", "client-1", edge_mean),
             edge_factory("client-to-lb", "client-1", "lb-1", edge_mean),
             edge_factory("lb-to-srv1", "lb-1", "srv-1", edge_mean),
-            edge_factory("srv1-to-client", "srv-1", "client-1", edge_mean),
+            edge_factory("srv1-to-gen", "srv-1", "rqs-1", edge_mean),
         ]
         nodes = TopologyNodes(
             servers=[srv], client=client, load_balancer=lb,

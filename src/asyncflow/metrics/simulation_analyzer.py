@@ -10,6 +10,7 @@ import numpy as np
 from asyncflow.config.enums import (
     EventMetricName,
     LatencyKey,
+    LbAlgorithmsName,
     SampledMetricName,
 )
 from asyncflow.config.plot_constants import (
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.lines import Line2D
 
-    from asyncflow.runtime.actors.client import ClientRuntime
+    from asyncflow.runtime.actors.arrivals_generator import ArrivalsGeneratorRuntime
     from asyncflow.runtime.actors.edge import EdgeRuntime
     from asyncflow.runtime.actors.load_balancer import LoadBalancerRuntime
     from asyncflow.runtime.actors.server import ServerRuntime
@@ -69,14 +70,14 @@ class ResultsAnalyzer:
     def __init__(
         self,
         *,
-        client: ClientRuntime,
+        generator: ArrivalsGeneratorRuntime,
         servers: list[ServerRuntime],
         edges: list[EdgeRuntime],
         settings: SimulationSettings,
         lb: LoadBalancerRuntime | None = None,
     ) -> None:
         """Initialize with the runtime objects and original settings."""
-        self._client = client
+        self._generator = generator
         self._servers = servers
         self._edges = edges
         self._settings = settings
@@ -103,8 +104,8 @@ class ResultsAnalyzer:
     # ─────────────────────────────────────────────
     def process_all_metrics(self) -> None:
         """Compute all aggregated and sampled metrics if not already done."""
-        # Client-side: end-to-end latencies + 1s throughput
-        if self.latency_stats is None and self._client.rqs_clock:
+        # generator-side: end-to-end latencies + 1s throughput
+        if self.latency_stats is None and self._generator.rqs_clock:
             self._process_event_metrics()
 
         # Sampled time series from servers/edges (RAM, queues, etc.)
@@ -209,7 +210,7 @@ class ResultsAnalyzer:
         # 1) Latencies
         self.latencies = [
             clock.finish - clock.start
-            for clock in self._client.rqs_clock
+            for clock in self._generator.rqs_clock
         ]
 
         # 2) Summary stats
@@ -229,7 +230,7 @@ class ResultsAnalyzer:
             self.latency_stats = {}
 
         # 3) Throughput per 1s window (cached)
-        completion_times = sorted(clock.finish for clock in self._client.rqs_clock)
+        completion_times = sorted(clock.finish for clock in self._generator.rqs_clock)
         end_time = self._settings.total_simulation_time
 
         timestamps: list[float] = []
@@ -262,6 +263,17 @@ class ResultsAnalyzer:
             eid = edge.edge_config.id
             for name, values in edge.enabled_metrics.items():
                 metrics[name.value][eid] = values
+
+        for name, values in self._generator.enabled_metrics.items():
+            aid = self._generator.arrivals.id
+            metrics[name.value][aid] = values
+
+        if (self.lb is not None and
+            self.lb.lb_config.algorithms == LbAlgorithmsName.FCFS):
+            lb_id = self.lb.lb_config.id
+            for name, values in self.lb.enabled_metrics.items():
+                # es. SampledMetricName.LQ_LB → “lq_lb”
+                metrics[name.value][lb_id] = values
 
         self.sampled_metrics = metrics
 
@@ -320,7 +332,7 @@ class ResultsAnalyzer:
             return self.throughput_series or ([], [])
 
         # Recompute with a custom window size.
-        completion_times = sorted(clock.finish for clock in self._client.rqs_clock)
+        completion_times = sorted(clock.finish for clock in self._generator.rqs_clock)
         end_time = self._settings.total_simulation_time
 
         timestamps: list[float] = []
@@ -559,7 +571,7 @@ class ResultsAnalyzer:
         """Plot Ready queue with mean/min/max lines and a single legend box with
         values. No trend/ewma, no legend entry for the main series.
         """
-        times, vals = self.get_series(SampledMetricName.READY_QUEUE_LEN, server_id)
+        times, vals = self.get_series(SampledMetricName.LQ_SERVER, server_id)
         if not vals:
             ax.text(0.5, 0.5, SERVER_QUEUES_PLOT.no_data, ha="center", va="center")
             return
@@ -617,7 +629,7 @@ class ResultsAnalyzer:
         """Plot I/O queue with mean/min/max lines and a single legend box with
         values. No trend/ewma, no legend entry for the main series.
         """
-        times, vals = self.get_series(SampledMetricName.EVENT_LOOP_IO_SLEEP, server_id)
+        times, vals = self.get_series(SampledMetricName.LQ_IO, server_id)
         if not vals:
             ax.text(0.5, 0.5, SERVER_QUEUES_PLOT.no_data, ha="center", va="center")
             return

@@ -368,8 +368,8 @@ def test_enabled_metrics_dict_populated() -> None:
 
     mandatory = {
         SampledMetricName.RAM_IN_USE,
-        SampledMetricName.READY_QUEUE_LEN,
-        SampledMetricName.EVENT_LOOP_IO_SLEEP,
+        SampledMetricName.LQ_SERVER,
+        SampledMetricName.LQ_IO,
     }
     assert mandatory.issubset(server.enabled_metrics.keys())
 

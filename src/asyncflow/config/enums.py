@@ -189,10 +189,14 @@ class SampledMetricName(StrEnum):
   """
 
   # Mandatory metrics to collect
-  READY_QUEUE_LEN = "ready_queue_len" #length of the event loop ready q
-  EVENT_LOOP_IO_SLEEP = "event_loop_io_sleep"
+  LQ_SERVER = "ready_queue_len" #length of the event loop ready q
+  LQ_IO = "event_loop_io_sleep"
   RAM_IN_USE = "ram_in_use"
   EDGE_CONCURRENT_CONNECTION = "edge_concurrent_connection"
+  L_SYSTEM = "l_system"
+  LQ_LB = "lq_lb"
+  SERVER_UTILIZATION = "server_utilization"
+
 
 
 class SamplePeriods(float, Enum):

@@ -13,9 +13,10 @@ from asyncflow.config.enums import SampledMetricName
 # will be considered
 
 SERVER_METRICS = (
-    SampledMetricName.READY_QUEUE_LEN,
-    SampledMetricName.EVENT_LOOP_IO_SLEEP,
+    SampledMetricName.LQ_SERVER,
+    SampledMetricName.LQ_IO,
     SampledMetricName.RAM_IN_USE,
+    SampledMetricName.SERVER_UTILIZATION,
 )
 
 def build_server_metrics(

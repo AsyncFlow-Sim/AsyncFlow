@@ -22,10 +22,13 @@ class SimulationSettings(BaseModel):
     # These represent the mandatory metrics to collect
     enabled_sample_metrics: set[SampledMetricName] = Field(
         default_factory=lambda: {
-            SampledMetricName.READY_QUEUE_LEN,
-            SampledMetricName.EVENT_LOOP_IO_SLEEP,
+            SampledMetricName.LQ_SERVER,
+            SampledMetricName.LQ_IO,
             SampledMetricName.RAM_IN_USE,
             SampledMetricName.EDGE_CONCURRENT_CONNECTION,
+            SampledMetricName.L_SYSTEM,
+            SampledMetricName.LQ_LB,
+            SampledMetricName.SERVER_UTILIZATION,
         },
         description="Which time-series KPIs to collect by default.",
     )
